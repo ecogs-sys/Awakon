@@ -1,4 +1,4 @@
-import type { SessionId, SessionInfo } from '@aipad/contracts';
+﻿import type { SessionId, SessionInfo } from '@awakon/contracts';
 
 export interface SidebarRowVm {
   info: SessionInfo;

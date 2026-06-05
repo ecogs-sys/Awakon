@@ -1,4 +1,4 @@
-# F18 — CI does not build the desktop app on Windows/macOS
+﻿# F18 — CI does not build the desktop app on Windows/macOS
 
 **Severity:** Medium
 **Status:** Fixed (commit `fix(F18)`)
@@ -15,7 +15,7 @@ matrix on `main`."
 Windows/macOS desktop build + E2E regressions are not caught until release.
 
 ## Fix approach
-Add a `pnpm --filter @aipad/desktop build` step on all OSes (catches packaging-time
+Add a `pnpm --filter @awakon/desktop build` step on all OSes (catches packaging-time
 breakage). Run E2E on `main` pushes for all OSes (gate the E2E step on
 `github.event_name == 'push'` for non-Linux).
 

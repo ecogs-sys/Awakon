@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 # Anchor to repo root so relative paths work regardless of where the script is invoked from.
@@ -36,16 +36,16 @@ echo "Building workspace packages..."
 pnpm -r --filter './packages/*' build
 
 echo "Compiling Electron app..."
-pnpm --filter @aipad/desktop build
+pnpm --filter @awakon/desktop build
 
 # --- package ---
 PLATFORM=$(uname)
 if [ "$PLATFORM" = "Darwin" ]; then
   echo "Packaging macOS installer..."
-  pnpm --filter @aipad/desktop dist:mac
+  pnpm --filter @awakon/desktop dist:mac
 else
   echo "Packaging Linux installer..."
-  pnpm --filter @aipad/desktop dist:linux
+  pnpm --filter @awakon/desktop dist:linux
 fi
 
 # --- done ---

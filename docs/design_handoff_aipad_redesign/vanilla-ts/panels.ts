@@ -1,5 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Modals, palette, empty state, markdown preview
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — Modals, palette, empty state, markdown preview
 // ═══════════════════════════════════════════════════════════════════════
 
 import { h, setChildren } from './dom.ts';
@@ -60,7 +60,7 @@ export function renderSettingsModal(opts: SettingsModalOptions = {}): HTMLElemen
           h('div', { style: 'font-size:13.5px;color:var(--text-1);font-weight:500;margin-bottom:3px',
                      text: 'Auto-resume rate-limited tabs' }),
           h('div', { style: 'font-size:12px;color:var(--text-3);line-height:1.5',
-                     text: "When an agent hits its quota and you've set a response below, AI.Pad will send that response automatically once the quota refreshes." }),
+                     text: "When an agent hits its quota and you've set a response below, Awakon will send that response automatically once the quota refreshes." }),
         ]),
       ]),
     ]),
@@ -113,7 +113,7 @@ export interface AboutDialogOptions {
 
 export function renderAboutDialog(opts: AboutDialogOptions = {}): HTMLElement {
   const {
-    appName   = 'AI.Pad',
+    appName   = 'Awakon',
     tagline   = 'Run many agents · never miss a prompt',
     version   = '1.0.0',
     build     = '2026.05.27',
@@ -124,7 +124,7 @@ export function renderAboutDialog(opts: AboutDialogOptions = {}): HTMLElement {
     node      = '20.18.0',
     v8        = '13.0.245.16',
     os        = 'Windows 11 · 23H2 (x64)',
-    copyright = '© 2026 AI.Pad contributors',
+    copyright = '© 2026 Awakon contributors',
     license   = 'Released under the MIT License',
     links     = [
       { label: 'Website' },
@@ -219,9 +219,9 @@ export interface CommandPaletteOptions {
 
 const DEFAULT_PALETTE: PaletteSection[] = [
   { title: 'Switch to session', items: [
-    { kind: 'PS', name: 'claude · refactor terminal-host', meta: '~/AI.Pad', status: 'awaiting', shortcut: kbd('Mod+1') },
-    { kind: 'PS', name: 'codex · add e2e tests',           meta: '~/AI.Pad', status: 'limited',  shortcut: kbd('Mod+2') },
-    { kind: 'PS', name: 'pwsh · package scripts',          meta: '~/AI.Pad', status: 'running',  shortcut: kbd('Mod+3') },
+    { kind: 'PS', name: 'claude · refactor terminal-host', meta: '~/Awakon', status: 'awaiting', shortcut: kbd('Mod+1') },
+    { kind: 'PS', name: 'codex · add e2e tests',           meta: '~/Awakon', status: 'limited',  shortcut: kbd('Mod+2') },
+    { kind: 'PS', name: 'pwsh · package scripts',          meta: '~/Awakon', status: 'running',  shortcut: kbd('Mod+3') },
   ]},
   { title: 'Start session', items: [
     { kind: '+', name: 'New Claude Code session', meta: 'claude', shortcut: kbd('Mod+N') },
@@ -345,7 +345,7 @@ const OPEN_IN_OPTIONS: Array<{ id: OpenIn; label: string }> = [
 export function renderNewSessionDialog(opts: NewSessionDialogOptions = {}): HTMLElement {
   const {
     initial = {},
-    recentDirs = ['~/Work/ecogs/projects/AI.Pad', '~/Work/web-app', '~/personal/cli-tools'],
+    recentDirs = ['~/Work/ecogs/projects/Awakon', '~/Work/web-app', '~/personal/cli-tools'],
     availableShells = ['pwsh', 'cmd', 'git-bash'],
     onStart, onCancel, onClose,
   } = opts;
@@ -530,7 +530,7 @@ export interface EmptyStateOptions {
 }
 
 const DEFAULT_RECENTS: RecentProject[] = [
-  { name: 'AI.Pad · refactor', cwd: '~/Work/ecogs/projects/AI.Pad', when: '14m ago' },
+  { name: 'Awakon · refactor', cwd: '~/Work/ecogs/projects/Awakon', when: '14m ago' },
   { name: 'web-app · billing', cwd: '~/Work/web-app',               when: 'yesterday' },
   { name: 'cli-tools',         cwd: '~/personal/cli-tools',         when: '3 days ago' },
 ];
@@ -557,7 +557,7 @@ export function renderEmptyState({
       h('div', { class: 'aip-empty__brand' }, [
         h('div', { class: 'aip-empty__brand-icon' }, [appGlyph()]),
         h('div', {}, [
-          h('div', { class: 'aip-empty__brand-title', text: 'AI.Pad' }),
+          h('div', { class: 'aip-empty__brand-title', text: 'Awakon' }),
           h('div', { class: 'aip-empty__brand-sub',   text: 'run many agents · never miss a prompt' }),
         ]),
       ]),
@@ -631,7 +631,7 @@ export function renderMdPane({
     // Path bar + actions
     h('div', { class: 'aip-mdpane__pathbar' }, [
       h('span', { class: 'aip-mdpane__path' }, [
-        h('span', { class: 'aip-mdpane__path-dir', text: '~/AI.Pad/' }),
+        h('span', { class: 'aip-mdpane__path-dir', text: '~/Awakon/' }),
         activePath,
       ]),
       h('span', { class: 'aip-mdpane__path-meta', text: `modified ${modifiedAgo}` }),

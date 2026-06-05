@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 on:
   pull_request:
     branches: [main]
@@ -34,9 +34,9 @@ jobs:
         run: pnpm test:integration
       # Build the desktop app on every OS so packaging-time breakage is caught per PR.
       - name: Build desktop app
-        run: pnpm --filter @aipad/desktop build
+        run: pnpm --filter @awakon/desktop build
       - name: Install Playwright + Chromium
-        run: pnpm --filter @aipad/e2e exec playwright install --with-deps chromium
+        run: pnpm --filter @awakon/e2e exec playwright install --with-deps chromium
       # E2E on Linux for every PR + push.
       - name: Run E2E (Linux, xvfb)
         if: runner.os == 'Linux'

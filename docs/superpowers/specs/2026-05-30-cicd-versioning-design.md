@@ -1,11 +1,11 @@
-# CI/CD Versioning + Release Automation — Design
+﻿# CI/CD Versioning + Release Automation — Design
 
 **Date:** 2026-05-30
 **Status:** Approved (awaiting implementation plan)
 
 ## Problem
 
-AI.Pad has functioning CI and a tag-driven `release.yml`, but no automation
+Awakon has functioning CI and a tag-driven `release.yml`, but no automation
 between "merge a PR" and "ship an installer." Versions are hand-edited across
 five `package.json` files, no `CHANGELOG.md` exists, no `v*` tag has ever
 been cut, and `electron-builder dist` builds installers without uploading
@@ -16,16 +16,16 @@ breaks the auto-updater.
 
 ### Current state (verified 2026-05-30)
 
-- pnpm monorepo. All 5 packages pinned at `0.3.0`. Only `@aipad/desktop`
+- pnpm monorepo. All 5 packages pinned at `0.3.0`. Only `@awakon/desktop`
   ships to users; the other four (`contracts`, `core`, `keymap`,
   `terminal-host`) are `private: true` workspace deps.
 - `apps/desktop/electron-builder.json` publishes to GitHub Releases
-  (provider: `github`, repo `ecogs-sys/AI.Pad`). `electron-updater` is in
+  (provider: `github`, repo `ecogs-sys/Awakon`). `electron-updater` is in
   deps, so auto-update is wired or intended.
 - `.github/workflows/ci.yml` — typecheck/test/build on Win/Mac/Linux per
   PR + push to main. Healthy; no change planned.
 - `.github/workflows/release.yml` — triggered by `v*` tag push. Runs
-  `pnpm --filter @aipad/desktop dist` on all three OSes using the default
+  `pnpm --filter @awakon/desktop dist` on all three OSes using the default
   `GITHUB_TOKEN`. **Does not pass `--publish always`, so installers are
   built but never uploaded.**
 - No `v*` tag exists. No `CHANGELOG.md`. No release-management bot.
@@ -51,8 +51,8 @@ phase).
 - Beta / pre-release channels. Single `latest` channel only. Adding a
   beta channel later is a config edit + branch convention.
 - Versioning the four internal workspace packages
-  (`@aipad/contracts`, `@aipad/core`, `@aipad/keymap`,
-  `@aipad/terminal-host`). They stay at `0.3.0` indefinitely; consumers
+  (`@awakon/contracts`, `@awakon/core`, `@awakon/keymap`,
+  `@awakon/terminal-host`). They stay at `0.3.0` indefinitely; consumers
   use `workspace:*` which resolves to local source regardless of the
   declared version.
 - Editorialized / hand-curated release notes templates. Auto-generated
@@ -88,7 +88,7 @@ release-please runs in **manifest mode** tracking exactly two packages:
 | Path             | release-please name | Strategy      |
 | ---------------- | ------------------- | ------------- |
 | `.`              | root                | `release-type: node` |
-| `apps/desktop`   | `@aipad/desktop`    | `release-type: node` |
+| `apps/desktop`   | `@awakon/desktop`    | `release-type: node` |
 
 The two are linked (same version, single Release PR, single tag) via
 release-please's `linked-versions` plugin. Both `package.json` files
@@ -113,21 +113,21 @@ versioning per package) — not a one-way door.
     "packages": {
       ".": {
         "release-type": "node",
-        "package-name": "aipad",
+        "package-name": "awakon",
         "bump-minor-pre-major": true,
         "draft": false,
         "prerelease": false
       },
       "apps/desktop": {
         "release-type": "node",
-        "package-name": "@aipad/desktop",
+        "package-name": "@awakon/desktop",
         "bump-minor-pre-major": true,
         "draft": false,
         "prerelease": false
       }
     },
     "plugins": [
-      { "type": "linked-versions", "groupName": "aipad", "components": ["aipad", "@aipad/desktop"] }
+      { "type": "linked-versions", "groupName": "awakon", "components": ["awakon", "@awakon/desktop"] }
     ],
     "changelog-sections": [
       { "type": "feat",     "section": "Features" },
@@ -195,7 +195,7 @@ versioning per package) — not a one-way door.
   release-please created:
   ```yaml
   - name: Build installer
-    run: pnpm --filter @aipad/desktop dist --publish always
+    run: pnpm --filter @awakon/desktop dist --publish always
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   ```
@@ -216,7 +216,7 @@ tags: ['v*']`) would not fire.
 
 Fix: release-please uses **`RELEASE_PLEASE_TOKEN`** — a fine-grained
 Personal Access Token created on the maintainer's account, scoped to
-**`ecogs-sys/AI.Pad`** only, with permissions:
+**`ecogs-sys/Awakon`** only, with permissions:
 
 | Permission     | Access |
 | -------------- | ------ |
@@ -324,7 +324,7 @@ Two patterns considered for monorepo versioning:
 | Pattern                          | Why not chosen |
 | -------------------------------- | -------------- |
 | **Lockstep all 5 packages**      | Adds noise — internal packages get CHANGELOG entries no one reads, version files churn on every release. No consumer benefit because `workspace:*` ignores declared versions. |
-| **Independent per-package versioning** (e.g. Changesets) | Overkill until the internal packages publish to npm independently. Would be the right pivot if AI.Pad ever extracts `@aipad/contracts` as a public library. |
+| **Independent per-package versioning** (e.g. Changesets) | Overkill until the internal packages publish to npm independently. Would be the right pivot if Awakon ever extracts `@awakon/contracts` as a public library. |
 | **Root + desktop only** ✅       | Matches actual ship surface (one installer). Cleanest CHANGELOG. |
 
 Two token approaches considered for the bot:

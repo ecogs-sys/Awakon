@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   IpcChannel,
   ResumeCancelPayloadSchema,
   ResumeScheduledEventSchema,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 describe('resume + settings IPC contracts', () => {
   it('exposes the new channel names', () => {

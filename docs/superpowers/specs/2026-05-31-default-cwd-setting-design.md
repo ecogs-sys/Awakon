@@ -1,4 +1,4 @@
-# Design: Default Working Directory Setting
+﻿# Design: Default Working Directory Setting
 
 **Date:** 2026-05-31
 **Status:** Approved
@@ -78,7 +78,7 @@ Append a new `dlg-section` after the existing Auto-resume sections, matching the
 
 **Implementation notes:**
 - The input and Browse button sit in a flex row (`dlg-path-row`) to keep them inline.
-- Browse calls `FsPickDirectory` IPC via `window.aipad` (same pattern as `new-session-dialog.ts`).
+- Browse calls `FsPickDirectory` IPC via `window.awakon` (same pattern as `new-session-dialog.ts`).
 - The field accepts a free-typed path or a browsed one; empty is valid and means "not set."
 - The field is **not validated** on save — an invalid path is silently ignored at session-open time (the New Session dialog validates the cwd before spawning).
 - `submit()` reads the trimmed value and includes it in the returned `AppSettings`.

@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionStore } from '../src/session-store.js';
-import type { PersistedTabs } from '@aipad/contracts';
+import type { PersistedTabs } from '@awakon/contracts';
 
 let dir: string;
-beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'aipad-store-')); });
+beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'awakon-store-')); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 const sample: PersistedTabs = {

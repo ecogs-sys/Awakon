@@ -1,4 +1,4 @@
-name: Release
+﻿name: Release
 on:
   push:
     tags: ['v*']
@@ -21,8 +21,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r --filter './packages/*' build
-      - run: pnpm --filter @aipad/desktop build
+      - run: pnpm --filter @awakon/desktop build
       - name: Build installer
-        run: pnpm --filter @aipad/desktop dist -- --publish always
+        run: pnpm --filter @awakon/desktop dist -- --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

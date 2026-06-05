@@ -1,6 +1,6 @@
 {
-  "appId": "com.ecogs.aipad",
-  "productName": "AI.Pad",
+  "appId": "com.ecogs.awakon",
+  "productName": "Awakon",
   "directories": {
     "buildResources": "build",
     "output": "release/${version}"
@@ -28,14 +28,14 @@
   "linux": {
     "target": ["AppImage", "deb"],
     "category": "Development",
-    "executableName": "aipad",
+    "executableName": "awakon",
     "artifactName": "${productName}-${version}-${arch}.${ext}"
   },
   "publish": [
     {
       "provider": "github",
       "owner": "ecogs-sys",
-      "repo": "AI.Pad"
+      "repo": "Awakon"
     }
   ]
 }

@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   IpcChannel,
   FsPickDirectoryPayloadSchema,
   FsPickDirectoryResponseSchema,
   FsPathExistsPayloadSchema,
   FsPathExistsResponseSchema,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 describe('fs IPC channels', () => {
   it('exposes the new channel names', () => {

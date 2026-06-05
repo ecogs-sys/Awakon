@@ -1,5 +1,5 @@
-import type { Shell, PersistedTabs, PersistedSplitNode } from '@aipad/contracts';
-import type { SessionInfo } from '@aipad/contracts';
+﻿import type { Shell, PersistedTabs, PersistedSplitNode } from '@awakon/contracts';
+import type { SessionInfo } from '@awakon/contracts';
 
 export interface BootstrapDeps {
   loadPersisted: () => Promise<PersistedTabs | null>;

@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
-import { SessionManager } from '@aipad/core';
-import type { Shell } from '@aipad/contracts';
+import { SessionManager } from '@awakon/core';
+import type { Shell } from '@awakon/contracts';
 
 function defaultShell(): Shell {
   if (platform() === 'win32') return 'pwsh';
@@ -24,7 +24,7 @@ describe('auto-resume + real PTY', () => {
   it('detects the phrase, schedules a resume, and types the response into the PTY', async () => {
     manager.applyAutoResumeConfig({
       enabled: true,
-      detectText: 'AIPAD-LIMIT',
+      detectText: 'awakon-LIMIT',
       responseText: 'continue',
     });
 
@@ -41,7 +41,7 @@ describe('auto-resume + real PTY', () => {
     const hh = ((dt.getHours() + 11) % 12) + 1;
     const ampm = dt.getHours() < 12 ? 'am' : 'pm';
     const clock = `${hh}:${String(dt.getMinutes()).padStart(2, '0')}${ampm}`;
-    session.write(`echo AIPAD-LIMIT resets ${clock}\r`);
+    session.write(`echo awakon-LIMIT resets ${clock}\r`);
 
     await waitFor(() => scheduled.includes(session.id));
     expect(scheduled).toContain(session.id);

@@ -1,5 +1,5 @@
-import { BrowserWindow, WebContentsView } from 'electron';
-import type { SessionId } from '@aipad/contracts';
+﻿import { BrowserWindow, WebContentsView } from 'electron';
+import type { SessionId } from '@awakon/contracts';
 
 // Chrome lays out as a vertical stack: titlebar (32px) above tab strip (36px) above
 // the body. The WebContentsView overlay must start below BOTH, not just the titlebar,

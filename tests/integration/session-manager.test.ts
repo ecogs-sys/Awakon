@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
-import { SessionManager } from '@aipad/core';
-import type { Shell } from '@aipad/contracts';
+import { SessionManager } from '@awakon/core';
+import type { Shell } from '@awakon/contracts';
 
 function defaultShell(): Shell {
   if (platform() === 'win32') return 'pwsh';
@@ -52,7 +52,7 @@ describe('SessionManager + real PTY', () => {
     // Give the shell a moment to print its prompt.
     await waitFor(() => stream.read().length > 0);
 
-    const marker = 'AIPAD_PROBE_' + Date.now().toString(36);
+    const marker = 'awakon_PROBE_' + Date.now().toString(36);
     session.write(`echo ${marker}\r`);
 
     await waitFor(() => stream.read().includes(marker));
@@ -67,8 +67,8 @@ describe('SessionManager + real PTY', () => {
 
     await waitFor(() => streamA.read().length > 0 && streamB.read().length > 0);
 
-    const tagA = 'AIPAD_A_' + Date.now().toString(36);
-    const tagB = 'AIPAD_B_' + Date.now().toString(36);
+    const tagA = 'awakon_A_' + Date.now().toString(36);
+    const tagB = 'awakon_B_' + Date.now().toString(36);
     a.write(`echo ${tagA}\r`);
     b.write(`echo ${tagB}\r`);
 

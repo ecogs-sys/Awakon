@@ -1,4 +1,4 @@
-import { EventEmitter } from 'node:events';
+﻿import { EventEmitter } from 'node:events';
 import * as pty from 'node-pty';
 import type {
   AttentionEvent,
@@ -7,7 +7,7 @@ import type {
   SessionInfo,
   SessionKind,
   SessionStatus,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 import { AttentionDetector } from './attention-detector.js';
 import { RateLimitDetector } from './rate-limit-detector.js';
 import { RingBuffer } from './ring-buffer.js';

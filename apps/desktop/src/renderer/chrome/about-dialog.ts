@@ -1,12 +1,12 @@
-import { IpcChannel, type ChromeAppInfoResponse } from '@aipad/contracts';
+﻿import { IpcChannel, type ChromeAppInfoResponse } from '@awakon/contracts';
 
 interface Bridge {
   send: (channel: string, payload?: unknown) => Promise<unknown>;
 }
 
-const APP_NAME = 'AI.Pad';
+const APP_NAME = 'Awakon';
 const TAGLINE  = 'Run many agents · never miss a prompt';
-const REPO     = 'https://github.com/ecogs-sys/AI.Pad';
+const REPO     = 'https://github.com/ecogs-sys/Awakon';
 const LINKS: Array<{ label: string; url: string }> = [
   { label: 'Website',          url: REPO },
   { label: 'Release notes',    url: `${REPO}/releases` },
@@ -27,7 +27,7 @@ export function showAboutDialog(
     mount.innerHTML = '';
     mount.classList.add('open');
 
-    const bridge = (window as unknown as { aipad: Bridge }).aipad;
+    const bridge = (window as unknown as { awakon: Bridge }).awakon;
 
     const root = document.createElement('div');
     root.className = 'aip-modal aip-modal--about';

@@ -1,7 +1,7 @@
-# Terminal-pane context menu — Design
+﻿# Terminal-pane context menu — Design
 
 **Date:** 2026-05-26
-**Branch:** `feat/redesign-aipad`
+**Branch:** `feat/redesign-awakon`
 **Status:** Approved for planning
 **Scope:** Right-click context menu inside every terminal pane (single tab and split panes). No tab, sidebar, or markdown-link surfaces in this round. Find and Clear menu items explicitly excluded.
 
@@ -22,7 +22,7 @@ Split below   Ctrl+Shift+D
 Close pane    Ctrl+W        (danger / red; disabled when not in split)
 ```
 
-Look matches the design handoff (`docs/design_handoff_aipad_redesign/`). Shortcut hints auto-translate (`Ctrl+C` on Windows/Linux, `⌘C` on macOS) via the same `kbd()` helper used by the design source.
+Look matches the design handoff (`docs/design_handoff_awakon_redesign/`). Shortcut hints auto-translate (`Ctrl+C` on Windows/Linux, `⌘C` on macOS) via the same `kbd()` helper used by the design source.
 
 ## 2. Non-goals
 
@@ -258,7 +258,7 @@ The `mousedown` portion of the right-click already triggers the existing `focusi
 
 ## 10. Future work (explicitly deferred)
 
-- Port the same component to the tab strip and sidebar (replacing `sidebar.ts:251`'s ad-hoc menu) so all three surfaces share one implementation. Would justify lifting `context-menu.ts` + helpers into either `apps/desktop/src/renderer/shared/` or a new `@aipad/ui-components` workspace package.
+- Port the same component to the tab strip and sidebar (replacing `sidebar.ts:251`'s ad-hoc menu) so all three surfaces share one implementation. Would justify lifting `context-menu.ts` + helpers into either `apps/desktop/src/renderer/shared/` or a new `@awakon/ui-components` workspace package.
 - Markdown-link right-click in terminal (Open in editor / Copy path / Reveal in finder) — pairs with the markdown preview pane work.
 - Find action and dialog (excluded from this round by request).
 - Clear-terminal action (excluded from this round by request).

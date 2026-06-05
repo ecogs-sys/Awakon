@@ -1,5 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Context menu (right-click)
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — Context menu (right-click)
 //
 // Generic component used for:
 //   • terminal area: copy / paste / select-all / find / clear / split / close

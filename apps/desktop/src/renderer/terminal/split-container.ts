@@ -1,6 +1,6 @@
-import { TerminalHost, type PreloadBridge } from '@aipad/terminal-host';
-import type { SessionId, Shell, PersistedSplitNode } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+﻿import { TerminalHost, type PreloadBridge } from '@awakon/terminal-host';
+import type { SessionId, Shell, PersistedSplitNode } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 import { showContextMenu, buildTerminalContextMenu } from './context-menu.js';
 
 type Orientation = 'horizontal' | 'vertical';

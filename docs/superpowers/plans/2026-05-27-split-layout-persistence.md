@@ -1,4 +1,4 @@
-# Split-Layout Persistence Implementation Plan
+﻿# Split-Layout Persistence Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +6,7 @@
 
 **Architecture:** `SplitContainer` (renderer, one per tab) stays the authoritative tree owner. After every structural change or divider drag-end it serializes the tree and sends it to main over a new IPC channel. Main stores the tree on `tabMeta` and writes it via the existing `SessionStore` atomic-write path. On bootstrap, main passes the stored tree to the terminal renderer, which replays it by reusing `splitFocused()`. Schema bumps from v1 to v2 with a silent in-place migration.
 
-**Tech Stack:** TypeScript, Zod, Electron (main + renderer), Vitest (+ jsdom for renderer tests). Workspace packages: `@aipad/contracts`, `@aipad/core`, `@aipad/desktop`.
+**Tech Stack:** TypeScript, Zod, Electron (main + renderer), Vitest (+ jsdom for renderer tests). Workspace packages: `@awakon/contracts`, `@awakon/core`, `@awakon/desktop`.
 
 **Spec:** `docs/superpowers/specs/2026-05-27-split-layout-persistence-design.md`
 
@@ -23,7 +23,7 @@
 - `packages/core/src/session-store.ts` — run `migratePersistedTabs` before schema validation in `load()`.
 - `packages/core/src/ipc-router.ts` — add `onPersistSplits` / `onSplitsForTab` callback registration + handlers.
 - `packages/core/tests/session-store.test.ts` — bump samples to v2, add v1 migration test, add v2-with-splits round-trip test.
-- `packages/core/tests/persistence-migration.test.ts` (new) — focused tests for the migration helper + `PersistedSplitNodeSchema` validation. *(Placed in `core/tests` because `contracts` has no Vitest setup; core already imports from `@aipad/contracts`.)*
+- `packages/core/tests/persistence-migration.test.ts` (new) — focused tests for the migration helper + `PersistedSplitNodeSchema` validation. *(Placed in `core/tests` because `contracts` has no Vitest setup; core already imports from `@awakon/contracts`.)*
 - `apps/desktop/src/main/index.ts` — extend inline `tabMeta` type with `splits?`, register the new IPC handlers, pass `splits` into `tabMeta` on bootstrap, bump literal `1` to `2` in `snapshotTabs()`.
 - `apps/desktop/src/main/session-bootstrap.ts` — pass `splits` from each persisted tab into `createTabSession`.
 - `apps/desktop/src/renderer/terminal/split-container.ts` — add `serialize()` and `restore()`; call a new `persist()` helper from `splitFocused()`, `closeFocusedPane()`, and the divider `mouseup` handler; on construction, fetch the saved tree over IPC and call `restore()` if present.
@@ -48,7 +48,7 @@ import {
   PersistedTabsSchema,
   migratePersistedTabs,
   PERSISTENCE_SCHEMA_VERSION,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 describe('PERSISTENCE_SCHEMA_VERSION', () => {
   it('is 2', () => {
@@ -179,7 +179,7 @@ describe('migratePersistedTabs', () => {
 - [ ] **Step 2: Run the test and verify it fails**
 
 ```bash
-pnpm --filter @aipad/core test -- persistence-migration
+pnpm --filter @awakon/core test -- persistence-migration
 ```
 
 Expected: FAIL — `migratePersistedTabs is not exported`, `PERSISTENCE_SCHEMA_VERSION` is 1 not 2.
@@ -255,7 +255,7 @@ export function migratePersistedTabs(parsed: unknown): unknown | null {
 - [ ] **Step 4: Run the test and verify it passes**
 
 ```bash
-pnpm --filter @aipad/core test -- persistence-migration
+pnpm --filter @awakon/core test -- persistence-migration
 ```
 
 Expected: PASS, all assertions green.
@@ -370,7 +370,7 @@ it('backs up a v2 file whose ratio is out of range', async () => {
 - [ ] **Step 2: Run tests and verify they fail**
 
 ```bash
-pnpm --filter @aipad/core test -- session-store
+pnpm --filter @awakon/core test -- session-store
 ```
 
 Expected: FAIL — `loaded?.version` is `1` not `2` (migration not yet wired), and the existing `sample` is rejected because the schema now requires `version: 2`.
@@ -380,7 +380,7 @@ Expected: FAIL — `loaded?.version` is `1` not `2` (migration not yet wired), a
 In `packages/core/src/session-store.ts`, update the import and the `load()` method:
 
 ```ts
-import { PersistedTabsSchema, migratePersistedTabs, type PersistedTabs } from '@aipad/contracts';
+import { PersistedTabsSchema, migratePersistedTabs, type PersistedTabs } from '@awakon/contracts';
 ```
 
 Replace the `load()` method body so it runs migration before validation:
@@ -419,7 +419,7 @@ async load(): Promise<PersistedTabs | null> {
 - [ ] **Step 4: Run tests and verify they pass**
 
 ```bash
-pnpm --filter @aipad/core test -- session-store
+pnpm --filter @awakon/core test -- session-store
 ```
 
 Expected: PASS — all `session-store` tests green, including the three new ones.
@@ -477,7 +477,7 @@ export const LayoutSplitsForTabPayloadSchema = z.object({
 - [ ] **Step 2: Typecheck the contracts package**
 
 ```bash
-pnpm --filter @aipad/contracts typecheck
+pnpm --filter @awakon/contracts typecheck
 ```
 
 Expected: PASS — no TypeScript errors.
@@ -501,7 +501,7 @@ git commit -m "feat(contracts): add LayoutPersistSplits and LayoutSplitsForTab I
 Near the existing callback type aliases at the top of `packages/core/src/ipc-router.ts`, add:
 
 ```ts
-import type { PersistedSplitNode } from '@aipad/contracts';
+import type { PersistedSplitNode } from '@awakon/contracts';
 
 export type PersistSplitsCallback = (
   tabId: SessionId,
@@ -510,7 +510,7 @@ export type PersistSplitsCallback = (
 export type SplitsForTabCallback = (tabId: SessionId) => PersistedSplitNode | null;
 ```
 
-Also add the two new schemas to the existing import from `@aipad/contracts`:
+Also add the two new schemas to the existing import from `@awakon/contracts`:
 
 ```ts
   LayoutPersistSplitsPayloadSchema,
@@ -560,7 +560,7 @@ After the existing `LayoutReorderTabs` handler in `bindRequests()`, append:
 - [ ] **Step 4: Typecheck**
 
 ```bash
-pnpm --filter @aipad/core typecheck
+pnpm --filter @awakon/core typecheck
 ```
 
 Expected: PASS.
@@ -590,12 +590,12 @@ const tabMeta = new Map<string, { tabId: string; shell: Shell; cwd: string; titl
 with:
 
 ```ts
-import type { PersistedSplitNode, PersistedTab } from '@aipad/contracts';
+import type { PersistedSplitNode, PersistedTab } from '@awakon/contracts';
 
 const tabMeta = new Map<string, PersistedTab>();
 ```
 
-(Add `PersistedSplitNode, PersistedTab` to the existing `@aipad/contracts` type import if one exists, otherwise add the import shown.)
+(Add `PersistedSplitNode, PersistedTab` to the existing `@awakon/contracts` type import if one exists, otherwise add the import shown.)
 
 Replace the `snapshotTabs()` function so it emits `version: 2`:
 
@@ -637,7 +637,7 @@ ipcRouter.onSplitsForTab((tabId) => tabMeta.get(tabId)?.splits ?? null);
 - [ ] **Step 3: Typecheck**
 
 ```bash
-pnpm --filter @aipad/desktop typecheck
+pnpm --filter @awakon/desktop typecheck
 ```
 
 Expected: PASS. (You may need to also adjust the `tabMeta.set(...)` call in `createTabSession` to spread its `opts` since `PersistedTab` is the new value type. The existing call already constructs `{ tabId, shell, cwd, ...(opts.title ? { title } : {}) }`, which matches `PersistedTab` shape — no edit needed if so.)
@@ -662,8 +662,8 @@ git commit -m "feat(desktop): persist split trees from main and serve them on de
 Replace the `BootstrapDeps` interface and `bootstrapSessions` body in `apps/desktop/src/main/session-bootstrap.ts`:
 
 ```ts
-import type { Shell, PersistedTabs, PersistedSplitNode } from '@aipad/contracts';
-import type { SessionInfo } from '@aipad/contracts';
+import type { Shell, PersistedTabs, PersistedSplitNode } from '@awakon/contracts';
+import type { SessionInfo } from '@awakon/contracts';
 
 export interface BootstrapDeps {
   loadPersisted: () => Promise<PersistedTabs | null>;
@@ -732,7 +732,7 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0] & 
 - [ ] **Step 3: Typecheck**
 
 ```bash
-pnpm --filter @aipad/desktop typecheck
+pnpm --filter @awakon/desktop typecheck
 ```
 
 Expected: PASS.
@@ -823,7 +823,7 @@ describe('SplitContainer.serialize()', () => {
 - [ ] **Step 2: Run the tests and verify they fail**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: FAIL — `splits.serialize is not a function`.
@@ -833,7 +833,7 @@ Expected: FAIL — `splits.serialize is not a function`.
 In `apps/desktop/src/renderer/terminal/split-container.ts`, import the `PersistedSplitNode` type at the top:
 
 ```ts
-import type { PersistedSplitNode } from '@aipad/contracts';
+import type { PersistedSplitNode } from '@awakon/contracts';
 ```
 
 Append two methods inside the `SplitContainer` class (just before the closing brace):
@@ -858,7 +858,7 @@ serialize(): PersistedSplitNode | undefined {
 - [ ] **Step 4: Run the tests and verify they pass**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: PASS — all three new serialize tests green plus the pre-existing context-menu tests.
@@ -955,7 +955,7 @@ describe('SplitContainer.restore()', () => {
 - [ ] **Step 2: Run the tests and verify they fail**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: FAIL — `splits.restore is not a function`.
@@ -1011,7 +1011,7 @@ Note: `splitFocused()` already returns early on pane-create failure without muta
 - [ ] **Step 4: Run the tests and verify they pass**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: PASS — all four new restore tests green; serialize tests still pass.
@@ -1085,7 +1085,7 @@ describe('SplitContainer persistence', () => {
 - [ ] **Step 2: Run the tests and verify they fail**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: FAIL — no `core.layout.persist-splits` calls are recorded yet.
@@ -1124,7 +1124,7 @@ Then update three call sites:
 - [ ] **Step 4: Run the tests and verify they pass**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: PASS — three new persistence tests green; serialize + restore + context-menu tests still pass.
@@ -1216,7 +1216,7 @@ In `apps/desktop/src/renderer/terminal/main.ts`, after the existing `SplitContai
 void splits.loadSavedLayout();
 ```
 
-(Place it after the `(window as unknown as { __aipadSplits: SplitContainer }).__aipadSplits = splits;` line.)
+(Place it after the `(window as unknown as { __awakonSplits: SplitContainer }).__awakonSplits = splits;` line.)
 
 - [ ] **Step 3: Add a test for `loadSavedLayout()`**
 
@@ -1256,7 +1256,7 @@ describe('SplitContainer.loadSavedLayout()', () => {
 - [ ] **Step 4: Run all SplitContainer tests**
 
 ```bash
-pnpm --filter @aipad/desktop test -- split-container
+pnpm --filter @awakon/desktop test -- split-container
 ```
 
 Expected: PASS — all tests green.
@@ -1294,7 +1294,7 @@ Expected: PASS.
 pnpm test
 ```
 
-Expected: PASS — no regressions. Pay attention to `@aipad/contracts`, `@aipad/core`, `@aipad/desktop` test suites.
+Expected: PASS — no regressions. Pay attention to `@awakon/contracts`, `@awakon/core`, `@awakon/desktop` test suites.
 
 - [ ] **Step 4: Manual smoke**
 
@@ -1305,7 +1305,7 @@ Expected: PASS — no regressions. Pay attention to `@aipad/contracts`, `@aipad/
 5. Close the app (`Ctrl+W` repeatedly, then close the window — or just close the window).
 6. Re-run `pnpm dev`.
 7. **Expected:** tab 2 reopens with the same nested split shape; the outer divider is at the same ratio. Each pane has a fresh prompt (PTYs are respawned).
-8. Inspect `%APPDATA%\AI.Pad\sessions.json` (Windows) / `~/Library/Application Support/AI.Pad/sessions.json` (macOS) / `~/.config/AI.Pad/sessions.json` (Linux) and confirm `version: 2` plus the `splits` field on tab 2.
+8. Inspect `%APPDATA%\Awakon\sessions.json` (Windows) / `~/Library/Application Support/Awakon/sessions.json` (macOS) / `~/.config/Awakon/sessions.json` (Linux) and confirm `version: 2` plus the `splits` field on tab 2.
 
 - [ ] **Step 5: No commit needed for the smoke; if everything passes, the feature is done.**
 

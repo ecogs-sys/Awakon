@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+﻿import { contextBridge, ipcRenderer } from 'electron';
 
 const bridge = {
   send: (channel: string, payload?: unknown): Promise<unknown> =>
@@ -10,5 +10,5 @@ const bridge = {
   },
 };
 
-contextBridge.exposeInMainWorld('aipad', bridge);
-declare global { interface Window { aipad: typeof bridge } }
+contextBridge.exposeInMainWorld('awakon', bridge);
+declare global { interface Window { awakon: typeof bridge } }

@@ -1,8 +1,8 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AI.Pad — vanilla TS/DOM demo</title>
+<title>Awakon — vanilla TS/DOM demo</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -98,7 +98,7 @@
   </svg>
 </template>
 <div class="page">
-  <h1>AI.Pad — vanilla TS/DOM demo</h1>
+  <h1>Awakon — vanilla TS/DOM demo</h1>
   <p>same prototype, no React · all components built with plain <code>document.createElement</code></p>
 
   <div class="screens" id="screens"></div>
@@ -118,7 +118,7 @@
 
   // ─── Shell composer ───────────────────────────────────────────────
   function buildShell(opts) {
-    const { tabs, activeIdx = 0, title = 'AI.Pad', subtitle, children, showTabs = true } = opts;
+    const { tabs, activeIdx = 0, title = 'Awakon', subtitle, children, showTabs = true } = opts;
     return h('div', { class: 'aip-shell' }, [
       renderTitleBar({ title, subtitle }),
       showTabs && tabs ? renderTabBar({ tabs, activeIdx }) : null,
@@ -192,7 +192,7 @@
 
   function screenAbout() {
     return buildShell({
-      tabs: TABS_MULTI, subtitle: 'Help · About AI.Pad',
+      tabs: TABS_MULTI, subtitle: 'Help · About Awakon',
       children: [
         renderSidebar({ sessions: SESSIONS_MULTI, activeSessionId: 'a' }),
         renderTerminalPane({ lines: TERM_DEFAULT }),

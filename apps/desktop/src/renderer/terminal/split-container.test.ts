@@ -1,9 +1,9 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Stub @aipad/terminal-host BEFORE importing SplitContainer so the test
+// Stub @awakon/terminal-host BEFORE importing SplitContainer so the test
 // doesn't pull in xterm.js (which doesn't run cleanly under jsdom).
-vi.mock('@aipad/terminal-host', () => {
+vi.mock('@awakon/terminal-host', () => {
   class StubTerminalHost {
     public selection = '';
     private _hasSel = false;
@@ -23,7 +23,7 @@ vi.mock('@aipad/terminal-host', () => {
 });
 
 import { SplitContainer } from './split-container.js';
-import type { SessionId, Shell } from '@aipad/contracts';
+import type { SessionId, Shell } from '@awakon/contracts';
 
 interface FakeBridge {
   send: ReturnType<typeof vi.fn>;

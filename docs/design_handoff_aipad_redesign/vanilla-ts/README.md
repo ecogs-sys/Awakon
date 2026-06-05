@@ -1,4 +1,4 @@
-# AI.Pad — vanilla TS/DOM port
+﻿# Awakon — vanilla TS/DOM port
 
 Plain-JavaScript / DOM port of the design. **No React, no JSX, no build step required to run the demo.** All components are pure functions that return an `HTMLElement`.
 
@@ -36,7 +36,7 @@ vanilla-ts/
 
 ## Pattern: render-once + update-in-place
 
-Most renderers are pure: `function renderX(opts): HTMLElement`. The shape is intentionally simple so adapting to whatever module patterns the AI.Pad codebase already uses is mechanical.
+Most renderers are pure: `function renderX(opts): HTMLElement`. The shape is intentionally simple so adapting to whatever module patterns the Awakon codebase already uses is mechanical.
 
 For high-frequency updates (status badges ticking each second, terminal lines streaming in), don't blow away the whole tree — there are dedicated update functions like `updateSessionRow(row, session, opts)` in `chrome.ts` that mutate in place. Use that pattern wherever a sub-section changes frequently.
 
@@ -88,7 +88,7 @@ el.addEventListener('contextmenu', (e) => {
 
 The same component is reused for tab right-click (`buildTabContextMenu`) and session-row right-click — you just supply different item arrays. See the README spec for the full per-surface item lists.
 
-## What to copy into AI.Pad
+## What to copy into Awakon
 
 1. **`tokens.css`** — drop into your renderer's global stylesheet verbatim.
 2. **`components.css`** — drop in alongside. All class names are prefixed `aip-` so they won't collide.

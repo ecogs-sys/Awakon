@@ -1,4 +1,4 @@
-import type { SessionId } from '@aipad/contracts';
+﻿import type { SessionId } from '@awakon/contracts';
 
 /**
  * Minimal interface our service consumes from Electron's Notification class. Lets us

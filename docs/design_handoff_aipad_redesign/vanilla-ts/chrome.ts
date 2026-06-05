@@ -1,5 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Chrome: TitleBar, TabBar, Sidebar
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — Chrome: TitleBar, TabBar, Sidebar
 // ═══════════════════════════════════════════════════════════════════════
 
 import { h, setClass } from './dom.ts';
@@ -32,7 +32,7 @@ export interface TitleBarOptions {
 }
 
 export function renderTitleBar({
-  title = 'AI.Pad',
+  title = 'Awakon',
   subtitle,
   menus = ['File', 'Tabs', 'View', 'Window', 'Help'],
 }: TitleBarOptions = {}): HTMLElement {

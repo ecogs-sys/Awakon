@@ -1,6 +1,6 @@
-# Audit 2026-05-20 — AI.Pad Stage 1 implementation review
+﻿# Audit 2026-05-20 — Awakon Stage 1 implementation review
 
-Audit of the AI.Pad codebase against the design spec
+Audit of the Awakon codebase against the design spec
 (`docs/superpowers/specs/2026-05-17-ai-pad-terminal-design.md`) and the three
 implementation plans.
 

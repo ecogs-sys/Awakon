@@ -1,24 +1,24 @@
-# Awakon Migration Implementation Plan
+﻿# Awakon Migration Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate the AI.Pad Electron monorepo to `C:\Work\ecogs\projects\Awakon` with full rebranding to Awakon, preserving complete git history.
+**Goal:** Migrate the Awakon Electron monorepo to `C:\Work\ecogs\projects\Awakon` with full rebranding to Awakon, preserving complete git history.
 
-**Architecture:** Push AI.Pad's git history to the Awakon GitHub remote, pull it into the local Awakon clone, apply three targeted bulk search-and-replace passes across all source/config/docs files, regenerate the pnpm lock file, verify, then commit and push.
+**Architecture:** Push Awakon's git history to the Awakon GitHub remote, pull it into the local Awakon clone, apply three targeted bulk search-and-replace passes across all source/config/docs files, regenerate the pnpm lock file, verify, then commit and push.
 
 **Tech Stack:** pnpm monorepo, Electron (electron-vite), TypeScript, PowerShell (Windows), GitHub Actions, release-please
 
 ---
 
-### Task 1: Push AI.Pad history to the Awakon GitHub remote
+### Task 1: Push Awakon history to the Awakon GitHub remote
 
 **Files:**
-- Modify: `.git/config` in the AI.Pad repo (adds a temporary remote)
+- Modify: `.git/config` in the Awakon repo (adds a temporary remote)
 
-- [ ] **Step 1: Switch to the AI.Pad repo and add the Awakon remote**
+- [ ] **Step 1: Switch to the Awakon repo and add the Awakon remote**
 
 ```powershell
-Set-Location "C:\Work\ecogs\projects\AI.Pad"
+Set-Location "C:\Work\ecogs\projects\Awakon"
 git remote add awakon https://github.com/ecogs-sys/Awakon.git
 ```
 
@@ -43,7 +43,7 @@ To https://github.com/ecogs-sys/Awakon.git
 ### Task 2: Pull history into the Awakon local repo
 
 **Files:**
-- Pulls full AI.Pad source tree into `C:\Work\ecogs\projects\Awakon`
+- Pulls full Awakon source tree into `C:\Work\ecogs\projects\Awakon`
 
 All remaining tasks run from `C:\Work\ecogs\projects\Awakon`.
 
@@ -54,7 +54,7 @@ Set-Location "C:\Work\ecogs\projects\Awakon"
 git pull origin main --allow-unrelated-histories
 ```
 
-Expected: git applies all AI.Pad commits. You will see many files listed.
+Expected: git applies all Awakon commits. You will see many files listed.
 
 - [ ] **Step 2: Verify the source tree**
 
@@ -68,7 +68,7 @@ If the tree is missing, re-check Task 1 Step 2 completed without error.
 
 ---
 
-### Task 3: Bulk replace `@aipad/` → `@awakon/`
+### Task 3: Bulk replace `@awakon/` → `@awakon/`
 
 **Files:** All `.ts`, `.tsx`, `.html`, `.json`, `.yml`, `.yaml`, `.md`, `.mjs`, `.cjs`, `.ps1`, `.sh` under `C:\Work\ecogs\projects\Awakon`, excluding `node_modules`, `.git`, `release/`, and `out/`.
 
@@ -81,8 +81,8 @@ $files = Get-ChildItem -Path . -Recurse -File -Include *.ts,*.tsx,*.html,*.json,
 
 foreach ($file in $files) {
     $content = Get-Content $file.FullName -Raw -Encoding UTF8
-    if ($content -match '@aipad/') {
-        $newContent = $content -replace '@aipad/', '@awakon/'
+    if ($content -match '@awakon/') {
+        $newContent = $content -replace '@awakon/', '@awakon/'
         [System.IO.File]::WriteAllText($file.FullName, $newContent, [System.Text.Encoding]::UTF8)
         Write-Host "Updated: $($file.FullName)"
     }
@@ -118,13 +118,13 @@ Expected:
 
 ---
 
-### Task 4: Bulk replace `AI.Pad` → `Awakon`
+### Task 4: Bulk replace `Awakon` → `Awakon`
 
 **Files:** Same scope as Task 3.
 
 - [ ] **Step 1: Run the replacement**
 
-Note: PowerShell's `-replace` uses regex — `AI\.Pad` escapes the dot to match the literal string `AI.Pad`.
+Note: PowerShell's `-replace` uses regex — `AI\.Pad` escapes the dot to match the literal string `Awakon`.
 
 ```powershell
 Set-Location "C:\Work\ecogs\projects\Awakon"
@@ -159,10 +159,10 @@ Updated: ...\apps\desktop\src\main\app-menu.ts
 Get-Content "apps\desktop\electron-builder.json"
 ```
 
-Expected (note `appId` still says `aipad` — fixed in Task 5):
+Expected (note `appId` still says `awakon` — fixed in Task 5):
 ```json
 {
-  "appId": "com.ecogs.aipad",
+  "appId": "com.ecogs.awakon",
   "productName": "Awakon",
   ...
   "publish": [
@@ -177,7 +177,7 @@ Expected (note `appId` still says `aipad` — fixed in Task 5):
 
 ---
 
-### Task 5: Bulk replace `aipad` → `awakon`
+### Task 5: Bulk replace `awakon` → `awakon`
 
 **Files:** Same scope as Task 3.
 
@@ -190,8 +190,8 @@ $files = Get-ChildItem -Path . -Recurse -File -Include *.ts,*.tsx,*.html,*.json,
 
 foreach ($file in $files) {
     $content = Get-Content $file.FullName -Raw -Encoding UTF8
-    if ($content -match 'aipad') {
-        $newContent = $content -replace 'aipad', 'awakon'
+    if ($content -match 'awakon') {
+        $newContent = $content -replace 'awakon', 'awakon'
         [System.IO.File]::WriteAllText($file.FullName, $newContent, [System.Text.Encoding]::UTF8)
         Write-Host "Updated: $($file.FullName)"
     }
@@ -301,23 +301,23 @@ Expected: pnpm resolves all `@awakon/` workspace packages. Final line:
 Done in Xs
 ```
 
-If pnpm errors with `"workspace package not found for '@aipad/...'"` — a `package.json` was missed in the rename. Re-run the spot-checks from Task 3 Step 2 to find the missed file, fix it manually, then re-run `pnpm install`.
+If pnpm errors with `"workspace package not found for '@awakon/...'"` — a `package.json` was missed in the rename. Re-run the spot-checks from Task 3 Step 2 to find the missed file, fix it manually, then re-run `pnpm install`.
 
 ---
 
-### Task 7: Verify no AI.Pad / aipad references remain in source
+### Task 7: Verify no Awakon / awakon references remain in source
 
-- [ ] **Step 1: Search for remaining `@aipad/` references**
+- [ ] **Step 1: Search for remaining `@awakon/` references**
 
 ```powershell
 Set-Location "C:\Work\ecogs\projects\Awakon"
-Select-String -Path . -Pattern "@aipad/" -Recurse -Include *.ts,*.tsx,*.json,*.yml,*.yaml,*.md,*.html -ErrorAction SilentlyContinue |
+Select-String -Path . -Pattern "@awakon/" -Recurse -Include *.ts,*.tsx,*.json,*.yml,*.yaml,*.md,*.html -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -notmatch '\\node_modules\\|\\\.git\\|\\release\\|\\out\\' }
 ```
 
 Expected: **no output** (zero matches). If matches are found, edit those files manually and re-run.
 
-- [ ] **Step 2: Search for remaining `AI.Pad` references**
+- [ ] **Step 2: Search for remaining `Awakon` references**
 
 ```powershell
 Select-String -Path . -Pattern "AI\.Pad" -Recurse -Include *.ts,*.tsx,*.json,*.yml,*.yaml,*.md,*.html -ErrorAction SilentlyContinue |
@@ -326,10 +326,10 @@ Select-String -Path . -Pattern "AI\.Pad" -Recurse -Include *.ts,*.tsx,*.json,*.y
 
 Expected: **no output**. If matches are found, edit those files manually and re-run.
 
-- [ ] **Step 3: Search for remaining lowercase `aipad` references**
+- [ ] **Step 3: Search for remaining lowercase `awakon` references**
 
 ```powershell
-Select-String -Path . -Pattern "aipad" -Recurse -Include *.ts,*.tsx,*.json,*.yml,*.yaml,*.md,*.html -ErrorAction SilentlyContinue |
+Select-String -Path . -Pattern "awakon" -Recurse -Include *.ts,*.tsx,*.json,*.yml,*.yaml,*.md,*.html -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -notmatch '\\node_modules\\|\\\.git\\|\\release\\|\\out\\' }
 ```
 
@@ -359,9 +359,9 @@ Expected: electron-vite builds successfully. Final line:
 ✓ built in ...s
 ```
 
-If this fails with `"Cannot find module '@aipad/...'"` — a `package.json` devDependency was missed. Find it with:
+If this fails with `"Cannot find module '@awakon/...'"` — a `package.json` devDependency was missed. Find it with:
 ```powershell
-Select-String -Path . -Pattern "@aipad/" -Recurse -Include *.json | Where-Object { $_.Path -notmatch '\\node_modules\\' }
+Select-String -Path . -Pattern "@awakon/" -Recurse -Include *.json | Where-Object { $_.Path -notmatch '\\node_modules\\' }
 ```
 Fix the file and re-run.
 
@@ -408,7 +408,7 @@ Expected: Many modified files across `apps/`, `packages/`, `tests/`, `docs/`, ro
 - [ ] **Step 3: Commit**
 
 ```powershell
-git commit -m "chore: rebrand AI.Pad to Awakon"
+git commit -m "chore: rebrand Awakon to Awakon"
 ```
 
 - [ ] **Step 4: Push to Awakon remote**
@@ -425,12 +425,12 @@ To https://github.com/ecogs-sys/Awakon.git
 
 ---
 
-### Task 11: Cleanup — remove temporary remote from AI.Pad repo
+### Task 11: Cleanup — remove temporary remote from Awakon repo
 
 - [ ] **Step 1: Remove the awakon remote**
 
 ```powershell
-Set-Location "C:\Work\ecogs\projects\AI.Pad"
+Set-Location "C:\Work\ecogs\projects\Awakon"
 git remote remove awakon
 ```
 
@@ -442,4 +442,4 @@ Expected: no output (success).
 git remote -v
 ```
 
-Expected: Only `origin` pointing to `https://github.com/ecogs-sys/AI.Pad.git` remains.
+Expected: Only `origin` pointing to `https://github.com/ecogs-sys/Awakon.git` remains.

@@ -1,9 +1,9 @@
-import { EventEmitter } from 'node:events';
-import { ATTENTION_SNIPPET_MAX_LEN } from '@aipad/contracts';
-import type { AttentionEvent, AttentionSignal } from '@aipad/contracts';
+﻿import { EventEmitter } from 'node:events';
+import { ATTENTION_SNIPPET_MAX_LEN } from '@awakon/contracts';
+import type { AttentionEvent, AttentionSignal } from '@awakon/contracts';
 
 const BEL = 0x07;
-const OSC_PREFIX = Buffer.from('\x1b]1337;AIPadAttention=', 'utf8');
+const OSC_PREFIX = Buffer.from('\x1b]1337;awakonAttention=', 'utf8');
 const PAYLOAD_MAX = ATTENTION_SNIPPET_MAX_LEN;
 const IDLE_MS = 1500;
 const TAIL_BUFFER_MAX = 512; // Bytes of recent output we keep for prompt-pattern matching.
@@ -14,8 +14,8 @@ export interface AttentionDetectorEvents {
 }
 
 /**
- * Byte-stream scanner that emits attention events for terminal BEL (\x07), the AI.Pad
- * OSC escape (\x1b]1337;AIPadAttention=...\x07), and idle prompts (no output for 1.5 s
+ * Byte-stream scanner that emits attention events for terminal BEL (\x07), the Awakon
+ * OSC escape (\x1b]1337;awakonAttention=...\x07), and idle prompts (no output for 1.5 s
  * after a prompt-like trailing line).
  */
 export class AttentionDetector extends EventEmitter {

@@ -1,7 +1,7 @@
-# Split-layout persistence — Design
+﻿# Split-layout persistence — Design
 
 **Date:** 2026-05-27
-**Branch:** `feat/redesign-aipad`
+**Branch:** `feat/redesign-awakon`
 **Status:** Approved for planning
 **Scope:** Persist the per-tab split-pane tree (orientation + ratios) so that on relaunch each tab is restored with the same pane layout it had when the app last closed. Pane shells are respawned fresh, matching existing tab-restore behavior.
 
@@ -9,7 +9,7 @@
 
 ## 1. Goal
 
-Today AI.Pad restores tabs (shell, cwd, title, order, focused tab) on relaunch but loses any splits inside those tabs — every tab comes back as a single pane regardless of how it was arranged. The README already promises split-layout restore; this design makes that promise true.
+Today Awakon restores tabs (shell, cwd, title, order, focused tab) on relaunch but loses any splits inside those tabs — every tab comes back as a single pane regardless of how it was arranged. The README already promises split-layout restore; this design makes that promise true.
 
 After this change, when the user closes the app with, say, tab 2 split horizontally and the right pane split vertically below, the next launch reopens tab 2 with the same nested split shape and the same divider positions. Each pane runs a fresh shell (same caveat as tabs).
 
@@ -27,7 +27,7 @@ The split tree already lives in `SplitContainer` (renderer-side, one `SplitConta
 
 - **Renderer (`SplitContainer`)** is the single source of truth for the live tree. It gains `serialize()` and `restore()` methods.
 - **Main (`index.ts`)** receives split snapshots over IPC, stores them on `tabMeta`, and writes them to disk through the existing `persistTabs()` path. On bootstrap, main hands the saved tree back to the terminal renderer over IPC so `SplitContainer` can replay it.
-- **Contracts (`@aipad/contracts`)** define the on-disk schema (`PersistedSplitNode`) and the migration helper. The same Zod schema validates both disk reads and incoming IPC payloads.
+- **Contracts (`@awakon/contracts`)** define the on-disk schema (`PersistedSplitNode`) and the migration helper. The same Zod schema validates both disk reads and incoming IPC payloads.
 
 No new persistence subsystem is introduced — the change reuses `SessionStore`'s atomic write chain, the `.broken-<ts>` rescue path, and `bootstrapSessions`'s existing tab-replay loop.
 

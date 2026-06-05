@@ -1,15 +1,15 @@
-# Handoff: AI.Pad Redesign
+﻿# Handoff: Awakon Redesign
 
-Visual + interaction spec for the AI.Pad Electron app — a multi-session terminal built around AI coding agents (Claude Code, Codex CLI, etc.). This package replaces the current UI with a refined dark, mono-forward chrome and adds new UX for the multi-agent workflow.
+Visual + interaction spec for the Awakon Electron app — a multi-session terminal built around AI coding agents (Claude Code, Codex CLI, etc.). This package replaces the current UI with a refined dark, mono-forward chrome and adds new UX for the multi-agent workflow.
 
 ---
 
 ## What's in this folder
 
 ```
-design_handoff_aipad_redesign/
+design_handoff_awakon_redesign/
 ├── README.md                          ← this file (the spec)
-├── AI.Pad Redesign (standalone).html  ← ★ double-click to preview offline
+├── Awakon Redesign (standalone).html  ← ★ double-click to preview offline
 └── vanilla-ts/                        ← implementation reference (no React)
     ├── README.md                      ← how to use this folder
     ├── demo.html                      ← live preview (open in browser)
@@ -29,9 +29,9 @@ design_handoff_aipad_redesign/
     └── mocks.ts                       ← all sample data for the demo
 ```
 
-**Before reading code:** open `AI.Pad Redesign (standalone).html` — single self-contained file that works offline. All nine screens + the three icon directions in one scrolling page.
+**Before reading code:** open `Awakon Redesign (standalone).html` — single self-contained file that works offline. All nine screens + the three icon directions in one scrolling page.
 
-**For implementation:** read this README for the spec, then the `vanilla-ts/` folder. Everything in there is plain TypeScript + DOM, no React. The component shapes are recommendations — adapt them to whatever module patterns the AI.Pad codebase already uses.
+**For implementation:** read this README for the spec, then the `vanilla-ts/` folder. Everything in there is plain TypeScript + DOM, no React. The component shapes are recommendations — adapt them to whatever module patterns the Awakon codebase already uses.
 
 ## Fidelity
 
@@ -53,7 +53,7 @@ A few things in this design require Electron-specific wiring; everything else is
 
 1. **Custom titlebar.** Set `frame: false` (Win/Linux) or `titleBarStyle: 'hidden'` (macOS) on the `BrowserWindow`. Mark the titlebar container with `-webkit-app-region: drag` and the menu items + window-control buttons with `-webkit-app-region: no-drag`. On macOS, leave 80px of left-side padding for the traffic-light overlay (don't render your own controls there). On Windows/Linux, render the three controls shown in the design on the right.
 2. **Window controls.** Wire min / max / close to `window.minimize() / window.maximize()` (or `unmaximize` when already maximized) / `window.close()` over IPC. Use `BrowserWindow.on('maximize'|'unmaximize')` to swap the maximize-icon glyph.
-3. **Menu bar.** AI.Pad currently uses native menus. The custom titlebar inlines `File / Tabs / View / Window / Help` next to the app icon. Build these as a custom dropdown menu component or fall through to `electron.Menu.buildFromTemplate(...).popup()` triggered from each menu button.
+3. **Menu bar.** Awakon currently uses native menus. The custom titlebar inlines `File / Tabs / View / Window / Help` next to the app icon. Build these as a custom dropdown menu component or fall through to `electron.Menu.buildFromTemplate(...).popup()` triggered from each menu button.
 4. **Native notifications.** Replace the current bottom-right toast with the existing `new Notification(...)` path. We are not redesigning that surface in this round.
 5. **Persisted state.** Status colors, working directories, time-in-state all come from your existing session-tracking layer — the redesign is purely a render change.
 
@@ -111,7 +111,7 @@ There are eleven screens, plus three app-icon directions. Numbered in the order 
 **Layout (right pane):**
 - Width: 460px default, resizable via the left-edge gutter (drag handle, min 320, max 720), persisted per window.
 - Mini tab strip across top (36px): the last 5 files opened in this session, LRU-evicted. Active file's tab matches the main tab-bar styling.
-- Path bar (40px): full path in mono 11px (`~/AI.Pad/` muted, then bold path), modified-time on the right, two small actions: ↗ open in `$EDITOR`, ⎘ copy path.
+- Path bar (40px): full path in mono 11px (`~/Awakon/` muted, then bold path), modified-time on the right, two small actions: ↗ open in `$EDITOR`, ⎘ copy path.
 - Body: `var(--bg-0)` background, 20/22px padding. Renders markdown using `--font-sans` for prose and `--font-mono` for inline code (`var(--bg-3)` chip background) and code blocks (`var(--term-bg)` background, 1px `--border-1` border, 6px radius).
 - Footer (28px): keyboard hints (`esc` close, `Mod+[` prev file, `Mod+]` next file) on the left, file stats (LOC + size) on the right.
 
@@ -161,7 +161,7 @@ interface MarkdownPaneState {
 - First mount: focus the **Type** segmented control; arrow keys cycle through the three.
 - `Enter` triggers Start session (when at least working directory is set).
 - `Esc` cancels.
-- Draft state is **persisted to localStorage** on every change keyed by `aipad.newSession.draft.{cwd-hash}` — if the user accidentally closes the dialog they don't lose typed prompts. Cleared after a successful start.
+- Draft state is **persisted to localStorage** on every change keyed by `awakon.newSession.draft.{cwd-hash}` — if the user accidentally closes the dialog they don't lose typed prompts. Cleared after a successful start.
 
 **On submit (`onStart` callback):**
 ```ts
@@ -229,7 +229,7 @@ Close pane      ⌘W          (red, danger style; disabled when not in split)
 - "Paste" should use `navigator.clipboard.readText()` (requires user gesture which the right-click provides). Disable the item when the clipboard is empty — but check this asynchronously and rebuild the menu when the API resolves, since clipboard access can be slow.
 
 ### 10. About dialog (new)
-**Purpose:** standard application identity panel — opened from `Help → About AI.Pad`. Shows app version + runtime versions (Electron / Chromium / Node / V8) so users can attach precise environment info when filing issues.
+**Purpose:** standard application identity panel — opened from `Help → About Awakon`. Shows app version + runtime versions (Electron / Chromium / Node / V8) so users can attach precise environment info when filing issues.
 
 **Layout.** 440px wide modal, centered with the same scrim. Standard `aip-modal` header (`ABOUT` crumb + close ×), then four stacked regions:
 
@@ -279,7 +279,7 @@ All sizes are in CSS pixels at 1× scale. The vanilla-ts files in `vanilla-ts/` 
 
 ### TitleBar — 32px tall
 - Background: `var(--bg-1)`, bottom: `1px solid var(--border-1)`.
-- Row layout (left → right): `[16px AppGlyph at 10/12px padding] [menu items, 12.5px Inter, 8px h-padding each, var(--text-2)] [flex spacer with centered title — "AI.Pad" 12px var(--text-2) weight 500, subtitle "— pwsh.exe" 12px var(--text-4) with 10px left margin] [WindowControls]`.
+- Row layout (left → right): `[16px AppGlyph at 10/12px padding] [menu items, 12.5px Inter, 8px h-padding each, var(--text-2)] [flex spacer with centered title — "Awakon" 12px var(--text-2) weight 500, subtitle "— pwsh.exe" 12px var(--text-4) with 10px left margin] [WindowControls]`.
 - WindowControls: three 46×32px hit zones, color `var(--text-2)`, SVG icons. On hover: background `var(--bg-3)`, close button hover background `oklch(0.55 0.18 25)`.
 
 ### TabBar — 36px tall
@@ -410,6 +410,6 @@ Three directions in the preview page under "App icon".
 
 - **Direction A** — refined evolution of the current icon (rounded square + status dots + cursor).
 - **Direction B** — the pad as a physical notepad surface; plays nicely with the "Pad" half of the name.
-- **Direction C** — stacked sessions; visualizes the product's core value prop (many agents at once). **Recommended** because it tells the AI.Pad story at a glance.
+- **Direction C** — stacked sessions; visualizes the product's core value prop (many agents at once). **Recommended** because it tells the Awakon story at a glance.
 
 For final implementation: export each as `.ico` (Windows), `.icns` (macOS), and a 1024×1024 PNG. Sources are in `vanilla-ts/icons.ts`.

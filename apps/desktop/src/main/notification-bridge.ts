@@ -1,8 +1,8 @@
-import { BrowserWindow, Notification } from 'electron';
-import type { SessionManager } from '@aipad/core';
-import { NotificationService } from '@aipad/core';
-import type { AttentionEvent, SessionId } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+﻿import { BrowserWindow, Notification } from 'electron';
+import type { SessionManager } from '@awakon/core';
+import { NotificationService } from '@awakon/core';
+import type { AttentionEvent, SessionId } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 import type { ViewManager } from './view-manager.js';
 
 export interface NotificationBridgeDeps {
@@ -40,7 +40,7 @@ export class NotificationBridge {
     const tabFocused = focused === this.deps.tabIdForSession(ev.sessionId);
     if (windowFocused && tabFocused) return;
     const info = this.deps.sessionManager.list().find((s) => s.id === ev.sessionId);
-    const title = clampTitle(`${info?.title ?? 'AI.Pad session'} needs you`);
+    const title = clampTitle(`${info?.title ?? 'Awakon session'} needs you`);
     this.service.notify({
       sessionId: ev.sessionId,
       title,

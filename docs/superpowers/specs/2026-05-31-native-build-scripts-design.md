@@ -1,11 +1,11 @@
-# Native Build Scripts Design
+﻿# Native Build Scripts Design
 
 **Date:** 2026-05-31
 **Status:** Approved
 
 ## Problem
 
-Contributors who want to build AI.Pad installers must manually run three pnpm commands in the correct order. There is no single entry point that handles the full flow (install → compile → package). The friction is highest for first-time contributors on any platform.
+Contributors who want to build Awakon installers must manually run three pnpm commands in the correct order. There is no single entry point that handles the full flow (install → compile → package). The friction is highest for first-time contributors on any platform.
 
 ## Goal
 
@@ -61,16 +61,16 @@ Both scripts run the same two-step compile:
 
 ```
 pnpm -r --filter './packages/*' build   # workspace library packages
-pnpm --filter @aipad/desktop build      # electron-vite compile
+pnpm --filter @awakon/desktop build      # electron-vite compile
 ```
 
 ### 4. Package (platform-specific)
 
 | Script | Command |
 |---|---|
-| `build.ps1` | `pnpm --filter @aipad/desktop dist:win` |
-| `build.sh` on macOS (`uname == Darwin`) | `pnpm --filter @aipad/desktop dist:mac` |
-| `build.sh` on Linux | `pnpm --filter @aipad/desktop dist:linux` |
+| `build.ps1` | `pnpm --filter @awakon/desktop dist:win` |
+| `build.sh` on macOS (`uname == Darwin`) | `pnpm --filter @awakon/desktop dist:mac` |
+| `build.sh` on Linux | `pnpm --filter @awakon/desktop dist:linux` |
 
 ### 5. Output message
 

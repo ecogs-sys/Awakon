@@ -1,4 +1,4 @@
-# Native Build Scripts Implementation Plan
+﻿# Native Build Scripts Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -62,16 +62,16 @@ echo "Building workspace packages..."
 pnpm -r --filter './packages/*' build
 
 echo "Compiling Electron app..."
-pnpm --filter @aipad/desktop build
+pnpm --filter @awakon/desktop build
 
 # --- package ---
 PLATFORM=$(uname)
 if [ "$PLATFORM" = "Darwin" ]; then
   echo "Packaging macOS installer..."
-  pnpm --filter @aipad/desktop dist:mac
+  pnpm --filter @awakon/desktop dist:mac
 else
   echo "Packaging Linux installer..."
-  pnpm --filter @aipad/desktop dist:linux
+  pnpm --filter @awakon/desktop dist:linux
 fi
 
 # --- done ---
@@ -154,11 +154,11 @@ Write-Host "Building workspace packages..."
 pnpm -r --filter './packages/*' build
 
 Write-Host "Compiling Electron app..."
-pnpm --filter @aipad/desktop build
+pnpm --filter @awakon/desktop build
 
 # --- package ---
 Write-Host "Packaging Windows installer..."
-pnpm --filter @aipad/desktop dist:win
+pnpm --filter @awakon/desktop dist:win
 
 # --- done ---
 $version = node -p "JSON.parse(require('fs').readFileSync('apps/desktop/package.json','utf8')).version"

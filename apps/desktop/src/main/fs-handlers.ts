@@ -1,10 +1,10 @@
-import { stat } from 'node:fs/promises';
+﻿import { stat } from 'node:fs/promises';
 import type { BrowserWindow } from 'electron';
 import {
   FsPickDirectoryPayloadSchema,
   FsPathExistsPayloadSchema,
   IpcChannel,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 /** Subset of `ipcMain` we depend on — narrows the surface for tests. */
 export interface IpcLike {

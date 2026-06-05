@@ -1,4 +1,4 @@
-import { EventEmitter } from 'node:events';
+﻿import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import type {
   AttentionEvent,
@@ -7,7 +7,7 @@ import type {
   SessionId,
   SessionInfo,
   SessionKind,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 import { Session } from './session.js';
 import { ResumeScheduler } from './resume-scheduler.js';
 import { parseResetTime } from './reset-time-parser.js';

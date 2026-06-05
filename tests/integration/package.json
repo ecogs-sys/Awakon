@@ -1,5 +1,5 @@
 {
-  "name": "@aipad/integration",
+  "name": "@awakon/integration",
   "version": "0.3.0",
   "private": true,
   "license": "MIT",
@@ -9,8 +9,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aipad/contracts": "workspace:*",
-    "@aipad/core": "workspace:*"
+    "@awakon/contracts": "workspace:*",
+    "@awakon/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

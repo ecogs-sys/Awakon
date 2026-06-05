@@ -1,6 +1,6 @@
-import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
-import { Bindings } from '@aipad/keymap';
-import { IpcChannel } from '@aipad/contracts';
+﻿import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
+import { Bindings } from '@awakon/keymap';
+import { IpcChannel } from '@awakon/contracts';
 
 function send(action: string, chromeWindow: () => BrowserWindow | null): void {
   const win = chromeWindow();
@@ -66,7 +66,7 @@ function buildTemplates(
   ];
 
   const helpSubmenu: MenuItemConstructorOptions[] = [
-    { label: 'About AI.Pad…', click: () => send('openAbout', chromeWindow) },
+    { label: 'About Awakon…', click: () => send('openAbout', chromeWindow) },
   ];
 
   return {

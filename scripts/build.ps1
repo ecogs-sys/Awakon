@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
 # Anchor to repo root so relative paths work regardless of where the script is invoked from.
 Set-Location (Join-Path $PSScriptRoot '..')
@@ -41,11 +41,11 @@ Write-Host "Building workspace packages..."
 Invoke-Native pnpm -r --filter './packages/*' build
 
 Write-Host "Compiling Electron app..."
-Invoke-Native pnpm --filter @aipad/desktop build
+Invoke-Native pnpm --filter @awakon/desktop build
 
 # --- package ---
 Write-Host "Packaging Windows installer..."
-Invoke-Native pnpm --filter @aipad/desktop dist:win
+Invoke-Native pnpm --filter @awakon/desktop dist:win
 
 # --- done ---
 $version = (Get-Content (Join-Path $PSScriptRoot '..\apps\desktop\package.json') | ConvertFrom-Json).version

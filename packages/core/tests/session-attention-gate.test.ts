@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+﻿import { afterEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
 import { Session } from '../src/session.js';
-import type { AttentionEvent, Shell } from '@aipad/contracts';
+import type { AttentionEvent, Shell } from '@awakon/contracts';
 
 function defaultShell(): Shell {
   if (platform() === 'win32') return 'pwsh';

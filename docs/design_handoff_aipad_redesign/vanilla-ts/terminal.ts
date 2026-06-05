@@ -1,8 +1,8 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Terminal pane + line renderers
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — Terminal pane + line renderers
 //
 // In production, this surface is xterm.js (or similar). The renderers here
-// model what AI.Pad needs to layer ON TOP of the raw terminal output:
+// model what Awakon needs to layer ON TOP of the raw terminal output:
 //   • detect markdown links and replace them with clickable spans
 //   • detect AI-agent blocks and wrap them with the magenta left border
 //   • detect tool-call prefixes and color them

@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
+﻿import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { AppSettingsSchema, DEFAULT_APP_SETTINGS, type AppSettings } from '@aipad/contracts';
+import { AppSettingsSchema, DEFAULT_APP_SETTINGS, type AppSettings } from '@awakon/contracts';
 
 const FILE_NAME = 'settings.json';
 

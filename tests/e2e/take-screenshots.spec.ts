@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Screenshot capture script — run once, not part of CI.
  *
  * From repo root:
- *   pnpm --filter @aipad/e2e exec playwright test take-screenshots
+ *   pnpm --filter @awakon/e2e exec playwright test take-screenshots
  */
 import { _electron as electron, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const IMAGES = resolve(__dirname, '../../docs/images');
 
 function launchArgs(): string[] {
-  const userData = mkdtempSync(join(tmpdir(), 'aipad-ss-'));
+  const userData = mkdtempSync(join(tmpdir(), 'awakon-ss-'));
   return [resolve(__dirname, '../../apps/desktop'), `--user-data-dir=${userData}`];
 }
 
@@ -276,8 +276,8 @@ test('screenshot: main — single session', async () => {
   const cmd = process.platform === 'win32' ? 'Get-Date\r' : 'date\r';
   await chrome.evaluate(
     async ({ id, cmd }: { id: string; cmd: string }) => {
-      const aipad = (window as unknown as { aipad: { send(c: string, p: unknown): Promise<unknown> } }).aipad;
-      await aipad.send('core.session.write', { sessionId: id, data: btoa(unescape(encodeURIComponent(cmd))) });
+      const awakon = (window as unknown as { awakon: { send(c: string, p: unknown): Promise<unknown> } }).awakon;
+      await awakon.send('core.session.write', { sessionId: id, data: btoa(unescape(encodeURIComponent(cmd))) });
     },
     { id: tabId!, cmd },
   );
@@ -321,8 +321,8 @@ test('screenshot: multi-tab — badges and sidebar', async () => {
   for (const id of [secondTabId!, thirdTabId!]) {
     await chrome.evaluate(
       async ({ id, cmd }: { id: string; cmd: string }) => {
-        const aipad = (window as unknown as { aipad: { send(c: string, p: unknown): Promise<unknown> } }).aipad;
-        await aipad.send('core.session.write', { sessionId: id, data: btoa(unescape(encodeURIComponent(cmd))) });
+        const awakon = (window as unknown as { awakon: { send(c: string, p: unknown): Promise<unknown> } }).awakon;
+        await awakon.send('core.session.write', { sessionId: id, data: btoa(unescape(encodeURIComponent(cmd))) });
       },
       { id, cmd: bellCmd },
     );
@@ -373,7 +373,7 @@ test('screenshot: settings — auto-resume dialog', async () => {
   await chrome.waitForTimeout(1_500);
 
   await chrome.evaluate(() => {
-    (window as unknown as { __aipadLayout: { openSettings(): void } }).__aipadLayout.openSettings();
+    (window as unknown as { __awakonLayout: { openSettings(): void } }).__awakonLayout.openSettings();
   });
   await expect(chrome.locator('#set-response')).toBeVisible({ timeout: 5_000 });
   await chrome.waitForTimeout(400);

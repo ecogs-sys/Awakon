@@ -1,5 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — sample data (mocks)
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — sample data (mocks)
 //
 // All fixture data used by demo.html lives here. Real production code
 // will populate these shapes from your session store / PTY stream / etc.
@@ -17,7 +17,7 @@ import type { MdFile } from './panels.ts';
 // One-session state (Main screen)
 export const SESSIONS_SOLO: Session[] = [
   { id: 'a', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'running', time: '3s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'running', time: '3s' },
 ];
 
 // Multi-session state (Multi / Split / Settings / Palette / Markdown / NewSession)
@@ -25,13 +25,13 @@ export const SESSIONS_SOLO: Session[] = [
 // always show non-zero counts.
 export const SESSIONS_MULTI: Session[] = [
   { id: 'a', kind: 'PS', name: 'claude · refactor',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'awaiting', time: '1m 14s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'awaiting', time: '1m 14s' },
   { id: 'b', kind: 'PS', name: 'codex · tests',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'limited',  time: '47m' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'limited',  time: '47m' },
   { id: 'c', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'running',  time: '10s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'running',  time: '10s' },
   { id: 'd', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'idle',     time: '4m' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'idle',     time: '4m' },
 ];
 
 // ─── Tab bar ─────────────────────────────────────────────────────────
@@ -48,14 +48,14 @@ export const TABS_MULTI: TabSpec[] = [
 
 // ─── Empty state · recents ──────────────────────────────────────────
 export const RECENT_PROJECTS: RecentProject[] = [
-  { name: 'AI.Pad · refactor', cwd: '~/Work/ecogs/projects/AI.Pad', when: '14m ago' },
+  { name: 'Awakon · refactor', cwd: '~/Work/ecogs/projects/Awakon', when: '14m ago' },
   { name: 'web-app · billing', cwd: '~/Work/web-app',               when: 'yesterday' },
   { name: 'cli-tools',         cwd: '~/personal/cli-tools',         when: '3 days ago' },
 ];
 
 // ─── New session dialog · recent CWDs ────────────────────────────────
 export const NEW_SESSION_RECENT_DIRS: string[] = [
-  '~/Work/ecogs/projects/AI.Pad',
+  '~/Work/ecogs/projects/Awakon',
   '~/Work/web-app',
   '~/personal/cli-tools',
 ];
@@ -73,7 +73,7 @@ export const MD_FILES: MdFile[] = [
 // every Line variant (prompt, ai, tool, ai-link, cursor, blank, …).
 
 export const TERM_DEFAULT: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'Get-ChildItem packages', tail: '| Select-Object Name' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'Get-ChildItem packages', tail: '| Select-Object Name' },
   { kind: 'blank' },
   { kind: 'green', text: 'Name' },
   { kind: 'dim',   text: '----' },
@@ -82,7 +82,7 @@ export const TERM_DEFAULT: Line[] = [
   { kind: 'out',   text: 'keymap' },
   { kind: 'out',   text: 'terminal-host' },
   { kind: 'blank' },
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'claude', tail: '--continue' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'claude', tail: '--continue' },
   { kind: 'blank' },
   { kind: 'ai', text: '▎ Welcome back. Resuming session #4128.' },
   { kind: 'ai', text: '▎' },
@@ -101,7 +101,7 @@ export const TERM_DEFAULT: Line[] = [
 ];
 
 export const TERM_AWAITING: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'codex' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'codex' },
   { kind: 'blank' },
   { kind: 'ai', text: '▎ codex-cli v0.4.2' },
   { kind: 'blank' },
@@ -127,13 +127,13 @@ export const TERM_LIMITED: Line[] = [
   { kind: 'red', text: "⚠ You've hit your usage limit." },
   { kind: 'dim', text: '  Quota resets in 47 minutes.' },
   { kind: 'blank' },
-  { kind: 'dim', text: '  AI.Pad will auto-resume when quota refreshes.' },
+  { kind: 'dim', text: '  Awakon will auto-resume when quota refreshes.' },
   { kind: 'dim', text: '  Press [c] to continue manually  ·  [q] to quit' },
   { kind: 'cursor' },
 ];
 
 export const TERM_WITH_MD_LINKS: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'claude', tail: 'plan' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'claude', tail: 'plan' },
   { kind: 'blank' },
   { kind: 'ai', text: "▎ I've drafted the migration plan and the API change spec." },
   { kind: 'ai', text: '▎ Please review:' },

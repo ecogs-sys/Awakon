@@ -1,5 +1,5 @@
 {
-  "name": "@aipad/core",
+  "name": "@awakon/core",
   "version": "0.3.0",
   "private": true,
   "license": "MIT",
@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aipad/contracts": "workspace:*",
+    "@awakon/contracts": "workspace:*",
     "luxon": "^3.5.0",
     "node-pty": "^1.0.0",
     "zod": "^3.23.0"
