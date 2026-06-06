@@ -153,4 +153,19 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(result?.autoResume.detectText).toBe('limit reached');
     expect(result?.defaultCwd).toBe('/existing');
   });
+
+  it('Save preserves recentTabs from current — does not wipe the list', async () => {
+    const mount = mountEl();
+    const tab = { title: 'proj', cwd: '/tmp', shell: 'bash' as const, closedAt: 1 };
+    const current: AppSettings = {
+      autoResume: { enabled: false, detectText: '', responseText: '' },
+      defaultCwd: '',
+      recentTabs: [tab],
+    };
+    const p = showSettingsDialog(mount, current);
+
+    mount.querySelector<HTMLButtonElement>('#set-save')!.click();
+    const result = await p;
+    expect(result?.recentTabs).toEqual([tab]);
+  });
 });
