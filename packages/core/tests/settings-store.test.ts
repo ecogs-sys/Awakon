@@ -23,7 +23,11 @@ describe('SettingsStore', () => {
 
   it('round-trips a saved value', async () => {
     const dir = tempDir();
-    const next = { autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go' }, defaultCwd: '' };
+    const next = {
+      autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go' },
+      defaultCwd: '',
+      recentTabs: [],
+    };
     await new SettingsStore(dir).save(next);
     expect(await new SettingsStore(dir).load()).toEqual(next);
   });

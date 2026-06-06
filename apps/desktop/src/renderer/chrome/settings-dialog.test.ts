@@ -24,6 +24,7 @@ function freshBridge(): FakeBridge {
 const BASE: AppSettings = {
   autoResume: { enabled: true, detectText: "You've hit your limit", responseText: 'continue' },
   defaultCwd: '',
+  recentTabs: [],
 };
 
 beforeEach(() => {
@@ -142,6 +143,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     const current: AppSettings = {
       autoResume: { enabled: false, detectText: 'limit reached', responseText: 'go' },
       defaultCwd: '/existing',
+      recentTabs: [],
     };
     const p = showSettingsDialog(mount, current);
 
@@ -150,5 +152,20 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(result?.autoResume.enabled).toBe(false);
     expect(result?.autoResume.detectText).toBe('limit reached');
     expect(result?.defaultCwd).toBe('/existing');
+  });
+
+  it('Save preserves recentTabs from current — does not wipe the list', async () => {
+    const mount = mountEl();
+    const tab = { title: 'proj', cwd: '/tmp', shell: 'bash' as const, closedAt: 1 };
+    const current: AppSettings = {
+      autoResume: { enabled: false, detectText: '', responseText: '' },
+      defaultCwd: '',
+      recentTabs: [tab],
+    };
+    const p = showSettingsDialog(mount, current);
+
+    mount.querySelector<HTMLButtonElement>('#set-save')!.click();
+    const result = await p;
+    expect(result?.recentTabs).toEqual([tab]);
   });
 });

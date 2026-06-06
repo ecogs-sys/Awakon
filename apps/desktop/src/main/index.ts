@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
-import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse } from '@awakon/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema } from '@awakon/contracts';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
@@ -28,7 +28,7 @@ const settingsStore = new SettingsStore(app.getPath('userData'));
 settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
-let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' }, defaultCwd: '' };
+let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' }, defaultCwd: '', recentTabs: [] };
 const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
@@ -212,6 +212,21 @@ ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: str
   return { ok: true };
 });
 
+// IPC: chrome renderer reads the recent tabs list.
+ipcMain.handle(IpcChannel.RecentList, (): RecentTab[] => appSettings.recentTabs ?? []);
+
+// IPC: chrome renderer adds a closed tab to the recent list.
+// Deduplicates by cwd (same directory = same project) and caps at 10.
+ipcMain.handle(IpcChannel.RecentAdd, (_e, raw): RecentTab[] => {
+  const parsed = RecentAddPayloadSchema.safeParse(raw);
+  if (!parsed.success) return appSettings.recentTabs ?? [];
+  const { entry } = parsed.data;
+  const existing = (appSettings.recentTabs ?? []).filter((r: RecentTab) => r.cwd !== entry.cwd);
+  appSettings = { ...appSettings, recentTabs: [entry, ...existing].slice(0, 10) };
+  void settingsStore.save(appSettings);
+  return appSettings.recentTabs;
+});
+
 // IPC: chrome renderer cancels a pending resume (badge cancel control).
 ipcMain.handle(IpcChannel.ResumeCancel, (_e, raw): { ok: true } | { error: string } => {
   const parsed = ResumeCancelPayloadSchema.safeParse(raw);
@@ -383,16 +398,21 @@ async function createChromeWindow(): Promise<void> {
     () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
   ));
 
+  // Load persisted settings BEFORE the renderer loads. The chrome renderer's start()
+  // fires SettingsGet/RecentList the instant its page loads; if we loaded settings after
+  // loadURL, the async file read would yield the event loop and those IPC calls would be
+  // answered with the empty in-memory default (defaultCwd: '', recentTabs: []) — which
+  // never self-corrects (SettingsChanged only fires on user update). Loading here
+  // guarantees appSettings is populated before the renderer can query it.
+  appSettings = await settingsStore.load();
+  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
+
   await (() => {
     const entry = rendererEntry('chrome');
     if (entry.url) return chromeWindow!.webContents.loadURL(entry.url);
     return chromeWindow!.webContents.loadFile(entry.file!);
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
-
-  // Load persisted settings and apply them before any session is created.
-  appSettings = await settingsStore.load();
-  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
 
   // Create the initial session so the app boots with something visible.
   const restoredFocus = await bootstrapSessions({

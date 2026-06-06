@@ -7,6 +7,7 @@ import {
   ShellSchema,
 } from './session.js';
 import { PersistedSplitNodeSchema } from './persistence.js';
+import { RecentTabSchema } from './recent.js';
 
 /**
  * IPC channel names. Renderer -> Main are "core.*"; Main -> Renderer events are "event.*".
@@ -40,6 +41,8 @@ export const IpcChannel = {
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
   ChromeOpenExternal: 'core.chrome.open-external',
+  RecentList: 'core.recent.list',
+  RecentAdd:  'core.recent.add',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -186,6 +189,13 @@ export const SessionCreateForPanePayloadSchema = z.object({
    * when the tab closes, without affecting panes in other tabs. */
   tabId: SessionIdSchema,
 });
+
+export const RecentAddPayloadSchema = z.object({
+  entry: RecentTabSchema,
+});
+
+export const RecentListResponseSchema = z.array(RecentTabSchema);
+export type RecentListResponse = z.infer<typeof RecentListResponseSchema>;
 
 // --- Event payloads ---
 
