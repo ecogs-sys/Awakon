@@ -1,4 +1,4 @@
-﻿import type { SessionId, SessionInfo } from '@awakon/contracts';
+﻿import type { SessionId, SessionInfo, RecentTab } from '@awakon/contracts';
 
 export interface SessionState {
   info: SessionInfo;
@@ -16,6 +16,7 @@ export interface ChromeState {
   tabOrder: SessionId[];
   focusedId: SessionId | null;
   sidebarOpen: boolean;
+  recentTabs: RecentTab[];
 }
 
 export function emptyState(): ChromeState {
@@ -24,5 +25,6 @@ export function emptyState(): ChromeState {
     tabOrder: [],
     focusedId: null,
     sidebarOpen: true,
+    recentTabs: [],
   };
 }

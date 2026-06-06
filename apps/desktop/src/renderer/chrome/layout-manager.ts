@@ -1,4 +1,4 @@
-﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse } from '@awakon/contracts';
+﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
@@ -7,12 +7,14 @@ import { emptyState, type ChromeState, type SessionState } from './state.js';
 import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js';
 import { showSettingsDialog } from './settings-dialog.js';
 import { showAboutDialog } from './about-dialog.js';
+import { EmptyStateView } from './empty-state.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
   tabStrip: TabStrip;
   sidebar: Sidebar;
   bodyEl: HTMLElement;
+  emptyStateHostEl: HTMLElement;
 }
 
 export class LayoutManager {
@@ -27,12 +29,16 @@ export class LayoutManager {
   /** User-configured default working directory (settings.defaultCwd). Cached here so
    *  platformDefaultCwd() can remain synchronous. Kept live by the SettingsChanged subscription. */
   private defaultCwdSetting = '';
+  private readonly emptyStateHostEl: HTMLElement;
+  private readonly emptyStateView: EmptyStateView;
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
     this.tabStrip = deps.tabStrip;
     this.sidebar = deps.sidebar;
     this.bodyEl = deps.bodyEl;
+    this.emptyStateHostEl = deps.emptyStateHostEl;
+    this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl);
   }
 
   async start(): Promise<void> {
@@ -116,20 +122,15 @@ export class LayoutManager {
       this.defaultCwdSetting = s.defaultCwd ?? '';
     });
 
-    // Fetch the real home directory so the New Session dialog never defaults to a
-    // literal '~' (which node-pty cannot spawn into on Windows).
-    try {
-      this.homeCwd = (await this.bridge.send(IpcChannel.LayoutDefaultCwd)) as string;
-    } catch {
-      /* keep the '~' fallback */
-    }
-
-    try {
-      const settings = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
-      this.defaultCwdSetting = settings.defaultCwd ?? '';
-    } catch {
-      /* keep '' fallback */
-    }
+    // Fetch the real home directory, settings, and recent tabs in parallel.
+    const [homeCwdResult, settingsResult, recentsResult] = await Promise.allSettled([
+      this.bridge.send(IpcChannel.LayoutDefaultCwd) as Promise<string>,
+      this.bridge.send(IpcChannel.SettingsGet) as Promise<AppSettings>,
+      this.bridge.send(IpcChannel.RecentList) as Promise<RecentTab[]>,
+    ]);
+    if (homeCwdResult.status === 'fulfilled') this.homeCwd = homeCwdResult.value;
+    if (settingsResult.status === 'fulfilled') this.defaultCwdSetting = settingsResult.value.defaultCwd ?? '';
+    if (recentsResult.status === 'fulfilled') this.state.recentTabs = recentsResult.value;
 
     // Pull initial session list (main may have already spawned the boot session).
     const list = (await this.bridge.send(IpcChannel.SessionList)) as SessionInfo[];
@@ -215,6 +216,16 @@ export class LayoutManager {
     }
   }
 
+  private async openRecentTab(recent: RecentTab): Promise<void> {
+    const info = (await this.bridge.send(IpcChannel.SessionCreate, {
+      shell: recent.shell,
+      cwd:   recent.cwd,
+      cols:  80,
+      rows:  24,
+    })) as SessionInfo | { error: string };
+    if ('error' in info) console.error('[chrome] open recent failed:', info.error);
+  }
+
   private platformDefaultShell(): Shell {
     const ua = navigator.userAgent;
     if (ua.includes('Windows')) return 'pwsh';
@@ -234,6 +245,19 @@ export class LayoutManager {
   }
 
   async closeTab(sessionId: SessionId): Promise<void> {
+    const session = this.state.sessions.get(sessionId);
+    if (session) {
+      const entry: RecentTab = {
+        title:    session.info.title || session.info.shell,
+        cwd:      session.info.cwd,
+        shell:    session.info.shell,
+        closedAt: Date.now(),
+      };
+      try {
+        const updated = (await this.bridge.send(IpcChannel.RecentAdd, { entry })) as RecentTab[];
+        this.state.recentTabs = updated;
+      } catch (e) { console.warn('[chrome] RecentAdd failed:', e); }
+    }
     await this.bridge.send(IpcChannel.SessionClose, { sessionId });
     // Local cleanup happens lazily on the SessionExited event. Optimistically remove tab
     // ordering so the UI feels responsive.
@@ -241,7 +265,7 @@ export class LayoutManager {
     this.state.tabOrder = this.state.tabOrder.filter((id) => id !== sessionId);
     if (this.state.focusedId === sessionId) {
       this.state.focusedId = this.state.tabOrder[this.state.tabOrder.length - 1] ?? null;
-      if (this.state.focusedId) this.bridge.send(IpcChannel.LayoutShow, { sessionId: this.state.focusedId });
+      if (this.state.focusedId) void this.bridge.send(IpcChannel.LayoutShow, { sessionId: this.state.focusedId });
     }
     this.render();
   }
@@ -386,5 +410,14 @@ export class LayoutManager {
 
     const countEl = document.getElementById('sidebar-count');
     if (countEl) countEl.textContent = `${rows.length} active`;
+
+    const isEmpty = this.state.tabOrder.length === 0;
+    this.emptyStateHostEl.hidden = !isEmpty;
+    if (isEmpty) {
+      this.emptyStateView.render(this.state.recentTabs, {
+        onNew:        () => void this.openNewTabDialog(),
+        onPickRecent: (r) => void this.openRecentTab(r),
+      });
+    }
   }
 }

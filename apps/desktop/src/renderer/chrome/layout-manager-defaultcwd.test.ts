@@ -17,6 +17,7 @@ import { showNewSessionDialog } from './new-session-dialog.js';
 import { IpcChannel } from '@awakon/contracts';
 import type { TabStrip } from './tab-strip.js';
 import type { Sidebar } from './sidebar.js';
+import type { PreloadBridge } from '@awakon/terminal-host';
 
 type BridgeMock = {
   send: ReturnType<typeof vi.fn>;
@@ -34,6 +35,7 @@ function makeBridge(defaultCwd = ''): BridgeMock {
         defaultCwd,
       });
       if (channel === IpcChannel.SessionList) return Promise.resolve([]);
+      if (channel === IpcChannel.RecentList) return Promise.resolve([]);
       return Promise.resolve(undefined);
     }),
     on: vi.fn().mockImplementation((channel: string, handler: (raw: unknown) => void) => {
@@ -49,8 +51,11 @@ function makeLayout(bridge: BridgeMock) {
   const bodyEl = document.createElement('div');
   const mount = document.createElement('div');
   mount.id = 'dialog-mount';
+  const emptyStateHostEl = document.createElement('div');
+  emptyStateHostEl.id = 'empty-state-host';
   document.body.appendChild(mount);
-  return new LayoutManager({ bridge: bridge as never, tabStrip, sidebar, bodyEl });
+  document.body.appendChild(emptyStateHostEl);
+  return new LayoutManager({ bridge: bridge as unknown as PreloadBridge, tabStrip, sidebar, bodyEl, emptyStateHostEl });
 }
 
 beforeEach(() => {
