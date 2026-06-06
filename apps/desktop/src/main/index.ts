@@ -398,16 +398,21 @@ async function createChromeWindow(): Promise<void> {
     () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
   ));
 
+  // Load persisted settings BEFORE the renderer loads. The chrome renderer's start()
+  // fires SettingsGet/RecentList the instant its page loads; if we loaded settings after
+  // loadURL, the async file read would yield the event loop and those IPC calls would be
+  // answered with the empty in-memory default (defaultCwd: '', recentTabs: []) — which
+  // never self-corrects (SettingsChanged only fires on user update). Loading here
+  // guarantees appSettings is populated before the renderer can query it.
+  appSettings = await settingsStore.load();
+  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
+
   await (() => {
     const entry = rendererEntry('chrome');
     if (entry.url) return chromeWindow!.webContents.loadURL(entry.url);
     return chromeWindow!.webContents.loadFile(entry.file!);
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
-
-  // Load persisted settings and apply them before any session is created.
-  appSettings = await settingsStore.load();
-  sessionManager.applyAutoResumeConfig(appSettings.autoResume);
 
   // Create the initial session so the app boots with something visible.
   const restoredFocus = await bootstrapSessions({
