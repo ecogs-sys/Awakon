@@ -190,6 +190,13 @@ export const SessionCreateForPanePayloadSchema = z.object({
   tabId: SessionIdSchema,
 });
 
+export const RecentAddPayloadSchema = z.object({
+  entry: RecentTabSchema,
+});
+
+export const RecentListResponseSchema = z.array(RecentTabSchema);
+export type RecentListResponse = z.infer<typeof RecentListResponseSchema>;
+
 // --- Event payloads ---
 
 export const SessionCreatedEventSchema = z.object({
@@ -244,10 +251,6 @@ export const ResumeCancelledEventSchema = z.object({
 
 export const ResumeFiredEventSchema = z.object({
   sessionId: SessionIdSchema,
-});
-
-export const RecentAddPayloadSchema = z.object({
-  entry: RecentTabSchema,
 });
 
 // Re-export for caller convenience.

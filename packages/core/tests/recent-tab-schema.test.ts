@@ -37,4 +37,13 @@ describe('AppSettingsSchema — recentTabs', () => {
   it('DEFAULT_APP_SETTINGS includes recentTabs as empty array', () => {
     expect(DEFAULT_APP_SETTINGS.recentTabs).toEqual([]);
   });
+
+  it('rejects a recentTabs list longer than 10 entries', () => {
+    const entry = { title: 'x', cwd: '/tmp', shell: 'bash', closedAt: 1 };
+    const input = {
+      autoResume: { enabled: false, detectText: '', responseText: '' },
+      recentTabs: Array.from({ length: 11 }, () => entry),
+    };
+    expect(AppSettingsSchema.safeParse(input).success).toBe(false);
+  });
 });
