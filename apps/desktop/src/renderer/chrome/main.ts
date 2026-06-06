@@ -1,14 +1,14 @@
-import './styles/tokens.css';
+﻿import './styles/tokens.css';
 import './styles/chrome.css';
-import type { PreloadBridge } from '@aipad/terminal-host';
+import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip } from './tab-strip.js';
 import { Sidebar } from './sidebar.js';
 import { TitleBar } from './titlebar.js';
 import { LayoutManager } from './layout-manager.js';
 import { wireKeyboard, routeMenuAction } from './keyboard.js';
-import { IpcChannel } from '@aipad/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
-const bridge = (window as unknown as { aipad: PreloadBridge }).aipad;
+const bridge = (window as unknown as { awakon: PreloadBridge }).awakon;
 
 const tabStripEl = document.getElementById('tab-strip')!;
 const sidebarListEl = document.getElementById('sidebar-list')!;
@@ -63,7 +63,7 @@ const manager = new LayoutManager({
 void manager.start();
 
 // Expose for keyboard handler (T14).
-(window as unknown as { __aipadLayout: LayoutManager }).__aipadLayout = manager;
+(window as unknown as { __awakonLayout: LayoutManager }).__awakonLayout = manager;
 
 bridge.on(IpcChannel.ActionInvoke, (raw) => {
   const { action } = raw as { action: string };

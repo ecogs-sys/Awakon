@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { showNewSessionDialog } from './new-session-dialog.js';
 
@@ -15,7 +15,7 @@ function mountEl(): HTMLElement {
 
 function freshBridge(): FakeBridge {
   const send = vi.fn();
-  (window as unknown as { aipad: FakeBridge }).aipad = { send };
+  (window as unknown as { awakon: FakeBridge }).awakon = { send };
   return { send };
 }
 
@@ -101,7 +101,7 @@ describe('showNewSessionDialog — working directory', () => {
 describe('showNewSessionDialog — Browse button', () => {
   it('dispatches FsPickDirectory with the current cwd and updates the field on success', async () => {
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ path: '/picked/dir' });
 
     void showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/start' });
@@ -118,7 +118,7 @@ describe('showNewSessionDialog — Browse button', () => {
 
   it('leaves the field unchanged when the user cancels', async () => {
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ cancelled: true });
 
     void showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/start' });
@@ -199,7 +199,7 @@ describe('showNewSessionDialog — submit', () => {
   it('resolves with { shell, cwd } when cwd is a real directory', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: true });
 
     const p = showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\Users\\me' });
@@ -213,7 +213,7 @@ describe('showNewSessionDialog — submit', () => {
   it('stays open and shows "directory not found" when cwd is missing', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });
@@ -231,7 +231,7 @@ describe('showNewSessionDialog — submit', () => {
   it('shows "not a directory" when cwd is a file', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\file.txt' });
@@ -244,7 +244,7 @@ describe('showNewSessionDialog — submit', () => {
   it('clears the error when the user starts editing', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });

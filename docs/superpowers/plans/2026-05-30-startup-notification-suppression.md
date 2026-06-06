@@ -1,4 +1,4 @@
-# Startup Notification Suppression Implementation Plan
+﻿# Startup Notification Suppression Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -41,7 +41,7 @@ Create `packages/core/tests/session-attention-gate.test.ts` with:
 import { afterEach, describe, expect, it } from 'vitest';
 import { homedir, platform } from 'node:os';
 import { Session } from '../src/session.js';
-import type { AttentionEvent, Shell } from '@aipad/contracts';
+import type { AttentionEvent, Shell } from '@awakon/contracts';
 
 function defaultShell(): Shell {
   if (platform() === 'win32') return 'pwsh';
@@ -73,7 +73,7 @@ describe('Session attention gate', () => {
 
 - [ ] **Step 1.2: Run the test to confirm it fails**
 
-Run: `pnpm --filter @aipad/core test session-attention-gate`
+Run: `pnpm --filter @awakon/core test session-attention-gate`
 Expected: FAIL — at least one `idle` event was collected, so the `toHaveLength(0)` assertion fails.
 
 (If the test happens to pass on a very slow machine where the shell hasn't printed its prompt within 2.5 s, increase the wait to 3500 ms. The test must fail before the fix to prove it pins the regression.)
@@ -166,12 +166,12 @@ write(data: Buffer | string): void {
 
 - [ ] **Step 2.4: Run the failing test from Task 1 to confirm it now passes**
 
-Run: `pnpm --filter @aipad/core test session-attention-gate`
+Run: `pnpm --filter @awakon/core test session-attention-gate`
 Expected: PASS — no `idle` events collected within 2.5 s.
 
 - [ ] **Step 2.5: Run the rest of the core test suite to confirm no regression**
 
-Run: `pnpm --filter @aipad/core test`
+Run: `pnpm --filter @awakon/core test`
 Expected: PASS — all existing core tests (including `attention-detector`, `session-rate-limit`, `notification-service`) pass.
 
 - [ ] **Step 2.6: Commit**
@@ -225,7 +225,7 @@ Append inside the existing `describe('Session attention gate', …)` block, afte
 
 - [ ] **Step 3.2: Run the test to confirm it passes**
 
-Run: `pnpm --filter @aipad/core test session-attention-gate`
+Run: `pnpm --filter @awakon/core test session-attention-gate`
 Expected: PASS — both tests green. The flag flipped on `write('\r')`, the new prompt + 1.5 s idle window then emits at least one `idle` event.
 
 ---
@@ -254,12 +254,12 @@ Append inside the existing `describe` block, after the second `it`:
 
 - [ ] **Step 4.2: Run the file**
 
-Run: `pnpm --filter @aipad/core test session-attention-gate`
+Run: `pnpm --filter @awakon/core test session-attention-gate`
 Expected: PASS — all three tests green.
 
 - [ ] **Step 4.3: Run the core suite one more time**
 
-Run: `pnpm --filter @aipad/core test`
+Run: `pnpm --filter @awakon/core test`
 Expected: PASS.
 
 - [ ] **Step 4.4: Commit**
@@ -281,7 +281,7 @@ session has been written to, and a suppressed idle leaves status as
 
 - [ ] **Step 5.1: Build and launch the desktop app**
 
-Run: `pnpm --filter @aipad/desktop dev`
+Run: `pnpm --filter @awakon/desktop dev`
 Expected: the app starts and restores the persisted layout (the tab with 4 split panes the user reported).
 
 - [ ] **Step 5.2: Wait through startup and confirm no OS notifications**

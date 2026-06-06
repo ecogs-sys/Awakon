@@ -1,4 +1,4 @@
-import { Bindings, type BindingId } from '@aipad/keymap';
+﻿import { Bindings, type BindingId } from '@awakon/keymap';
 import type { LayoutManager } from './layout-manager.js';
 
 interface ParsedAccelerator {

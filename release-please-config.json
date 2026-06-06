@@ -3,21 +3,21 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "aipad",
+      "package-name": "awakon",
       "bump-minor-pre-major": true,
       "draft": false,
       "prerelease": false
     },
     "apps/desktop": {
       "release-type": "node",
-      "package-name": "@aipad/desktop",
+      "package-name": "@awakon/desktop",
       "bump-minor-pre-major": true,
       "draft": false,
       "prerelease": false
     }
   },
   "plugins": [
-    { "type": "linked-versions", "groupName": "aipad", "components": ["aipad", "@aipad/desktop"] }
+    { "type": "linked-versions", "groupName": "awakon", "components": ["awakon", "@awakon/desktop"] }
   ],
   "changelog-sections": [
     { "type": "feat",     "section": "Features" },

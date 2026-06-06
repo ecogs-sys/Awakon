@@ -1,4 +1,4 @@
-export { RingBuffer } from './ring-buffer.js';
+﻿export { RingBuffer } from './ring-buffer.js';
 export { Session } from './session.js';
 export type { SessionEvents } from './session.js';
 export { SessionManager } from './session-manager.js';
@@ -13,7 +13,7 @@ export type {
   NotifyRequest,
   NotificationServiceOptions,
 } from './notification-service.js';
-export { IpcChannel } from '@aipad/contracts';
+export { IpcChannel } from '@awakon/contracts';
 export { SessionStore } from './session-store.js';
 export { SettingsStore } from './settings-store.js';
 export { RateLimitDetector } from './rate-limit-detector.js';

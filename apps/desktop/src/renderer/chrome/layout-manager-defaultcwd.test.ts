@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./new-session-dialog.js', () => ({
@@ -14,7 +14,7 @@ vi.mock('./about-dialog.js', () => ({
 
 import { LayoutManager } from './layout-manager.js';
 import { showNewSessionDialog } from './new-session-dialog.js';
-import { IpcChannel } from '@aipad/contracts';
+import { IpcChannel } from '@awakon/contracts';
 import type { TabStrip } from './tab-strip.js';
 import type { Sidebar } from './sidebar.js';
 

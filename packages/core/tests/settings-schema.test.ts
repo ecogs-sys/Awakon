@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { AppSettingsSchema, DEFAULT_APP_SETTINGS } from '@aipad/contracts';
+﻿import { describe, expect, it } from 'vitest';
+import { AppSettingsSchema, DEFAULT_APP_SETTINGS } from '@awakon/contracts';
 
 describe('AppSettingsSchema', () => {
   it('accepts the default settings', () => {

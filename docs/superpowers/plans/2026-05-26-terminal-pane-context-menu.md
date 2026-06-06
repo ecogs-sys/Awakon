@@ -1,4 +1,4 @@
-# Terminal-pane Context Menu Implementation Plan
+﻿# Terminal-pane Context Menu Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -16,7 +16,7 @@
 
 **New files** (all under `apps/desktop/src/renderer/terminal/` unless noted):
 
-- `dom.ts` — `h()` / `setChildren()` / `appendChildren()`. Ported verbatim from `docs/design_handoff_aipad_redesign/vanilla-ts/dom.ts`.
+- `dom.ts` — `h()` / `setChildren()` / `appendChildren()`. Ported verbatim from `docs/design_handoff_awakon_redesign/vanilla-ts/dom.ts`.
 - `platform.ts` — `MOD`, `detectPlatform()`, `kbd()`, `matchShortcut()`. Ported verbatim.
 - `context-menu.ts` — `showContextMenu()` + `buildTerminalContextMenu()`. Ported from design source with `onFind` / `onClear` and the Find / Clear items dropped.
 - `context-menu.test.ts` — vitest + jsdom tests for the menu component and the builder.
@@ -88,12 +88,12 @@ describe('dom.setChildren()', () => {
 
 - [ ] **Step 2: Run the test and confirm it fails**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: FAIL — `Cannot find module './dom.js'` (or `./dom`).
 
 - [ ] **Step 3: Create `dom.ts` by porting from the design source**
 
-Create `apps/desktop/src/renderer/terminal/dom.ts` with this content (verbatim port of `docs/design_handoff_aipad_redesign/vanilla-ts/dom.ts`, minus the SVG helper `s()` which we don't need):
+Create `apps/desktop/src/renderer/terminal/dom.ts` with this content (verbatim port of `docs/design_handoff_awakon_redesign/vanilla-ts/dom.ts`, minus the SVG helper `s()` which we don't need):
 
 ```ts
 // Tiny DOM helpers. Ported from the design handoff's vanilla-ts/dom.ts so
@@ -164,7 +164,7 @@ export function setChildren(parent: Node, children: Child[]): void {
 
 - [ ] **Step 4: Run the test and confirm it passes**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: PASS — 4 tests in the `dom.*` describes.
 
 - [ ] **Step 5: Commit**
@@ -237,12 +237,12 @@ describe('platform.matchShortcut()', () => {
 
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: FAIL — `Cannot find module './platform.js'`.
 
 - [ ] **Step 3: Create `platform.ts` by porting from the design source**
 
-Create `apps/desktop/src/renderer/terminal/platform.ts` with this content (verbatim port of `docs/design_handoff_aipad_redesign/vanilla-ts/platform.ts`):
+Create `apps/desktop/src/renderer/terminal/platform.ts` with this content (verbatim port of `docs/design_handoff_awakon_redesign/vanilla-ts/platform.ts`):
 
 ```ts
 // Cross-platform shortcut helpers. Ported from the design handoff's
@@ -310,7 +310,7 @@ export function matchShortcut(e: KeyboardEvent, combo: string): boolean {
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: PASS — all `platform.kbd()` and `platform.matchShortcut()` tests green, plus the existing `dom.*` tests still green.
 
 - [ ] **Step 5: Commit**
@@ -415,7 +415,7 @@ describe('buildTerminalContextMenu()', () => {
 
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: FAIL — `Cannot find module './context-menu.js'`.
 
 - [ ] **Step 3: Create `context-menu.ts` with just the builder (skeleton for `showContextMenu` added next task)**
@@ -423,9 +423,9 @@ Expected: FAIL — `Cannot find module './context-menu.js'`.
 Create `apps/desktop/src/renderer/terminal/context-menu.ts`:
 
 ```ts
-// AI.Pad terminal-pane context menu.
+// Awakon terminal-pane context menu.
 //
-// Ported from docs/design_handoff_aipad_redesign/vanilla-ts/context-menu.ts
+// Ported from docs/design_handoff_awakon_redesign/vanilla-ts/context-menu.ts
 // with Find and Clear items removed per the 2026-05-26 spec.
 
 export interface ContextMenuItem {
@@ -471,7 +471,7 @@ export function buildTerminalContextMenu(opts: TerminalMenuOptions): ContextMenu
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: PASS — all 7 `buildTerminalContextMenu` tests plus prior tests.
 
 - [ ] **Step 5: Commit**
@@ -639,7 +639,7 @@ describe('showContextMenu() — viewport flip', () => {
 
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: FAIL — `showContextMenu is not exported by './context-menu.js'`.
 
 - [ ] **Step 3: Implement `showContextMenu()` in `context-menu.ts`**
@@ -750,7 +750,7 @@ export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): H
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `pnpm --filter @aipad/desktop test -- context-menu.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- context-menu.test.ts`
 Expected: PASS — all `showContextMenu()` describes green plus the existing builder/helper tests.
 
 - [ ] **Step 5: Commit**
@@ -799,12 +799,12 @@ In `packages/terminal-host/src/terminal-host.ts`, after the `dispose()` method (
 
 - [ ] **Step 2: Typecheck the package**
 
-Run: `pnpm --filter @aipad/terminal-host typecheck`
+Run: `pnpm --filter @awakon/terminal-host typecheck`
 Expected: PASS — no type errors.
 
 - [ ] **Step 3: Rebuild the package so the desktop build sees the new exports**
 
-Run: `pnpm --filter @aipad/terminal-host build`
+Run: `pnpm --filter @awakon/terminal-host build`
 Expected: PASS — `dist/terminal-host.d.ts` regenerated with the new public methods.
 
 - [ ] **Step 4: Commit**
@@ -824,10 +824,10 @@ git commit -m "feat(terminal-host): expose hasSelection/getSelection/paste/selec
 
 - [ ] **Step 1: Create the CSS file**
 
-Create `apps/desktop/src/renderer/chrome/styles/context-menu.css` with this content (ported from `docs/design_handoff_aipad_redesign/vanilla-ts/components.css`, lines beginning at `.aip-ctx-menu`):
+Create `apps/desktop/src/renderer/chrome/styles/context-menu.css` with this content (ported from `docs/design_handoff_awakon_redesign/vanilla-ts/components.css`, lines beginning at `.aip-ctx-menu`):
 
 ```css
-/* AI.Pad context menu — ported from the design handoff's components.css.
+/* Awakon context menu — ported from the design handoff's components.css.
    Depends on the design tokens defined in ./tokens.css. */
 
 .aip-ctx-menu {
@@ -926,7 +926,7 @@ import '../chrome/styles/context-menu.css';
 
 - [ ] **Step 3: Verify the terminal renderer still builds**
 
-Run: `pnpm --filter @aipad/desktop typecheck`
+Run: `pnpm --filter @awakon/desktop typecheck`
 Expected: PASS — no type errors.
 
 - [ ] **Step 4: Commit**
@@ -952,9 +952,9 @@ Create `apps/desktop/src/renderer/terminal/split-container.test.ts`:
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Stub @aipad/terminal-host BEFORE importing SplitContainer so the test
+// Stub @awakon/terminal-host BEFORE importing SplitContainer so the test
 // doesn't pull in xterm.js (which doesn't run cleanly under jsdom).
-vi.mock('@aipad/terminal-host', () => {
+vi.mock('@awakon/terminal-host', () => {
   class StubTerminalHost {
     public selection = '';
     private _hasSel = false;
@@ -974,7 +974,7 @@ vi.mock('@aipad/terminal-host', () => {
 });
 
 import { SplitContainer } from './split-container.js';
-import type { SessionId, Shell } from '@aipad/contracts';
+import type { SessionId, Shell } from '@awakon/contracts';
 
 interface FakeBridge {
   send: ReturnType<typeof vi.fn>;
@@ -1032,7 +1032,7 @@ describe('SplitContainer pane context menu', () => {
 
 - [ ] **Step 2: Run the test and confirm it fails**
 
-Run: `pnpm --filter @aipad/desktop test -- split-container.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- split-container.test.ts`
 Expected: FAIL — no `.aip-ctx-menu` appears because the listener isn't wired yet.
 
 - [ ] **Step 3: Wire the `contextmenu` listener in `split-container.ts`**
@@ -1110,12 +1110,12 @@ Replace with:
 
 - [ ] **Step 4: Run the integration test and confirm it passes**
 
-Run: `pnpm --filter @aipad/desktop test -- split-container.test.ts`
+Run: `pnpm --filter @awakon/desktop test -- split-container.test.ts`
 Expected: PASS — all 3 cases green.
 
 - [ ] **Step 5: Run the full desktop test suite to make sure nothing regressed**
 
-Run: `pnpm --filter @aipad/desktop test`
+Run: `pnpm --filter @awakon/desktop test`
 Expected: PASS — every existing test still green; new tests for `context-menu.test.ts` and `split-container.test.ts` included.
 
 - [ ] **Step 6: Run the full typecheck**

@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 import { AttentionDetector } from '../src/attention-detector.js';
-import type { AttentionEvent } from '@aipad/contracts';
+import type { AttentionEvent } from '@awakon/contracts';
 
 function collect(d: AttentionDetector): AttentionEvent[] {
   const out: AttentionEvent[] = [];
@@ -35,7 +35,7 @@ describe('AttentionDetector', () => {
   it('emits osc for a complete OSC sequence and not bell for its terminator', () => {
     const d = new AttentionDetector();
     const events = collect(d);
-    d.process(Buffer.from('\x1b]1337;AIPadAttention=needs-input\x07'));
+    d.process(Buffer.from('\x1b]1337;awakonAttention=needs-input\x07'));
     expect(events).toHaveLength(1);
     expect(events[0]?.signal).toBe('osc');
     expect(events[0]?.snippet).toBe('needs-input');
@@ -44,7 +44,7 @@ describe('AttentionDetector', () => {
   it('handles OSC split across multiple chunks', () => {
     const d = new AttentionDetector();
     const events = collect(d);
-    d.process(Buffer.from('\x1b]1337;AIPad'));
+    d.process(Buffer.from('\x1b]1337;awakon'));
     d.process(Buffer.from('Attention=split-payload'));
     d.process(Buffer.from('\x07'));
     expect(events).toHaveLength(1);
@@ -56,7 +56,7 @@ describe('AttentionDetector', () => {
     const d = new AttentionDetector();
     const events = collect(d);
     // bell, then OSC (which ends with bell), then bell
-    d.process(Buffer.from('\x07\x1b]1337;AIPadAttention=mid\x07\x07'));
+    d.process(Buffer.from('\x07\x1b]1337;awakonAttention=mid\x07\x07'));
     expect(events.map((e) => e.signal)).toEqual(['bell', 'osc', 'bell']);
   });
 
@@ -73,7 +73,7 @@ describe('AttentionDetector', () => {
     const d = new AttentionDetector();
     const events = collect(d);
     const big = 'x'.repeat(2048);
-    d.process(Buffer.from(`\x1b]1337;AIPadAttention=${big}\x07`));
+    d.process(Buffer.from(`\x1b]1337;awakonAttention=${big}\x07`));
     expect(events).toHaveLength(1);
     expect(events[0]?.snippet?.length).toBeLessThanOrEqual(1024);
   });
@@ -98,7 +98,7 @@ describe('AttentionDetector', () => {
   it('processes chunks in order and preserves OSC state across many small writes', () => {
     const d = new AttentionDetector();
     const events = collect(d);
-    const seq = '\x1b]1337;AIPadAttention=hello\x07';
+    const seq = '\x1b]1337;awakonAttention=hello\x07';
     for (const byte of Buffer.from(seq)) {
       d.process(Buffer.from([byte]));
     }
@@ -112,7 +112,7 @@ describe('AttentionDetector', () => {
     const dB = new AttentionDetector();
     const eA = collect(dA);
     const eB = collect(dB);
-    dA.process(Buffer.from('\x1b]1337;AIPadAttention=incomplete'));
+    dA.process(Buffer.from('\x1b]1337;awakonAttention=incomplete'));
     dB.process(Buffer.from([0x07]));
     expect(eA).toHaveLength(0); // OSC not terminated
     expect(eB).toHaveLength(1); // plain BEL on independent detector

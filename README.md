@@ -1,17 +1,17 @@
-# AI.Pad
+﻿# Awakon
 
 **Run many terminal sessions in parallel — and never miss the moment one of them needs you.**
 
-AI.Pad is a cross-platform desktop terminal built for working with several AI coding
+Awakon is a cross-platform desktop terminal built for working with several AI coding
 agents (Claude Code, Codex CLI, and friends) at once. Every project gets its own tab,
 every tab runs a real shell, and the app watches all of them for you: when a background
-session prints a prompt, hits a rate limit, or rings the bell, AI.Pad badges the tab and
+session prints a prompt, hits a rate limit, or rings the bell, Awakon badges the tab and
 fires a native OS notification — so you can keep your eyes on one session while the
 others quietly wait their turn. It can even resume a rate-limited agent on its own.
 
 > ### ⚠️ Important — build it yourself, for now
-> AI.Pad is **not yet code-signed or notarised**, so there is no public, ready-to-run
-> download. **Anyone who wants to use AI.Pad must build it on their own machine** from
+> Awakon is **not yet code-signed or notarised**, so there is no public, ready-to-run
+> download. **Anyone who wants to use Awakon must build it on their own machine** from
 > this repository, following the instructions below. Signed installers for Windows,
 > macOS, and Linux will come once app signing is in place.
 
@@ -38,17 +38,33 @@ others quietly wait their turn. It can even resume a rate-limited agent on its o
 
 **Single session — full sidebar with live session status.**
 
-![AI.Pad main window with sidebar and PowerShell session](docs/images/main.png)
+![Awakon main window with sidebar and a PowerShell session](docs/images/main.png)
+
+**Pick your shell per tab — choose the shell and working directory for each new session.**
+
+![The New Session dialog showing a working directory and pwsh / cmd / git-bash shell choices](docs/images/new-session.png)
 
 **Multiple tabs — background tabs badge yellow when they need you; the sidebar counters update instantly.**
 
-![Three tabs with two awaiting-input badges and sidebar showing 2 AWAIT](docs/images/multi-tab.png)
+![Three tabs with two awaiting-input badges and the sidebar showing 2 AWAIT](docs/images/multi-tab.png)
 
-**Split panes — watch two sessions side by side in a single tab.**
+**Attention awareness at a glance — the live sidebar tracks every session's status and time-in-state.**
 
-![A tab split horizontally into two independent panes](docs/images/splits.png)
+![Sidebar close-up with one session each awaiting, rate-limited, running, and idle](docs/images/sidebar.png)
 
-**Settings — configure auto-resume detection phrase and response text.**
+**Rate-limit auto-resume — a limited tab shows its reset time and a pending auto-resume you can cancel.**
+
+![A rate-limited session with a 9:30 PM resume badge on the tab and a rate-limited pill in the sidebar](docs/images/auto-resume.png)
+
+**Split panes — watch two sessions side by side…**
+
+![A tab split into two side-by-side panes](docs/images/splits.png)
+
+**…or stacked, one above the other.**
+
+![A tab split into two stacked panes](docs/images/splits-vertical.png)
+
+**Settings — configure auto-resume detection phrase, response text, and a default working directory.**
 
 ![The Auto-resume settings panel](docs/images/settings.png)
 
@@ -64,12 +80,12 @@ Install these before building, on every platform:
 | [pnpm](https://pnpm.io/) | 9.x | Easiest via Corepack: `corepack enable` |
 | [Git](https://git-scm.com/) | any recent | to clone the repository |
 
-AI.Pad uses a native module (`node-pty`), so each OS also needs a working C/C++
+Awakon uses a native module (`node-pty`), so each OS also needs a working C/C++
 build toolchain:
 
 ### Windows
 
-- **PowerShell 7+** (`pwsh.exe`) on your `PATH` — this is AI.Pad's default shell.
+- **PowerShell 7+** (`pwsh.exe`) on your `PATH` — this is Awakon's default shell.
 - A **C++ build toolchain** for compiling the native PTY module. Either:
   - tick **"Tools for Native Modules"** when running the official Node.js installer, **or**
   - install **Visual Studio Build Tools** with the *Desktop development with C++* workload plus **Python 3** from the [Visual Studio Installer](https://visualstudio.microsoft.com/downloads/).
@@ -105,15 +121,15 @@ compiles the app, and produces a platform installer in
 
 **Windows (PowerShell):**
 ```powershell
-git clone https://github.com/ecogs-sys/AI.Pad.git
-cd AI.Pad
+git clone https://github.com/ecogs-sys/Awakon.git
+cd Awakon
 .\scripts\build.ps1
 ```
 
 **macOS / Linux:**
 ```bash
-git clone https://github.com/ecogs-sys/AI.Pad.git
-cd AI.Pad
+git clone https://github.com/ecogs-sys/Awakon.git
+cd Awakon
 bash scripts/build.sh
 ```
 
@@ -129,11 +145,11 @@ bash scripts/build.sh
 
 ### Run in development mode
 
-To open AI.Pad without building an installer (fastest way to try it):
+To open Awakon without building an installer (fastest way to try it):
 
 ```bash
-git clone https://github.com/ecogs-sys/AI.Pad.git
-cd AI.Pad
+git clone https://github.com/ecogs-sys/Awakon.git
+cd Awakon
 corepack enable
 pnpm install
 pnpm dev
@@ -160,19 +176,19 @@ pnpm build
 
 **3. Package an installer for your platform**
 
-*Windows* — produces `AI.Pad Setup x.y.z.exe`:
+*Windows* — produces `Awakon Setup x.y.z.exe`:
 ```powershell
-pnpm --filter @aipad/desktop dist:win
+pnpm --filter @awakon/desktop dist:win
 ```
 
-*macOS* — produces `AI.Pad-x.y.z.dmg`:
+*macOS* — produces `Awakon-x.y.z.dmg`:
 ```bash
-pnpm --filter @aipad/desktop dist:mac
+pnpm --filter @awakon/desktop dist:mac
 ```
 
-*Linux* — produces `AI.Pad-x.y.z.AppImage`:
+*Linux* — produces `Awakon-x.y.z.AppImage`:
 ```bash
-pnpm --filter @aipad/desktop dist:linux
+pnpm --filter @awakon/desktop dist:linux
 ```
 
 The packaged output lands in `apps/desktop/release/<version>/`.
@@ -190,7 +206,7 @@ The packaged output lands in `apps/desktop/release/<version>/`.
 | `pnpm test:e2e` | End-to-end tests against the packaged app (Playwright) |
 | `pnpm typecheck` | TypeScript across all packages |
 | `pnpm lint` | ESLint |
-| `pnpm --filter @aipad/desktop dist:win\|dist:mac\|dist:linux` | Package an installer for that OS |
+| `pnpm --filter @awakon/desktop dist:win\|dist:mac\|dist:linux` | Package an installer for that OS |
 
 ---
 
@@ -215,7 +231,7 @@ directory. On Windows the default is PowerShell 7 (`pwsh`), falling back to
 
 ### Attention awareness
 
-AI.Pad watches each session's output for signs that it needs you — a terminal bell
+Awakon watches each session's output for signs that it needs you — a terminal bell
 (`BEL`), or going idle shortly after printing a recognised prompt. When a **background**
 tab (one you're not currently looking at) raises a signal, its tab badges with a yellow
 dot and its entry in the sidebar is highlighted and switches to an `awaiting-input`
@@ -224,15 +240,15 @@ status. The badge clears automatically as soon as you type into that session.
 ### Native OS notifications
 
 When a session needs attention *and* the window is unfocused — or focused but on a
-different tab — AI.Pad fires a native desktop notification naming the session. Clicking
-the notification focuses the AI.Pad window and switches straight to that tab.
+different tab — Awakon fires a native desktop notification naming the session. Clicking
+the notification focuses the Awakon window and switches straight to that tab.
 Notifications are coalesced (at most one per session in a short window) so a chatty
 agent can't spam you.
 
 ### Rate-limit auto-resume
 
 AI coding agents often pause with a message like *"You've hit your limit — resets at
-9:30pm"*. AI.Pad scans session output for a configurable phrase, parses the reset time
+9:30pm"*. Awakon scans session output for a configurable phrase, parses the reset time
 (including an optional timezone), and — when that time arrives — automatically types a
 response (by default, `continue`) into the tab to pick the work back up. The check is
 done with a periodic sweep rather than a single long timer, so it stays reliable across
@@ -263,11 +279,11 @@ lives in your platform's userData directory:
 
 | OS | Path |
 |---|---|
-| Windows | `%APPDATA%\AI.Pad\sessions.json` |
-| macOS | `~/Library/Application Support/AI.Pad/sessions.json` |
-| Linux | `~/.config/AI.Pad/sessions.json` |
+| Windows | `%APPDATA%\Awakon\sessions.json` |
+| macOS | `~/Library/Application Support/Awakon/sessions.json` |
+| Linux | `~/.config/Awakon/sessions.json` |
 
-If that file is ever corrupted, AI.Pad backs it up and starts fresh — the app always
+If that file is ever corrupted, Awakon backs it up and starts fresh — the app always
 launches.
 
 ### Settings panel
@@ -295,7 +311,7 @@ On macOS, use `Cmd` in place of `Ctrl`.
 
 ### Cross-platform & crash isolation
 
-AI.Pad is built on Electron with one chrome renderer plus one isolated view per session.
+Awakon is built on Electron with one chrome renderer plus one isolated view per session.
 The same codebase runs on Windows, macOS, and Linux, and the per-session process model
 means a renderer crash in one tab is contained — the others (and their underlying
 shells) keep running.

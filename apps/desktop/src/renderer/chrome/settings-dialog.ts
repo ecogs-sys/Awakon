@@ -1,5 +1,5 @@
-import type { AppSettings } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+﻿import type { AppSettings } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
 interface Bridge {
   send: (channel: string, payload?: unknown) => Promise<unknown>;
@@ -35,7 +35,7 @@ export function showSettingsDialog(
         <input id="set-enabled" type="checkbox" hidden />
         <div>
           <div class="dlg-toggle-title">Auto-resume rate-limited tabs</div>
-          <div class="dlg-toggle-help">When an agent hits its quota and you've set a response below, AI.Pad will send that response automatically once the quota refreshes.</div>
+          <div class="dlg-toggle-help">When an agent hits its quota and you've set a response below, Awakon will send that response automatically once the quota refreshes.</div>
         </div>
       </section>
 
@@ -145,7 +145,7 @@ export function showSettingsDialog(
 
     root.querySelector<HTMLButtonElement>('#set-default-cwd-browse')!.addEventListener('click', () => {
       void (async () => {
-        const b = (window as unknown as { aipad: Bridge }).aipad;
+        const b = (window as unknown as { awakon: Bridge }).awakon;
         if (!b) return;
         try {
           const resp = await b.send(IpcChannel.FsPickDirectory, { startPath: cwdValue });

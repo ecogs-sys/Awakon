@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+﻿import { _electron as electron, expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 test('Settings panel saves the response text and it persists across restart', async () => {
   // A stable userData dir shared by both launches, so settings.json survives.
-  const userData = mkdtempSync(join(tmpdir(), 'aipad-e2e-settings-'));
+  const userData = mkdtempSync(join(tmpdir(), 'awakon-e2e-settings-'));
   const args = [resolve(__dirname, '../../apps/desktop'), `--user-data-dir=${userData}`];
   const env = { ...process.env, NODE_ENV: 'production' };
 
@@ -19,7 +19,7 @@ test('Settings panel saves the response text and it persists across restart', as
   await expect(chrome.locator('#tab-strip')).toBeVisible();
 
   await chrome.evaluate(() => {
-    (window as unknown as { __aipadLayout: { openSettings(): void } }).__aipadLayout.openSettings();
+    (window as unknown as { __awakonLayout: { openSettings(): void } }).__awakonLayout.openSettings();
   });
   await expect(chrome.locator('#set-response')).toBeVisible();
   await chrome.fill('#set-response', 'resume-now');
@@ -34,8 +34,8 @@ test('Settings panel saves the response text and it persists across restart', as
 
   const settings = await chrome.evaluate(async () => {
     return (window as unknown as {
-      aipad: { send: (c: string) => Promise<unknown> };
-    }).aipad.send('core.settings.get');
+      awakon: { send: (c: string) => Promise<unknown> };
+    }).awakon.send('core.settings.get');
   });
   expect((settings as { autoResume: { responseText: string } }).autoResume.responseText).toBe('resume-now');
 

@@ -1,5 +1,5 @@
-import type { PreloadBridge } from '@aipad/terminal-host';
-import { IpcChannel } from '@aipad/contracts';
+﻿import type { PreloadBridge } from '@awakon/terminal-host';
+import { IpcChannel } from '@awakon/contracts';
 
 const MENU_NAMES = ['File', 'Tabs', 'View', 'Window', 'Help'] as const;
 type MenuName = (typeof MENU_NAMES)[number];
@@ -62,7 +62,7 @@ export class TitleBar {
 
     const title = document.createElement('div');
     title.className = 'tb-title';
-    title.innerHTML = '<b>AI.Pad</b>';
+    title.innerHTML = '<b>Awakon</b>';
     this.root.appendChild(title);
 
     if (this.platform !== 'darwin') {

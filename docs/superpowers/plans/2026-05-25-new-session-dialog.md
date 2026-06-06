@@ -1,4 +1,4 @@
-# New Session Dialog V1 Implementation Plan
+﻿# New Session Dialog V1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -47,7 +47,7 @@ Create `packages/core/tests/shell-schema.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import { ShellSchema } from '@aipad/contracts';
+import { ShellSchema } from '@awakon/contracts';
 
 describe('ShellSchema', () => {
   it('accepts existing shells', () => {
@@ -71,7 +71,7 @@ describe('ShellSchema', () => {
 
 Run from repo root:
 ```
-pnpm --filter @aipad/core test shell-schema
+pnpm --filter @awakon/core test shell-schema
 ```
 
 Expected: FAIL on the `git-bash` case — `safeParse('git-bash').success` is `false` because `ShellSchema` doesn't list it.
@@ -87,8 +87,8 @@ export const ShellSchema = z.enum(['pwsh', 'powershell', 'cmd', 'bash', 'zsh', '
 - [ ] **Step 4: Rebuild contracts and re-run the test**
 
 ```
-pnpm --filter @aipad/contracts build
-pnpm --filter @aipad/core test shell-schema
+pnpm --filter @awakon/contracts build
+pnpm --filter @awakon/core test shell-schema
 ```
 
 Expected: PASS (3/3).
@@ -120,7 +120,7 @@ import {
   FsPickDirectoryResponseSchema,
   FsPathExistsPayloadSchema,
   FsPathExistsResponseSchema,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 describe('fs IPC channels', () => {
   it('exposes the new channel names', () => {
@@ -183,7 +183,7 @@ describe('FsPathExistsResponseSchema', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```
-pnpm --filter @aipad/core test fs-ipc-schema
+pnpm --filter @awakon/core test fs-ipc-schema
 ```
 
 Expected: FAIL — `FsPickDirectoryPayloadSchema` and friends do not exist yet.
@@ -228,8 +228,8 @@ export const FsPathExistsResponseSchema = z.object({
 - [ ] **Step 4: Rebuild and re-run the test**
 
 ```
-pnpm --filter @aipad/contracts build
-pnpm --filter @aipad/core test fs-ipc-schema
+pnpm --filter @awakon/contracts build
+pnpm --filter @awakon/core test fs-ipc-schema
 ```
 
 Expected: PASS (all blocks).
@@ -289,7 +289,7 @@ Note: `vi` is imported after `vi.mock` because vitest hoists `vi.mock` calls; th
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```
-pnpm --filter @aipad/core test shell-command
+pnpm --filter @awakon/core test shell-command
 ```
 
 Expected: FAIL — `'git-bash'` is not a key in the `shellCommand` switch, so TypeScript+zod accept the input but the runtime switch returns `undefined`, and spawn is called with `undefined`.
@@ -317,7 +317,7 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
 - [ ] **Step 4: Re-run the test**
 
 ```
-pnpm --filter @aipad/core test shell-command
+pnpm --filter @awakon/core test shell-command
 ```
 
 Expected: PASS (2/2).
@@ -361,7 +361,7 @@ In `devDependencies`, add (alphabetised) — preserve all existing entries:
     "vitest": "^2.1.0"
 ```
 
-(Versions match what `@aipad/core` already pins — same major minor so pnpm reuses the install.)
+(Versions match what `@awakon/core` already pins — same major minor so pnpm reuses the install.)
 
 - [ ] **Step 2: Create the vitest config**
 
@@ -409,7 +409,7 @@ describe('vitest smoke', () => {
 
 Run:
 ```
-pnpm --filter @aipad/desktop test
+pnpm --filter @awakon/desktop test
 ```
 
 Expected: 1 passing test.
@@ -572,7 +572,7 @@ describe('FsPickDirectory handler', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 ```
-pnpm --filter @aipad/desktop test fs-handlers
+pnpm --filter @awakon/desktop test fs-handlers
 ```
 
 Expected: FAIL — `./fs-handlers.js` doesn't exist.
@@ -588,7 +588,7 @@ import {
   FsPickDirectoryPayloadSchema,
   FsPathExistsPayloadSchema,
   IpcChannel,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 /** Subset of `ipcMain` we depend on — narrows the surface for tests. */
 export interface IpcLike {
@@ -645,7 +645,7 @@ export function registerFsHandlers(
 - [ ] **Step 4: Re-run the tests**
 
 ```
-pnpm --filter @aipad/desktop test fs-handlers
+pnpm --filter @awakon/desktop test fs-handlers
 ```
 
 Expected: PASS (10 tests).
@@ -678,7 +678,7 @@ import { registerFsHandlers } from './fs-handlers.js';
 - [ ] **Step 6: Verify typecheck**
 
 ```
-pnpm --filter @aipad/desktop typecheck
+pnpm --filter @awakon/desktop typecheck
 ```
 
 Expected: PASS, no new diagnostics.
@@ -705,7 +705,7 @@ At the end of `apps/desktop/src/renderer/chrome/styles/chrome.css` (after line 5
 
 /* ──────────────────────────────────────────────────────────────────────
    New Session dialog — aip-modal--newsession
-   Ported from docs/design_handoff_aipad_redesign/vanilla-ts/components.css
+   Ported from docs/design_handoff_awakon_redesign/vanilla-ts/components.css
    Coexists with .dialog/.dlg-* (used by Settings + Rename).
    ────────────────────────────────────────────────────────────────────── */
 
@@ -898,7 +898,7 @@ At the end of `apps/desktop/src/renderer/chrome/styles/chrome.css` (after line 5
 
 Run:
 ```
-pnpm --filter @aipad/desktop typecheck
+pnpm --filter @awakon/desktop typecheck
 ```
 
 Expected: PASS — CSS-only additions don't affect typechecking, but this confirms nothing else regressed.
@@ -944,7 +944,7 @@ function mountEl(): HTMLElement {
 
 function freshBridge(): FakeBridge {
   const send = vi.fn();
-  (window as unknown as { aipad: FakeBridge }).aipad = { send };
+  (window as unknown as { awakon: FakeBridge }).awakon = { send };
   return { send };
 }
 
@@ -980,7 +980,7 @@ describe('showNewSessionDialog — structure', () => {
 - [ ] **Step 2: Run the test — confirm it fails**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: FAIL — the existing dialog still uses `.dialog.dialog-new-session` and `#ns-open`.
@@ -990,8 +990,8 @@ Expected: FAIL — the existing dialog still uses `.dialog.dialog-new-session` a
 Replace the **entire** body of `apps/desktop/src/renderer/chrome/new-session-dialog.ts` with:
 
 ```ts
-import type { Shell } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+import type { Shell } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
 export interface NewSessionResult {
   shell: Shell;
@@ -1081,7 +1081,7 @@ export function showNewSessionDialog(
 - [ ] **Step 4: Re-run the test**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: PASS (1/1).
@@ -1154,7 +1154,7 @@ describe('showNewSessionDialog — working directory', () => {
 describe('showNewSessionDialog — Browse button', () => {
   it('dispatches FsPickDirectory with the current cwd and updates the field on success', async () => {
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ path: '/picked/dir' });
 
     void showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/start' });
@@ -1171,7 +1171,7 @@ describe('showNewSessionDialog — Browse button', () => {
 
   it('leaves the field unchanged when the user cancels', async () => {
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ cancelled: true });
 
     void showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/start' });
@@ -1187,7 +1187,7 @@ describe('showNewSessionDialog — Browse button', () => {
 - [ ] **Step 2: Run the tests — confirm they fail**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: FAIL (the working-directory body doesn't exist yet).
@@ -1197,7 +1197,7 @@ Expected: FAIL (the working-directory body doesn't exist yet).
 Edit `apps/desktop/src/renderer/chrome/new-session-dialog.ts`. Inside `showNewSessionDialog`, after `mount.appendChild(root);` and before `const cleanup = ...`, insert:
 
 ```ts
-    const bridge = (window as unknown as { aipad: Bridge }).aipad;
+    const bridge = (window as unknown as { awakon: Bridge }).awakon;
     const body = root.querySelector<HTMLDivElement>('.aip-modal__body')!;
 
     // ── Working directory section ───────────────────────────────────
@@ -1322,7 +1322,7 @@ Delete the `void state; void IpcChannel;` line — the references are now real u
 - [ ] **Step 4: Re-run the tests**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: PASS for the new working-directory tests; the earlier structure test continues to pass.
@@ -1410,7 +1410,7 @@ describe('showNewSessionDialog — shell radio row', () => {
 - [ ] **Step 2: Run the tests — confirm they fail**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: FAIL — no shell section is rendered yet.
@@ -1514,7 +1514,7 @@ In `new-session-dialog.ts`, after the working-directory section block (i.e. afte
 - [ ] **Step 4: Re-run the tests**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: PASS for all radio-row tests.
@@ -1537,7 +1537,7 @@ describe('showNewSessionDialog — submit', () => {
   it('resolves with { shell, cwd } when cwd is a real directory', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: true });
 
     const p = showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\Users\\me' });
@@ -1551,7 +1551,7 @@ describe('showNewSessionDialog — submit', () => {
   it('stays open and shows "directory not found" when cwd is missing', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });
@@ -1569,7 +1569,7 @@ describe('showNewSessionDialog — submit', () => {
   it('shows "not a directory" when cwd is a file', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: true, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\file.txt' });
@@ -1582,7 +1582,7 @@ describe('showNewSessionDialog — submit', () => {
   it('clears the error when the user starts editing', async () => {
     setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     bridge.send.mockResolvedValueOnce({ exists: false, isDirectory: false });
 
     void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\nope' });
@@ -1639,7 +1639,7 @@ describe('showNewSessionDialog — cancel paths', () => {
 - [ ] **Step 2: Run the tests — confirm they fail**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: FAIL — `submit()` is still a stub.
@@ -1690,7 +1690,7 @@ In `new-session-dialog.ts`, replace the placeholder `submit()` and Start-button 
 - [ ] **Step 4: Re-run the tests**
 
 ```
-pnpm --filter @aipad/desktop test new-session-dialog
+pnpm --filter @awakon/desktop test new-session-dialog
 ```
 
 Expected: PASS for all submit + cancel tests.
@@ -1732,14 +1732,14 @@ with:
 - [ ] **Step 2: Run the e2e suite**
 
 ```
-pnpm --filter @aipad/e2e test
+pnpm --filter @awakon/e2e test
 ```
 
 Expected: All existing tests still pass. The dialog opens, the user clicks Start, the second tab appears. Note: the default cwd is `$HOME` (set by `LayoutDefaultCwd`), which exists, so the cwd-validation check resolves true and the dialog closes successfully.
 
 If e2e cannot run locally (e.g. node-pty native build), run a typecheck and rely on CI:
 ```
-pnpm --filter @aipad/e2e exec tsc --noEmit -p .
+pnpm --filter @awakon/e2e exec tsc --noEmit -p .
 ```
 
 - [ ] **Step 3: Commit**
@@ -1759,7 +1759,7 @@ git commit -m "test(e2e): update new-session selector to #ns-start"
 pnpm test
 ```
 
-Expected: all packages green (`@aipad/contracts` has no tests; `@aipad/core` runs schema + session tests; `@aipad/desktop` runs fs-handlers + new-session-dialog tests; `@aipad/integration` runs its existing suites).
+Expected: all packages green (`@awakon/contracts` has no tests; `@awakon/core` runs schema + session tests; `@awakon/desktop` runs fs-handlers + new-session-dialog tests; `@awakon/integration` runs its existing suites).
 
 - [ ] **Step 2: Run typecheck across the workspace**
 

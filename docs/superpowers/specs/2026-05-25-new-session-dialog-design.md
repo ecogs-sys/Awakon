@@ -1,7 +1,7 @@
-# New Session Dialog — V1 Redesign
+﻿# New Session Dialog — V1 Redesign
 
 **Date:** 2026-05-25
-**Source design:** `docs/design_handoff_aipad_redesign/` (README §8 "New session dialog", `vanilla-ts/panels.ts:renderNewSessionDialog`, `vanilla-ts/components.css` `aip-modal--newsession` block).
+**Source design:** `docs/design_handoff_awakon_redesign/` (README §8 "New session dialog", `vanilla-ts/panels.ts:renderNewSessionDialog`, `vanilla-ts/components.css` `aip-modal--newsession` block).
 
 ## Goal
 
@@ -243,7 +243,7 @@ All colors and spacing reference `var(--token)` from the existing `tokens.css` �
 
 Three layers; all run under existing `pnpm test` / `vitest`.
 
-**Renderer unit tests** — `apps/desktop/src/renderer/chrome/new-session-dialog.test.ts` (new). jsdom; mock `window.aipad` bridge.
+**Renderer unit tests** — `apps/desktop/src/renderer/chrome/new-session-dialog.test.ts` (new). jsdom; mock `window.awakon` bridge.
 
 - Structure: root has `.aip-modal--newsession`; header crumb reads "New session · Configure"; footer has a "Start session" primary button.
 - OS filtering: stub `navigator.userAgent` for Windows → 3 radios (`pwsh.exe`, `cmd.exe`, `git-bash`); macOS → 2 (`zsh`, `bash`); Linux → 2 (`bash`, `zsh`).

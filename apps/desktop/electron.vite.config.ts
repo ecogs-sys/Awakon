@@ -1,13 +1,13 @@
-import { resolve } from 'node:path';
+﻿import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 
 export default defineConfig({
   main: {
     plugins: [
       externalizeDepsPlugin({
-        // Bundle @aipad/* workspace packages INTO main so the packaged app
+        // Bundle @awakon/* workspace packages INTO main so the packaged app
         // doesn't need pnpm's symlinked node_modules at runtime.
-        exclude: ['@aipad/contracts', '@aipad/core', '@aipad/keymap'],
+        exclude: ['@awakon/contracts', '@awakon/core', '@awakon/keymap'],
       }),
     ],
     build: {

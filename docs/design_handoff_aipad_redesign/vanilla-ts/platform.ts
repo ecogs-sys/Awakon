@@ -1,5 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — platform helpers
+﻿// ═══════════════════════════════════════════════════════════════════════
+// Awakon — platform helpers
 //
 // One detection at startup, then all UI uses kbd('Mod+K') for both display
 // and event matching. Single source of truth across the three OSes.

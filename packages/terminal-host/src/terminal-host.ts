@@ -1,15 +1,15 @@
-import { Terminal } from '@xterm/xterm';
+﻿import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import type { SessionId } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+import type { SessionId } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
  *
  * The renderer's preload exposes:
- *   window.aipad.send(channel, payload)          -> Promise<unknown>
- *   window.aipad.on(channel, handler) -> unsubscribe
+ *   window.awakon.send(channel, payload)          -> Promise<unknown>
+ *   window.awakon.on(channel, handler) -> unsubscribe
  *
  * (Defined in apps/desktop/src/preload/index.ts.)
  */

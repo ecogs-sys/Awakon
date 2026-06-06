@@ -1,6 +1,6 @@
-import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
-import type { PreloadBridge } from '@aipad/terminal-host';
+﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
+import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
 import { emptyState, type ChromeState, type SessionState } from './state.js';

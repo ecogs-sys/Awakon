@@ -1,6 +1,6 @@
-import { promises as fs } from 'node:fs';
+﻿import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { PersistedTabsSchema, migratePersistedTabs, type PersistedTabs } from '@aipad/contracts';
+import { PersistedTabsSchema, migratePersistedTabs, type PersistedTabs } from '@awakon/contracts';
 
 const FILE_NAME = 'sessions.json';
 

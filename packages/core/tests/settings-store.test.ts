@@ -1,13 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest';
+﻿import { afterEach, describe, expect, it } from 'vitest';
 import { promises as fs, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { DEFAULT_APP_SETTINGS } from '@aipad/contracts';
+import { DEFAULT_APP_SETTINGS } from '@awakon/contracts';
 import { SettingsStore } from '../src/settings-store.js';
 
 const dirs: string[] = [];
 function tempDir(): string {
-  const d = mkdtempSync(join(tmpdir(), 'aipad-settings-'));
+  const d = mkdtempSync(join(tmpdir(), 'awakon-settings-'));
   dirs.push(d);
   return d;
 }

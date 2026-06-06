@@ -1,4 +1,4 @@
-# Cross-Platform Icons Implementation Plan
+﻿# Cross-Platform Icons Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -40,11 +40,11 @@ Add `"icons"` to `scripts` and `sharp`, `png-to-ico`, `icns-lib` to `devDependen
 ```json
 {
   "scripts": {
-    "dev": "pnpm --filter @aipad/desktop dev",
-    "build": "pnpm -r --filter './packages/*' build && pnpm --filter @aipad/desktop build",
-    "test": "pnpm -r --if-present --filter=!@aipad/e2e --filter=!@aipad/integration test",
-    "test:integration": "pnpm --filter @aipad/integration test",
-    "test:e2e": "pnpm --filter @aipad/e2e test",
+    "dev": "pnpm --filter @awakon/desktop dev",
+    "build": "pnpm -r --filter './packages/*' build && pnpm --filter @awakon/desktop build",
+    "test": "pnpm -r --if-present --filter=!@awakon/e2e --filter=!@awakon/integration test",
+    "test:integration": "pnpm --filter @awakon/integration test",
+    "test:e2e": "pnpm --filter @awakon/e2e test",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",

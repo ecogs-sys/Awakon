@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { ShellSchema } from '@aipad/contracts';
+﻿import { describe, expect, it } from 'vitest';
+import { ShellSchema } from '@awakon/contracts';
 
 describe('ShellSchema', () => {
   it('accepts existing shells', () => {

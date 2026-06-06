@@ -1,6 +1,6 @@
-// AI.Pad terminal-pane context menu.
+﻿// Awakon terminal-pane context menu.
 //
-// Ported from docs/design_handoff_aipad_redesign/vanilla-ts/context-menu.ts
+// Ported from docs/design_handoff_awakon_redesign/vanilla-ts/context-menu.ts
 // with Find and Clear items removed per the 2026-05-26 spec.
 
 import { h, setChildren } from './dom.js';

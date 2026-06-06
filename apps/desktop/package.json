@@ -1,5 +1,5 @@
 {
-  "name": "@aipad/desktop",
+  "name": "@awakon/desktop",
   "version": "0.5.1",
   "private": true,
   "license": "MIT",
@@ -7,7 +7,7 @@
     "name": "ecogs",
     "email": "ecogs.ltd@gmail.com"
   },
-  "homepage": "https://github.com/ecogs/AI.Pad",
+  "homepage": "https://github.com/ecogs/Awakon",
   "description": "AI-powered notepad for developers",
   "type": "module",
   "main": "out/main/index.js",
@@ -30,10 +30,10 @@
     "node-pty": "^1.0.0"
   },
   "devDependencies": {
-    "@aipad/contracts": "workspace:*",
-    "@aipad/core": "workspace:*",
-    "@aipad/keymap": "workspace:*",
-    "@aipad/terminal-host": "workspace:*",
+    "@awakon/contracts": "workspace:*",
+    "@awakon/core": "workspace:*",
+    "@awakon/keymap": "workspace:*",
+    "@awakon/terminal-host": "workspace:*",
     "@types/node": "^20.14.0",
     "@vitest/coverage-v8": "^2.1.0",
     "electron": "^33.0.0",

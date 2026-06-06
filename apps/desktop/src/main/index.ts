@@ -1,10 +1,10 @@
-import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
+﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
-import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@aipad/core';
-import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse } from '@aipad/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema } from '@aipad/contracts';
+import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse } from '@awakon/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
@@ -28,7 +28,7 @@ const settingsStore = new SettingsStore(app.getPath('userData'));
 settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
-let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' } };
+let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' }, defaultCwd: '' };
 const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];

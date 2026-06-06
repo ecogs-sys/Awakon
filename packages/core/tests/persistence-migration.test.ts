@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   PersistedSplitNodeSchema,
   PersistedTabsSchema,
   migratePersistedTabs,
   PERSISTENCE_SCHEMA_VERSION,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 
 describe('PERSISTENCE_SCHEMA_VERSION', () => {
   it('is 2', () => {

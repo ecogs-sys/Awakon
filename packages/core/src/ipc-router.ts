@@ -1,4 +1,4 @@
-import type { IpcMain, WebContents } from 'electron';
+﻿import type { IpcMain, WebContents } from 'electron';
 import {
   IpcChannel,
   SessionCreateOptionsSchema,
@@ -15,7 +15,7 @@ import {
   LayoutReorderTabsPayloadSchema,
   LayoutPersistSplitsPayloadSchema,
   LayoutSplitsForTabPayloadSchema,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 import type {
   AttentionEvent,
   PersistedSplitNode,
@@ -23,7 +23,7 @@ import type {
   SessionId,
   SessionInfo,
   SessionReplayResponse,
-} from '@aipad/contracts';
+} from '@awakon/contracts';
 import type { SessionManager } from './session-manager.js';
 
 /**

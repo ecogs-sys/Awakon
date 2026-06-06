@@ -1,4 +1,4 @@
-import { _electron as electron, expect, test } from '@playwright/test';
+﻿import { _electron as electron, expect, test } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { mkdtempSync } from 'node:fs';
@@ -8,7 +8,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Launch args with an isolated, empty userData dir so persisted tabs cannot leak in. */
 function launchArgs(): string[] {
-  const userData = mkdtempSync(join(tmpdir(), 'aipad-e2e-'));
+  const userData = mkdtempSync(join(tmpdir(), 'awakon-e2e-'));
   return [resolve(__dirname, '../../apps/desktop'), `--user-data-dir=${userData}`];
 }
 

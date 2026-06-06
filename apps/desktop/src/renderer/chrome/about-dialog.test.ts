@@ -1,7 +1,7 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { showAboutDialog } from './about-dialog.js';
-import type { ChromeAppInfoResponse } from '@aipad/contracts';
+import type { ChromeAppInfoResponse } from '@awakon/contracts';
 
 interface FakeBridge {
   send: ReturnType<typeof vi.fn>;
@@ -16,7 +16,7 @@ function mountEl(): HTMLElement {
 
 function freshBridge(): FakeBridge {
   const send = vi.fn().mockResolvedValue({ ok: true });
-  (window as unknown as { aipad: FakeBridge }).aipad = { send };
+  (window as unknown as { awakon: FakeBridge }).awakon = { send };
   return { send };
 }
 
@@ -49,7 +49,7 @@ describe('showAboutDialog — structure', () => {
     const mount = mountEl();
     void showAboutDialog(mount, INFO);
 
-    expect(mount.querySelector('.aip-about__name')?.textContent).toBe('AI.Pad');
+    expect(mount.querySelector('.aip-about__name')?.textContent).toBe('Awakon');
     expect(mount.querySelector('.aip-about__version')?.textContent).toContain('0.3.0');
     expect(mount.querySelector('.aip-about__tagline')?.textContent).toContain('Run many agents');
     expect(mount.querySelector('.aip-about__icon svg')).not.toBeNull();
@@ -89,7 +89,7 @@ describe('showAboutDialog — structure', () => {
 describe('showAboutDialog — actions', () => {
   it('clicking a link sends ChromeOpenExternal with that link\'s URL', () => {
     const mount = mountEl();
-    const bridge = (window as unknown as { aipad: FakeBridge }).aipad;
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
     void showAboutDialog(mount, INFO);
 
     const reportLink = [...mount.querySelectorAll<HTMLButtonElement>('.aip-about__link')]
@@ -98,7 +98,7 @@ describe('showAboutDialog — actions', () => {
 
     expect(bridge.send).toHaveBeenCalledWith(
       'core.chrome.open-external',
-      { url: 'https://github.com/ecogs-sys/AI.Pad/issues' },
+      { url: 'https://github.com/ecogs-sys/Awakon/issues' },
     );
   });
 
@@ -115,7 +115,7 @@ describe('showAboutDialog — actions', () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     const text = writeText.mock.calls[0]![0] as string;
-    expect(text).toContain('AI.Pad 0.3.0');
+    expect(text).toContain('Awakon 0.3.0');
     expect(text).toContain('Electron 33.2.0');
     expect(text).toContain('OS Windows · 10.0.26200 (x64)');
   });

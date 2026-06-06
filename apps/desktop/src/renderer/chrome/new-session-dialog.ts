@@ -1,5 +1,5 @@
-import type { Shell } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+﻿import type { Shell } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
 export interface NewSessionResult {
   shell: Shell;
@@ -62,7 +62,7 @@ export function showNewSessionDialog(
     `;
     mount.appendChild(root);
 
-    const bridge = (window as unknown as { aipad: Bridge }).aipad;
+    const bridge = (window as unknown as { awakon: Bridge }).awakon;
     const body = root.querySelector<HTMLDivElement>('.aip-modal__body')!;
 
     // ── Working directory section ───────────────────────────────────

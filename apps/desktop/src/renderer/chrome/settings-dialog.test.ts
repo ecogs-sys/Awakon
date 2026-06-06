@@ -1,8 +1,8 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { showSettingsDialog } from './settings-dialog.js';
-import type { AppSettings } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+import type { AppSettings } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 
 interface FakeBridge {
   send: ReturnType<typeof vi.fn>;
@@ -17,7 +17,7 @@ function mountEl(): HTMLElement {
 
 function freshBridge(): FakeBridge {
   const send = vi.fn().mockResolvedValue({ ok: true });
-  (window as unknown as { aipad: FakeBridge }).aipad = { send };
+  (window as unknown as { awakon: FakeBridge }).awakon = { send };
   return { send };
 }
 

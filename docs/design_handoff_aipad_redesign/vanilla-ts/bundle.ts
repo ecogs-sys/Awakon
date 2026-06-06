@@ -1,10 +1,10 @@
-// ════════════════════════════════════════════════════════════════════════
-//  AI.Pad — bundled vanilla TS (demo loader) — GENERATED FILE
+﻿// ════════════════════════════════════════════════════════════════════════
+//  Awakon — bundled vanilla TS (demo loader) — GENERATED FILE
 // ════════════════════════════════════════════════════════════════════════
 
 // ── types.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — types
+// Awakon — types
 // ═══════════════════════════════════════════════════════════════════════
 
 type Status = 'running' | 'awaiting' | 'limited' | 'idle';
@@ -58,7 +58,7 @@ function sortSessions(sessions: Session[]): Session[] {
 
 // ── platform.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — platform helpers
+// Awakon — platform helpers
 //
 // One detection at startup, then all UI uses kbd('Mod+K') for both display
 // and event matching. Single source of truth across the three OSes.
@@ -133,7 +133,7 @@ function matchShortcut(e: KeyboardEvent, combo: string): boolean {
 
 // ── dom.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — DOM helpers
+// Awakon — DOM helpers
 // Tiny utilities so the rest of the code stays focused on structure.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -223,7 +223,7 @@ function setClass(el: Element, cls: string, on: boolean): void {
 
 // ── icons.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — icons (SVG factories)
+// Awakon — icons (SVG factories)
 // Each returns an SVGSVGElement so callers can size it via CSS.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -359,7 +359,7 @@ function winCtrlGlyph(kind: 'min' | 'max' | 'close'): SVGElement {
 
 // ── status-badge.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Status badge
+// Awakon — Status badge
 // Three render styles share status data + label set.
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -407,7 +407,7 @@ function renderStatusBadge({ status, time, style = 'pill' }: BadgeOptions): HTML
 
 // ── chrome.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Chrome: TitleBar, TabBar, Sidebar
+// Awakon — Chrome: TitleBar, TabBar, Sidebar
 // ═══════════════════════════════════════════════════════════════════════
 
 
@@ -439,7 +439,7 @@ interface TitleBarOptions {
 }
 
 function renderTitleBar({
-  title = 'AI.Pad',
+  title = 'Awakon',
   subtitle,
   menus = ['File', 'Tabs', 'View', 'Window', 'Help'],
 }: TitleBarOptions = {}): HTMLElement {
@@ -614,10 +614,10 @@ function renderSidebar({
 
 // ── terminal.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Terminal pane + line renderers
+// Awakon — Terminal pane + line renderers
 //
 // In production, this surface is xterm.js (or similar). The renderers here
-// model what AI.Pad needs to layer ON TOP of the raw terminal output:
+// model what Awakon needs to layer ON TOP of the raw terminal output:
 //   • detect markdown links and replace them with clickable spans
 //   • detect AI-agent blocks and wrap them with the magenta left border
 //   • detect tool-call prefixes and color them
@@ -727,7 +727,7 @@ function renderTerminalPane({
 
 // ── panels.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Modals, palette, empty state, markdown preview
+// Awakon — Modals, palette, empty state, markdown preview
 // ═══════════════════════════════════════════════════════════════════════
 
 
@@ -787,7 +787,7 @@ function renderSettingsModal(opts: SettingsModalOptions = {}): HTMLElement {
           h('div', { style: 'font-size:13.5px;color:var(--text-1);font-weight:500;margin-bottom:3px',
                      text: 'Auto-resume rate-limited tabs' }),
           h('div', { style: 'font-size:12px;color:var(--text-3);line-height:1.5',
-                     text: "When an agent hits its quota and you've set a response below, AI.Pad will send that response automatically once the quota refreshes." }),
+                     text: "When an agent hits its quota and you've set a response below, Awakon will send that response automatically once the quota refreshes." }),
         ]),
       ]),
     ]),
@@ -840,7 +840,7 @@ interface AboutDialogOptions {
 
 function renderAboutDialog(opts: AboutDialogOptions = {}): HTMLElement {
   const {
-    appName   = 'AI.Pad',
+    appName   = 'Awakon',
     tagline   = 'Run many agents · never miss a prompt',
     version   = '1.0.0',
     build     = '2026.05.27',
@@ -851,7 +851,7 @@ function renderAboutDialog(opts: AboutDialogOptions = {}): HTMLElement {
     node      = '20.18.0',
     v8        = '13.0.245.16',
     os        = 'Windows 11 · 23H2 (x64)',
-    copyright = '© 2026 AI.Pad contributors',
+    copyright = '© 2026 Awakon contributors',
     license   = 'Released under the MIT License',
     links     = [
       { label: 'Website' },
@@ -941,9 +941,9 @@ interface CommandPaletteOptions {
 
 const DEFAULT_PALETTE: PaletteSection[] = [
   { title: 'Switch to session', items: [
-    { kind: 'PS', name: 'claude · refactor terminal-host', meta: '~/AI.Pad', status: 'awaiting', shortcut: kbd('Mod+1') },
-    { kind: 'PS', name: 'codex · add e2e tests',           meta: '~/AI.Pad', status: 'limited',  shortcut: kbd('Mod+2') },
-    { kind: 'PS', name: 'pwsh · package scripts',          meta: '~/AI.Pad', status: 'running',  shortcut: kbd('Mod+3') },
+    { kind: 'PS', name: 'claude · refactor terminal-host', meta: '~/Awakon', status: 'awaiting', shortcut: kbd('Mod+1') },
+    { kind: 'PS', name: 'codex · add e2e tests',           meta: '~/Awakon', status: 'limited',  shortcut: kbd('Mod+2') },
+    { kind: 'PS', name: 'pwsh · package scripts',          meta: '~/Awakon', status: 'running',  shortcut: kbd('Mod+3') },
   ]},
   { title: 'Start session', items: [
     { kind: '+', name: 'New Claude Code session', meta: 'claude', shortcut: kbd('Mod+N') },
@@ -1067,7 +1067,7 @@ const OPEN_IN_OPTIONS: Array<{ id: OpenIn; label: string }> = [
 function renderNewSessionDialog(opts: NewSessionDialogOptions = {}): HTMLElement {
   const {
     initial = {},
-    recentDirs = ['~/Work/ecogs/projects/AI.Pad', '~/Work/web-app', '~/personal/cli-tools'],
+    recentDirs = ['~/Work/ecogs/projects/Awakon', '~/Work/web-app', '~/personal/cli-tools'],
     availableShells = ['pwsh', 'cmd', 'git-bash'],
     onStart, onCancel, onClose,
   } = opts;
@@ -1252,7 +1252,7 @@ interface EmptyStateOptions {
 }
 
 const DEFAULT_RECENTS: RecentProject[] = [
-  { name: 'AI.Pad · refactor', cwd: '~/Work/ecogs/projects/AI.Pad', when: '14m ago' },
+  { name: 'Awakon · refactor', cwd: '~/Work/ecogs/projects/Awakon', when: '14m ago' },
   { name: 'web-app · billing', cwd: '~/Work/web-app',               when: 'yesterday' },
   { name: 'cli-tools',         cwd: '~/personal/cli-tools',         when: '3 days ago' },
 ];
@@ -1279,7 +1279,7 @@ function renderEmptyState({
       h('div', { class: 'aip-empty__brand' }, [
         h('div', { class: 'aip-empty__brand-icon' }, [appGlyph()]),
         h('div', {}, [
-          h('div', { class: 'aip-empty__brand-title', text: 'AI.Pad' }),
+          h('div', { class: 'aip-empty__brand-title', text: 'Awakon' }),
           h('div', { class: 'aip-empty__brand-sub',   text: 'run many agents · never miss a prompt' }),
         ]),
       ]),
@@ -1353,7 +1353,7 @@ function renderMdPane({
     // Path bar + actions
     h('div', { class: 'aip-mdpane__pathbar' }, [
       h('span', { class: 'aip-mdpane__path' }, [
-        h('span', { class: 'aip-mdpane__path-dir', text: '~/AI.Pad/' }),
+        h('span', { class: 'aip-mdpane__path-dir', text: '~/Awakon/' }),
         activePath,
       ]),
       h('span', { class: 'aip-mdpane__path-meta', text: `modified ${modifiedAgo}` }),
@@ -1418,7 +1418,7 @@ function renderSampleMdBody(): HTMLElement {
 
 // ── context-menu.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — Context menu (right-click)
+// Awakon — Context menu (right-click)
 //
 // Generic component used for:
 //   • terminal area: copy / paste / select-all / find / clear / split / close
@@ -1618,7 +1618,7 @@ function buildTabContextMenu(opts: TabMenuOptions): ContextMenuSection {
 
 // ── mocks.ts ───────────────────
 // ═══════════════════════════════════════════════════════════════════════
-// AI.Pad — sample data (mocks)
+// Awakon — sample data (mocks)
 //
 // All fixture data used by demo.html lives here. Real production code
 // will populate these shapes from your session store / PTY stream / etc.
@@ -1635,7 +1635,7 @@ function buildTabContextMenu(opts: TabMenuOptions): ContextMenuSection {
 // One-session state (Main screen)
 const SESSIONS_SOLO: Session[] = [
   { id: 'a', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'running', time: '3s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'running', time: '3s' },
 ];
 
 // Multi-session state (Multi / Split / Settings / Palette / Markdown / NewSession)
@@ -1643,13 +1643,13 @@ const SESSIONS_SOLO: Session[] = [
 // always show non-zero counts.
 const SESSIONS_MULTI: Session[] = [
   { id: 'a', kind: 'PS', name: 'claude · refactor',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'awaiting', time: '1m 14s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'awaiting', time: '1m 14s' },
   { id: 'b', kind: 'PS', name: 'codex · tests',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'limited',  time: '47m' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'limited',  time: '47m' },
   { id: 'c', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'running',  time: '10s' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'running',  time: '10s' },
   { id: 'd', kind: 'PS', name: 'pwsh.exe',
-    cwd: '~/Work/ecogs/projects/AI.Pad', status: 'idle',     time: '4m' },
+    cwd: '~/Work/ecogs/projects/Awakon', status: 'idle',     time: '4m' },
 ];
 
 // ─── Tab bar ─────────────────────────────────────────────────────────
@@ -1666,14 +1666,14 @@ const TABS_MULTI: TabSpec[] = [
 
 // ─── Empty state · recents ──────────────────────────────────────────
 const RECENT_PROJECTS: RecentProject[] = [
-  { name: 'AI.Pad · refactor', cwd: '~/Work/ecogs/projects/AI.Pad', when: '14m ago' },
+  { name: 'Awakon · refactor', cwd: '~/Work/ecogs/projects/Awakon', when: '14m ago' },
   { name: 'web-app · billing', cwd: '~/Work/web-app',               when: 'yesterday' },
   { name: 'cli-tools',         cwd: '~/personal/cli-tools',         when: '3 days ago' },
 ];
 
 // ─── New session dialog · recent CWDs ────────────────────────────────
 const NEW_SESSION_RECENT_DIRS: string[] = [
-  '~/Work/ecogs/projects/AI.Pad',
+  '~/Work/ecogs/projects/Awakon',
   '~/Work/web-app',
   '~/personal/cli-tools',
 ];
@@ -1691,7 +1691,7 @@ const MD_FILES: MdFile[] = [
 // every Line variant (prompt, ai, tool, ai-link, cursor, blank, …).
 
 const TERM_DEFAULT: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'Get-ChildItem packages', tail: '| Select-Object Name' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'Get-ChildItem packages', tail: '| Select-Object Name' },
   { kind: 'blank' },
   { kind: 'green', text: 'Name' },
   { kind: 'dim',   text: '----' },
@@ -1700,7 +1700,7 @@ const TERM_DEFAULT: Line[] = [
   { kind: 'out',   text: 'keymap' },
   { kind: 'out',   text: 'terminal-host' },
   { kind: 'blank' },
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'claude', tail: '--continue' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'claude', tail: '--continue' },
   { kind: 'blank' },
   { kind: 'ai', text: '▎ Welcome back. Resuming session #4128.' },
   { kind: 'ai', text: '▎' },
@@ -1719,7 +1719,7 @@ const TERM_DEFAULT: Line[] = [
 ];
 
 const TERM_AWAITING: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'codex' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'codex' },
   { kind: 'blank' },
   { kind: 'ai', text: '▎ codex-cli v0.4.2' },
   { kind: 'blank' },
@@ -1745,13 +1745,13 @@ const TERM_LIMITED: Line[] = [
   { kind: 'red', text: "⚠ You've hit your usage limit." },
   { kind: 'dim', text: '  Quota resets in 47 minutes.' },
   { kind: 'blank' },
-  { kind: 'dim', text: '  AI.Pad will auto-resume when quota refreshes.' },
+  { kind: 'dim', text: '  Awakon will auto-resume when quota refreshes.' },
   { kind: 'dim', text: '  Press [c] to continue manually  ·  [q] to quit' },
   { kind: 'cursor' },
 ];
 
 const TERM_WITH_MD_LINKS: Line[] = [
-  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\AI.Pad>', cmd: 'claude', tail: 'plan' },
+  { kind: 'prompt', host: 'PS C:\\Work\\ecogs\\projects\\Awakon>', cmd: 'claude', tail: 'plan' },
   { kind: 'blank' },
   { kind: 'ai', text: "▎ I've drafted the migration plan and the API change spec." },
   { kind: 'ai', text: '▎ Please review:' },

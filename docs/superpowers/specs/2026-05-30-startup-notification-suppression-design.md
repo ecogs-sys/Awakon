@@ -1,4 +1,4 @@
-# Startup Notification Suppression — Design
+﻿# Startup Notification Suppression — Design
 
 **Date:** 2026-05-30
 **Status:** Approved (awaiting implementation plan)
@@ -65,7 +65,7 @@ arrives.
 | Signal             | Before first `write()` | After first `write()` |
 |--------------------|------------------------|------------------------|
 | `bell` (\x07)      | dropped                | fires                  |
-| `osc` (AI.Pad esc) | dropped                | fires                  |
+| `osc` (Awakon esc) | dropped                | fires                  |
 | `idle` (prompt + 1.5 s) | dropped           | fires                  |
 
 When any attention event is dropped, `Session._status` remains `running`. Once
@@ -133,7 +133,7 @@ Add unit tests covering the gate at the `Session` boundary
 2. After `session.write('x')`, the same prompt-shaped output followed by an
    idle window does emit `idle`.
 3. `bell` fires on the very first BEL byte, before any `write()`.
-4. `osc` fires for the AI.Pad escape sequence, before any `write()`.
+4. `osc` fires for the Awakon escape sequence, before any `write()`.
 5. When `idle` is suppressed, `session.info().status` remains `running`
    (not `awaiting-input`).
 

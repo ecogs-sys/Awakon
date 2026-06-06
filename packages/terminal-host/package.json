@@ -1,5 +1,5 @@
 {
-  "name": "@aipad/terminal-host",
+  "name": "@awakon/terminal-host",
   "version": "0.3.0",
   "private": true,
   "license": "MIT",
@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@aipad/contracts": "workspace:*",
+    "@awakon/contracts": "workspace:*",
     "@xterm/xterm": "^5.5.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-web-links": "^0.11.0"

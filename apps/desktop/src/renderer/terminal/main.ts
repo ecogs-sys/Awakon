@@ -1,14 +1,14 @@
-import '../chrome/styles/tokens.css';
+﻿import '../chrome/styles/tokens.css';
 import '../chrome/styles/context-menu.css';
-import type { PreloadBridge } from '@aipad/terminal-host';
-import type { SessionId, Shell } from '@aipad/contracts';
-import { IpcChannel } from '@aipad/contracts';
+import type { PreloadBridge } from '@awakon/terminal-host';
+import type { SessionId, Shell } from '@awakon/contracts';
+import { IpcChannel } from '@awakon/contracts';
 import { SplitContainer } from './split-container.js';
 
 const container = document.getElementById('term-root');
 if (!container) throw new Error('#term-root not found in terminal-host.html');
 
-const bridge = (window as unknown as { aipad: PreloadBridge }).aipad;
+const bridge = (window as unknown as { awakon: PreloadBridge }).awakon;
 
 const params = new URLSearchParams(window.location.search);
 const sessionId = params.get('sessionId') as SessionId | null;
@@ -25,7 +25,7 @@ const splits = new SplitContainer({
 });
 
 // Expose for keyboard / split shortcuts.
-(window as unknown as { __aipadSplits: SplitContainer }).__aipadSplits = splits;
+(window as unknown as { __awakonSplits: SplitContainer }).__awakonSplits = splits;
 
 void splits.loadSavedLayout();
 
