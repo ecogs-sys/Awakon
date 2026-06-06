@@ -1,8 +1,10 @@
 ﻿import { Terminal } from '@xterm/xterm';
+import type { ILinkProvider, ILink, IBufferLine } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { SessionId } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
+import { findMarkdownLinks } from './md-links.js';
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
@@ -89,6 +91,7 @@ export class TerminalHost {
     this.fit = new FitAddon();
     this.term.loadAddon(this.fit);
     this.term.loadAddon(new WebLinksAddon());
+    this.term.registerLinkProvider(this.markdownLinkProvider());
 
     this.term.open(opts.container);
     this.fit.fit();
@@ -175,6 +178,34 @@ export class TerminalHost {
     });
 
     this.unsubscribers.push(onData, onExit);
+  }
+
+  /** xterm link provider: underlines `.md` paths and opens the reader on click. */
+  private markdownLinkProvider(): ILinkProvider {
+    const term = this.term;
+    const bridge = this.bridge;
+    const sessionId = this.sessionId;
+    return {
+      provideLinks(bufferLineNumber: number, callback: (links: ILink[] | undefined) => void): void {
+        const line: IBufferLine | undefined = term.buffer.active.getLine(bufferLineNumber - 1);
+        if (!line) { callback(undefined); return; }
+        const text = line.translateToString(true);
+        const hits = findMarkdownLinks(text);
+        if (hits.length === 0) { callback(undefined); return; }
+        const links: ILink[] = hits.map((hit) => ({
+          // xterm ranges are 1-based, end inclusive.
+          range: {
+            start: { x: hit.start + 1, y: bufferLineNumber },
+            end: { x: hit.end, y: bufferLineNumber },
+          },
+          text: hit.text,
+          activate: (): void => {
+            void bridge.send(IpcChannel.DocOpen, { sessionId, path: hit.text });
+          },
+        }));
+        callback(links);
+      },
+    };
   }
 
   private wireResize(container: HTMLElement): void {
