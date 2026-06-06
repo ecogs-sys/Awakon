@@ -1,9 +1,9 @@
 ﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
-import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab, PersistedOpenDoc } from '@awakon/contracts';
 import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
@@ -46,12 +46,12 @@ function closeTabPanes(tabId: string): void {
 }
 
 function snapshotTabs(): {
-  version: 2;
+  version: 3;
   tabs: PersistedTab[];
   focusedTabId: string | null;
 } {
   return {
-    version: 2,
+    version: 3,
     // Emit tabs in the authoritative order so a drag-reorder survives restart.
     tabs: tabOrder.filter((id) => tabMeta.has(id)).map((id) => tabMeta.get(id)!),
     focusedTabId: focusedSessionId,
@@ -345,6 +345,44 @@ ipcRouter.onPersistSplits((tabId, splits) => {
 
 // Hand the saved split tree to the terminal renderer when it mounts.
 ipcRouter.onSplitsForTab((tabId) => tabMeta.get(tabId)?.splits ?? null);
+
+// terminal-host clicked a .md link → resolve the owning tab + provenance, then ask the
+// chrome to open it in that tab's reader.
+ipcRouter.onDocOpen((sessionId, path) => {
+  const tabId = paneOwnership.get(sessionId) ?? sessionId;
+  const meta = tabMeta.get(tabId);
+  const cwd = meta?.cwd ?? homedir();
+  const resolvedPath = isAbsolute(path) ? path : join(cwd, path);
+  const session = sessionManager.get(sessionId) ?? sessionManager.get(tabId);
+  const info = session?.info();
+  chromeWindow?.webContents.send(IpcChannel.DocOpenRequest, {
+    tabId,
+    rawPath: path,
+    resolvedPath,
+    provenanceTitle: info?.title ?? meta?.title ?? meta?.shell ?? 'session',
+    provenanceStatus: info?.status ?? 'running',
+  });
+});
+
+// chrome persists a tab's reader docs (markers survive restart; content does not).
+ipcRouter.onPersistDocs((tabId, docs: PersistedOpenDoc[], activeDocIndex) => {
+  const meta = tabMeta.get(tabId);
+  if (!meta) return;
+  if (docs.length === 0) {
+    delete meta.docs;
+    delete meta.activeDocIndex;
+  } else {
+    meta.docs = docs;
+    meta.activeDocIndex = activeDocIndex;
+  }
+  persistTabs();
+});
+
+// chrome asks for a tab's persisted reader docs when it restores the tab.
+ipcRouter.onDocsForTab((tabId) => {
+  const meta = tabMeta.get(tabId);
+  return { docs: meta?.docs ?? [], activeDocIndex: meta?.activeDocIndex ?? null };
+});
 
 // Explicit user close → full tab teardown.
 ipcRouter.onSessionClose((sessionId) => closeTab(sessionId));
