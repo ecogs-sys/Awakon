@@ -26,5 +26,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     responseText: 'continue',
   }),
   defaultCwd: '',
-  recentTabs: Object.freeze([]) as AppSettings['recentTabs'],
+  recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],
 });
