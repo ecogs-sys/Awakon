@@ -10,6 +10,8 @@ export function platformMod(): string {
 }
 
 export function shellChip(shell: Shell | string): string {
+  // Abbreviations intentionally differ from sidebar.ts SHELL_ICONS (3-char vs 2-char).
+  // TODO: consolidate into a shared shell-utils module when sidebar is next touched.
   const map: Record<string, string> = {
     pwsh: 'PS', powershell: 'PS', cmd: 'CMD',
     bash: 'BSH', 'git-bash': 'BSH',
@@ -27,7 +29,7 @@ export function formatWhen(closedAt: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d} days ago`;
+  if (d < 7) return `${d} day${d === 1 ? '' : 's'} ago`;
   return new Date(closedAt).toLocaleDateString();
 }
 
@@ -77,6 +79,7 @@ export class EmptyStateView {
     icon.innerHTML = appGlyph();
 
     const text = document.createElement('div');
+    text.className = 'aip-empty__brand-text';
     const title = document.createElement('div');
     title.className = 'aip-empty__brand-title';
     title.textContent = 'Awakon';
@@ -94,35 +97,24 @@ export class EmptyStateView {
   private buildCards(onNew: () => void): HTMLElement {
     const cards = document.createElement('div');
     cards.className = 'aip-empty__cards';
-    cards.appendChild(this.buildCard({
-      title:   'New session',
-      meta:    'claude · codex · pwsh',
-      kbdText: `${platformMod()}N`,
-      onClick: onNew,
-    }));
-    return cards;
-  }
 
-  private buildCard(cfg: {
-    title: string; meta: string; kbdText: string; onClick: () => void;
-  }): HTMLElement {
     const card = document.createElement('div');
     card.className = 'aip-empty__card aip-empty__card--primary';
-    card.addEventListener('click', cfg.onClick);
+    card.addEventListener('click', onNew);
 
     const titleEl = document.createElement('div');
     titleEl.className = 'aip-empty__card-title';
-    titleEl.textContent = cfg.title;
+    titleEl.textContent = 'New session';
 
     const metaEl = document.createElement('div');
     metaEl.className = 'aip-empty__card-meta';
-    metaEl.textContent = cfg.meta;
+    metaEl.textContent = 'claude · codex · pwsh';
 
     const foot = document.createElement('div');
     foot.className = 'aip-empty__card-foot';
     const kbdEl = document.createElement('span');
     kbdEl.className = 'aip-empty__card-kbd';
-    kbdEl.textContent = cfg.kbdText;
+    kbdEl.textContent = `${platformMod()}T`;
     const arrow = document.createElement('span');
     arrow.className = 'aip-empty__card-arrow';
     arrow.textContent = '→';
@@ -132,7 +124,8 @@ export class EmptyStateView {
     card.appendChild(titleEl);
     card.appendChild(metaEl);
     card.appendChild(foot);
-    return card;
+    cards.appendChild(card);
+    return cards;
   }
 
   private buildRecents(recents: RecentTab[], onPickRecent: (r: RecentTab) => void): HTMLElement {

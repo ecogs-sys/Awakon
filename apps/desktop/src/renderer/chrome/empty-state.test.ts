@@ -42,6 +42,9 @@ describe('formatWhen', () => {
   it('returns "Xh ago" for timestamps within the last 24 hours', () => {
     expect(formatWhen(Date.now() - 3 * 60 * 60 * 1000)).toBe('3h ago');
   });
+  it('returns "1 day ago" for a timestamp exactly 1 day ago', () => {
+    expect(formatWhen(Date.now() - 24 * 60 * 60 * 1000)).toBe('1 day ago');
+  });
   it('returns "X days ago" for timestamps within the last 7 days', () => {
     expect(formatWhen(Date.now() - 2 * 24 * 60 * 60 * 1000)).toBe('2 days ago');
   });
