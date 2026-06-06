@@ -124,3 +124,57 @@ describe('FsPickDirectory handler', () => {
     expect(dialog.showOpenDialog).not.toHaveBeenCalled();
   });
 });
+
+describe('FsReadFile handler', () => {
+  let tempDir: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'fs-read-'));
+  });
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('returns content + stat for a real .md file', async () => {
+    const md = join(tempDir, 'doc.md');
+    await writeFile(md, '# Title');
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike);
+    const result = await handlers.get('core.fs.read-file')!({}, { path: md }) as { content: string; sizeBytes: number };
+    expect(result.content).toBe('# Title');
+    expect(result.sizeBytes).toBe(7);
+  });
+
+  it('returns notFound for a missing file', async () => {
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike);
+    const result = await handlers.get('core.fs.read-file')!({}, { path: join(tempDir, 'nope.md') });
+    expect(result).toEqual({ notFound: true });
+  });
+
+  it('rejects a non-.md file with an error', async () => {
+    const txt = join(tempDir, 'notes.txt');
+    await writeFile(txt, 'hi');
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike);
+    const result = await handlers.get('core.fs.read-file')!({}, { path: txt }) as { error: string };
+    expect(result.error).toMatch(/\.md/);
+  });
+
+  it('returns tooLarge for a file over 1 MB', async () => {
+    const big = join(tempDir, 'big.md');
+    await writeFile(big, 'x'.repeat(1_048_577));
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike);
+    const result = await handlers.get('core.fs.read-file')!({}, { path: big }) as { tooLarge: true; sizeBytes: number };
+    expect(result.tooLarge).toBe(true);
+    expect(result.sizeBytes).toBeGreaterThan(1_048_576);
+  });
+
+  it('returns an error for a malformed payload', async () => {
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike);
+    const result = await handlers.get('core.fs.read-file')!({}, { wrong: 1 }) as { error: string };
+    expect(typeof result.error).toBe('string');
+  });
+});
