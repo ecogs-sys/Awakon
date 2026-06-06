@@ -136,7 +136,7 @@ describe('LayoutManager — openRecentTab', () => {
       if (channel === IpcChannel.LayoutDefaultCwd) return Promise.resolve('/home/user');
       if (channel === IpcChannel.SettingsGet) return Promise.resolve({
         autoResume: { enabled: false, detectText: '', responseText: '' },
-        defaultCwd: '', recentTabs: [SAMPLE_RECENT],
+        defaultCwd: '',
       });
       if (channel === IpcChannel.SessionList) return Promise.resolve([]);
       if (channel === IpcChannel.RecentList)  return Promise.resolve([SAMPLE_RECENT]);
