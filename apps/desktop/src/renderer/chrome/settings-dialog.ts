@@ -179,7 +179,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd });
+      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd, recentTabs: [] });
     }
 
     const onKey = (ev: KeyboardEvent): void => {
