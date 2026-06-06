@@ -38,17 +38,33 @@ others quietly wait their turn. It can even resume a rate-limited agent on its o
 
 **Single session — full sidebar with live session status.**
 
-![Awakon main window with sidebar and PowerShell session](docs/images/main.png)
+![Awakon main window with sidebar and a PowerShell session](docs/images/main.png)
+
+**Pick your shell per tab — choose the shell and working directory for each new session.**
+
+![The New Session dialog showing a working directory and pwsh / cmd / git-bash shell choices](docs/images/new-session.png)
 
 **Multiple tabs — background tabs badge yellow when they need you; the sidebar counters update instantly.**
 
-![Three tabs with two awaiting-input badges and sidebar showing 2 AWAIT](docs/images/multi-tab.png)
+![Three tabs with two awaiting-input badges and the sidebar showing 2 AWAIT](docs/images/multi-tab.png)
 
-**Split panes — watch two sessions side by side in a single tab.**
+**Attention awareness at a glance — the live sidebar tracks every session's status and time-in-state.**
 
-![A tab split horizontally into two independent panes](docs/images/splits.png)
+![Sidebar close-up with one session each awaiting, rate-limited, running, and idle](docs/images/sidebar.png)
 
-**Settings — configure auto-resume detection phrase and response text.**
+**Rate-limit auto-resume — a limited tab shows its reset time and a pending auto-resume you can cancel.**
+
+![A rate-limited session with a 9:30 PM resume badge on the tab and a rate-limited pill in the sidebar](docs/images/auto-resume.png)
+
+**Split panes — watch two sessions side by side…**
+
+![A tab split into two side-by-side panes](docs/images/splits.png)
+
+**…or stacked, one above the other.**
+
+![A tab split into two stacked panes](docs/images/splits-vertical.png)
+
+**Settings — configure auto-resume detection phrase, response text, and a default working directory.**
 
 ![The Auto-resume settings panel](docs/images/settings.png)
 
