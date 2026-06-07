@@ -401,7 +401,13 @@ export class LayoutManager {
     const tabs: TabViewModel[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken, resumeAt: s.resumeAt }));
+      .map((s) => ({
+        info: s.info,
+        attention: s.attention,
+        broken: s.broken,
+        resumeAt: s.resumeAt,
+        hasDoc: s.docState.activeDocIndex !== null,
+      }));
     this.tabStrip.render(tabs, this.state.focusedId);
 
     const rows: SidebarRowVm[] = this.state.tabOrder
