@@ -6,6 +6,8 @@ export interface TabViewModel {
   broken: boolean;
   /** Epoch ms a pending auto-resume will fire, or null when none is scheduled. */
   resumeAt: number | null;
+  /** True when this tab has a parked/open markdown doc (shows an M↓ marker). */
+  hasDoc: boolean;
 }
 
 export interface TabStripCallbacks {
@@ -59,6 +61,14 @@ export class TabStrip {
           ? `${label} (exited)`
           : label;
       el.appendChild(title);
+
+      if (tab.hasDoc) {
+        const marker = document.createElement('span');
+        marker.className = 'doc-marker';
+        marker.textContent = 'M↓';
+        marker.title = 'A document is open on this tab';
+        el.appendChild(marker);
+      }
 
       if (tab.resumeAt !== null) {
         const badge = document.createElement('span');

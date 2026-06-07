@@ -53,9 +53,11 @@ function makeLayout(bridge: BridgeMock) {
   mount.id = 'dialog-mount';
   const emptyStateHostEl = document.createElement('div');
   emptyStateHostEl.id = 'empty-state-host';
+  const viewHostEl = document.createElement('div');
   document.body.appendChild(mount);
   document.body.appendChild(emptyStateHostEl);
-  return new LayoutManager({ bridge: bridge as unknown as PreloadBridge, tabStrip, sidebar, bodyEl, emptyStateHostEl });
+  document.body.appendChild(viewHostEl);
+  return new LayoutManager({ bridge: bridge as unknown as PreloadBridge, tabStrip, sidebar, bodyEl, emptyStateHostEl, viewHostEl });
 }
 
 beforeEach(() => {

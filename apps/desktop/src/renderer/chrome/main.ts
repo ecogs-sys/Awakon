@@ -22,6 +22,7 @@ const sidebarRailExpandEl = document.getElementById('sidebar-rail-expand');
 const sidebarRailNewEl = document.getElementById('sidebar-rail-new');
 const bodyEl = document.getElementById('body')!;
 const emptyStateHostEl = document.getElementById('empty-state-host')!;
+const viewHostEl = document.getElementById('view-host')!;
 const titlebarEl = document.getElementById('titlebar')!;
 
 const platform = navigator.userAgent.includes('Mac OS') ? 'darwin'
@@ -33,6 +34,7 @@ const manager = new LayoutManager({
   bridge,
   bodyEl,
   emptyStateHostEl,
+  viewHostEl,
   tabStrip: new TabStrip(tabStripEl, {
     onTabClick: (id) => manager.focus(id),
     onTabClose: (id) => void manager.closeTab(id),

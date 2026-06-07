@@ -4,9 +4,10 @@ import {
   SessionCreateOptionsSchema,
   SessionIdSchema,
   SessionInfoSchema,
+  SessionStatusSchema,
   ShellSchema,
 } from './session.js';
-import { PersistedSplitNodeSchema } from './persistence.js';
+import { PersistedSplitNodeSchema, PersistedOpenDocSchema } from './persistence.js';
 import { RecentTabSchema } from './recent.js';
 
 /**
@@ -43,6 +44,10 @@ export const IpcChannel = {
   ChromeOpenExternal: 'core.chrome.open-external',
   RecentList: 'core.recent.list',
   RecentAdd:  'core.recent.add',
+  FsReadFile: 'core.fs.read-file',
+  DocOpen: 'core.doc.open',
+  LayoutPersistDocs: 'core.layout.persist-docs',
+  LayoutDocsForTab: 'core.layout.docs-for-tab',
 
   // Events (main -> renderer)
   SessionCreated: 'event.session.created',
@@ -57,6 +62,7 @@ export const IpcChannel = {
   ResumeScheduled: 'event.resume.scheduled',
   ResumeCancelled: 'event.resume.cancelled',
   ResumeFired: 'event.resume.fired',
+  DocOpenRequest: 'event.doc.open-request',
 } as const;
 
 // --- Request payloads ---
@@ -251,6 +257,54 @@ export const ResumeCancelledEventSchema = z.object({
 
 export const ResumeFiredEventSchema = z.object({
   sessionId: SessionIdSchema,
+});
+
+// --- Doc reader payloads ---
+
+/** Renderer/main reads a .md file's content for the reader. */
+export const FsReadFilePayloadSchema = z.object({
+  path: z.string().min(1),
+});
+export const FsReadFileResponseSchema = z.union([
+  z.object({
+    content: z.string(),
+    sizeBytes: z.number().int().nonnegative(),
+    mtimeMs: z.number(),
+  }),
+  z.object({ tooLarge: z.literal(true), sizeBytes: z.number().int().nonnegative() }),
+  z.object({ notFound: z.literal(true) }),
+  z.object({ error: z.string() }),
+]);
+
+/** terminal-host -> main: the user clicked a .md link inside a pane. */
+export const DocOpenPayloadSchema = z.object({
+  sessionId: SessionIdSchema,
+  path: z.string().min(1),
+});
+
+/** main -> chrome: open this doc in the owning tab's reader. */
+export const DocOpenRequestEventSchema = z.object({
+  tabId: SessionIdSchema,
+  rawPath: z.string(),
+  resolvedPath: z.string(),
+  provenanceTitle: z.string(),
+  provenanceStatus: SessionStatusSchema,
+});
+
+/** chrome -> main: persist a tab's reader docs (content excluded). */
+export const LayoutPersistDocsPayloadSchema = z.object({
+  tabId: SessionIdSchema,
+  docs: z.array(PersistedOpenDocSchema),
+  activeDocIndex: z.number().int().nullable(),
+});
+
+/** chrome -> main: fetch a tab's persisted reader docs (called on tab restore). */
+export const LayoutDocsForTabPayloadSchema = z.object({
+  tabId: SessionIdSchema,
+});
+export const LayoutDocsForTabResponseSchema = z.object({
+  docs: z.array(PersistedOpenDocSchema),
+  activeDocIndex: z.number().int().nullable(),
 });
 
 // Re-export for caller convenience.

@@ -31,6 +31,9 @@ apps/desktop/release/
 *.swp
 *.swo
 
+# Claude Code local session state (scheduling locks, etc.)
+.claude/
+
 # OS noise
 .DS_Store
 Thumbs.db

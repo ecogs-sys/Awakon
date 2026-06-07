@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI.Pad — Split + Doc Review</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --bg-0: oklch(0.155 0.008 250);
+    --bg-1: oklch(0.195 0.008 250);
+    --bg-2: oklch(0.235 0.008 250);
+    --bg-3: oklch(0.275 0.009 250);
+    --bg-4: oklch(0.325 0.010 250);
+    --bg-overlay: oklch(0.10 0.008 250 / 0.7);
+    --text-1: oklch(0.97 0.003 250);
+    --text-2: oklch(0.74 0.006 250);
+    --text-3: oklch(0.56 0.008 250);
+    --text-4: oklch(0.42 0.008 250);
+    --border-1: oklch(0.30 0.010 250 / 0.6);
+    --border-2: oklch(0.36 0.012 250 / 0.5);
+    --accent: oklch(0.72 0.12 230);
+    --accent-soft: oklch(0.72 0.12 230 / 0.18);
+    --accent-glow: oklch(0.72 0.12 230 / 0.35);
+    --st-running: oklch(0.78 0.15 155);
+    --st-running-bg: oklch(0.78 0.15 155 / 0.14);
+    --st-awaiting: oklch(0.82 0.13 88);
+    --st-awaiting-bg: oklch(0.82 0.13 88 / 0.16);
+    --st-limited: oklch(0.70 0.18 25);
+    --st-limited-bg: oklch(0.70 0.18 25 / 0.16);
+    --st-idle: oklch(0.55 0.008 250);
+    --st-idle-bg: oklch(0.55 0.008 250 / 0.14);
+    --term-bg: oklch(0.165 0.008 250);
+    --term-fg: oklch(0.92 0.004 250);
+    --term-dim: oklch(0.62 0.006 250);
+    --term-green: oklch(0.82 0.16 145);
+    --term-cyan: oklch(0.80 0.12 200);
+    --term-yellow: oklch(0.86 0.14 92);
+    --term-blue: oklch(0.78 0.13 240);
+    --term-magenta: oklch(0.74 0.14 320);
+    --term-red: oklch(0.72 0.16 25);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; background: var(--bg-0); color: var(--text-1);
+    font-family: var(--font-sans); font-size: 14px;
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  .dc-artboard { background: var(--bg-0); }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#1c1f25"/>
+    <rect x="22" y="30" width="26" height="40" rx="5" fill="#22262e"/>
+    <rect x="52" y="30" width="26" height="40" rx="5" fill="#2a2f38"/>
+    <path d="M 58 42 L 64 47 L 58 52" fill="none" stroke="#e8eaee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="56" y="58" width="18" height="2.4" rx="1.2" fill="#7CA8E0"/>
+    <rect x="28" y="36" width="14" height="2.4" rx="1.2" fill="#9bc8a3"/>
+  </svg>
+</template>
+<div id="root"></div>
+
+<script>
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "accent": "#7CA8E0"
+  }/*EDITMODE-END*/;
+  window.__TWEAK_DEFAULTS = TWEAK_DEFAULTS;
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="split-md.jsx"></script>
+</body>
+</html>

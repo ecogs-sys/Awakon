@@ -15,10 +15,14 @@ import {
   LayoutReorderTabsPayloadSchema,
   LayoutPersistSplitsPayloadSchema,
   LayoutSplitsForTabPayloadSchema,
+  DocOpenPayloadSchema,
+  LayoutPersistDocsPayloadSchema,
+  LayoutDocsForTabPayloadSchema,
 } from '@awakon/contracts';
 import type {
   AttentionEvent,
   PersistedSplitNode,
+  PersistedOpenDoc,
   SessionCreateOptions,
   SessionId,
   SessionInfo,
@@ -50,6 +54,15 @@ export type PersistSplitsCallback = (
   splits: PersistedSplitNode | null,
 ) => void;
 export type SplitsForTabCallback = (tabId: SessionId) => PersistedSplitNode | null;
+export type DocOpenCallback = (sessionId: SessionId, path: string) => void;
+export type PersistDocsCallback = (
+  tabId: SessionId,
+  docs: PersistedOpenDoc[],
+  activeDocIndex: number | null,
+) => void;
+export type DocsForTabCallback = (
+  tabId: SessionId,
+) => { docs: PersistedOpenDoc[]; activeDocIndex: number | null };
 
 export class IpcRouter {
   private readonly subscribers = new Set<WebContents>();
@@ -66,6 +79,9 @@ export class IpcRouter {
   private restartViewCallback: RestartViewCallback | null = null;
   private persistSplitsCallback: PersistSplitsCallback | null = null;
   private splitsForTabCallback: SplitsForTabCallback | null = null;
+  private docOpenCallback: DocOpenCallback | null = null;
+  private persistDocsCallback: PersistDocsCallback | null = null;
+  private docsForTabCallback: DocsForTabCallback | null = null;
 
   constructor(
     private readonly ipcMain: IpcMain,
@@ -116,6 +132,18 @@ export class IpcRouter {
 
   onSplitsForTab(cb: SplitsForTabCallback): void {
     this.splitsForTabCallback = cb;
+  }
+
+  onDocOpen(cb: DocOpenCallback): void {
+    this.docOpenCallback = cb;
+  }
+
+  onPersistDocs(cb: PersistDocsCallback): void {
+    this.persistDocsCallback = cb;
+  }
+
+  onDocsForTab(cb: DocsForTabCallback): void {
+    this.docsForTabCallback = cb;
   }
 
   subscribe(wc: WebContents): void {
@@ -259,6 +287,29 @@ export class IpcRouter {
       if (!parsed.success) return { error: parsed.error.message };
       return this.splitsForTabCallback?.(parsed.data.tabId) ?? null;
     });
+
+    this.ipcMain.handle(IpcChannel.DocOpen, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = DocOpenPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.docOpenCallback?.(parsed.data.sessionId, parsed.data.path);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutPersistDocs, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutPersistDocsPayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.persistDocsCallback?.(parsed.data.tabId, parsed.data.docs, parsed.data.activeDocIndex);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(
+      IpcChannel.LayoutDocsForTab,
+      (_e, raw): { docs: PersistedOpenDoc[]; activeDocIndex: number | null } | { error: string } => {
+        const parsed = LayoutDocsForTabPayloadSchema.safeParse(raw);
+        if (!parsed.success) return { error: parsed.error.message };
+        return this.docsForTabCallback?.(parsed.data.tabId) ?? { docs: [], activeDocIndex: null };
+      },
+    );
   }
 
   private bindEvents(): void {

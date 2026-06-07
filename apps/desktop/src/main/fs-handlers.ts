@@ -1,8 +1,9 @@
-﻿import { stat } from 'node:fs/promises';
+﻿import { stat, readFile } from 'node:fs/promises';
 import type { BrowserWindow } from 'electron';
 import {
   FsPickDirectoryPayloadSchema,
   FsPathExistsPayloadSchema,
+  FsReadFilePayloadSchema,
   IpcChannel,
 } from '@awakon/contracts';
 
@@ -53,6 +54,27 @@ export function registerFsHandlers(
       return { exists: true, isDirectory: st.isDirectory() };
     } catch {
       return { exists: false, isDirectory: false };
+    }
+  });
+
+  const MAX_DOC_BYTES = 1_048_576; // 1 MB
+
+  ipc.handle(IpcChannel.FsReadFile, async (_e, raw) => {
+    const parsed = FsReadFilePayloadSchema.safeParse(raw);
+    if (!parsed.success) return { error: parsed.error.message };
+    const { path } = parsed.data;
+    if (!path.toLowerCase().endsWith('.md')) {
+      return { error: 'only .md files can be read by the reader' };
+    }
+    try {
+      const st = await stat(path);
+      if (st.size > MAX_DOC_BYTES) return { tooLarge: true, sizeBytes: st.size };
+      const content = await readFile(path, 'utf8');
+      return { content, sizeBytes: st.size, mtimeMs: st.mtimeMs };
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { notFound: true };
+      return { error: err instanceof Error ? err.message : String(err) };
     }
   });
 }

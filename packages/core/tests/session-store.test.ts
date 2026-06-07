@@ -10,7 +10,7 @@ beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'awakon-store-')); });
 afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
 
 const sample: PersistedTabs = {
-  version: 2,
+  version: 3,
   tabs: [
     { tabId: 't1', shell: 'pwsh', cwd: 'C:\\Users\\me', title: 'First' },
     { tabId: 't2', shell: 'bash', cwd: '/home/me' },
@@ -41,7 +41,7 @@ describe('SessionStore', () => {
   it('overwrites existing file on subsequent save', async () => {
     const store = new SessionStore(dir);
     await store.save(sample);
-    const next: PersistedTabs = { version: 2, tabs: [], focusedTabId: null };
+    const next: PersistedTabs = { version: 3, tabs: [], focusedTabId: null };
     await store.save(next);
     expect(await store.load()).toEqual(next);
   });
@@ -88,11 +88,11 @@ describe('SessionStore', () => {
     await store.save(sample);
     const raw = readFileSync(join(dir, 'sessions.json'), 'utf8');
     const parsed = JSON.parse(raw);
-    expect(parsed.version).toBe(2);
+    expect(parsed.version).toBe(3);
     expect(parsed.tabs).toHaveLength(2);
   });
 
-  it('migrates a v1 file in memory and writes it back as v2', async () => {
+  it('migrates a v1 file in memory and writes it back as the current version', async () => {
     const v1Payload = {
       version: 1,
       tabs: [{ tabId: 't1', shell: 'pwsh', cwd: 'C:\\Users\\me', title: 'First' }],
@@ -101,13 +101,13 @@ describe('SessionStore', () => {
     writeFileSync(join(dir, 'sessions.json'), JSON.stringify(v1Payload));
     const store = new SessionStore(dir);
     const loaded = await store.load();
-    expect(loaded?.version).toBe(2);
+    expect(loaded?.version).toBe(3);
     expect(loaded?.tabs[0]?.splits).toBeUndefined();
   });
 
-  it('round-trips a v2 payload that contains a split tree', async () => {
+  it('round-trips a payload that contains a split tree', async () => {
     const withSplits: PersistedTabs = {
-      version: 2,
+      version: 3,
       tabs: [
         {
           tabId: 't1',

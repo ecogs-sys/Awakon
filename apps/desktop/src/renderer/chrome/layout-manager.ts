@@ -1,4 +1,6 @@
 ﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+import { emptyDocState, openDoc, closeDocAt, setReview, moveActive, toPersistedDocs, fromPersistedDocs, type ReviewState } from './doc-state.js';
+import { DocReader } from './doc-reader.js';
 import { IpcChannel } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
@@ -15,6 +17,7 @@ export interface LayoutDeps {
   sidebar: Sidebar;
   bodyEl: HTMLElement;
   emptyStateHostEl: HTMLElement;
+  viewHostEl: HTMLElement;
 }
 
 export class LayoutManager {
@@ -31,6 +34,8 @@ export class LayoutManager {
   private defaultCwdSetting = '';
   private readonly emptyStateHostEl: HTMLElement;
   private readonly emptyStateView: EmptyStateView;
+  private readonly viewHostEl: HTMLElement;
+  private readonly docReader: DocReader;
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -39,6 +44,15 @@ export class LayoutManager {
     this.bodyEl = deps.bodyEl;
     this.emptyStateHostEl = deps.emptyStateHostEl;
     this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl);
+    this.viewHostEl = deps.viewHostEl;
+    this.docReader = new DocReader(this.viewHostEl, this.bridge, {
+      onDismiss:    () => this.dismissReader(),
+      onSelectFile: (i) => this.selectDoc(i),
+      onCloseFile:  (i) => this.closeDoc(i),
+      onReview:     (i, r) => this.reviewDoc(i, r),
+      onPrevFile:   () => this.moveDoc(-1),
+      onNextFile:   () => this.moveDoc(1),
+    });
   }
 
   async start(): Promise<void> {
@@ -120,6 +134,24 @@ export class LayoutManager {
     this.bridge.on(IpcChannel.SettingsChanged, (raw) => {
       const s = raw as AppSettings;
       this.defaultCwdSetting = s.defaultCwd ?? '';
+    });
+    this.bridge.on(IpcChannel.DocOpenRequest, (raw) => {
+      const e = raw as {
+        tabId: SessionId; rawPath: string; resolvedPath: string;
+        provenanceTitle: string; provenanceStatus: SessionInfo['status'];
+      };
+      const session = this.state.sessions.get(e.tabId);
+      if (!session) return;
+      session.docState = openDoc(session.docState, {
+        rawPath: e.rawPath,
+        resolvedPath: e.resolvedPath,
+        provenanceTitle: e.provenanceTitle,
+        provenanceStatus: e.provenanceStatus,
+        reviewState: 'proposed',
+      });
+      this.persistDocs(e.tabId);
+      if (this.state.focusedId === e.tabId) this.syncReader();
+      this.render();
     });
 
     // Fetch the real home directory, settings, and recent tabs in parallel.
@@ -338,6 +370,7 @@ export class LayoutManager {
       session.attention = false; // clear badge on focus
     }
     void this.bridge.send(IpcChannel.LayoutShow, { sessionId });
+    this.syncReader();
     this.render();
   }
 
@@ -388,10 +421,92 @@ export class LayoutManager {
         broken: false,
         statusSinceMs: Date.now(),
         resumeAt: null,
+        docState: emptyDocState(),
       };
       this.state.sessions.set(info.id, fresh);
       this.state.tabOrder.push(info.id);
+      void this.restoreDocs(info.id);
     }
+    this.render();
+  }
+
+  private focusedDocState(): SessionState | undefined {
+    return this.state.focusedId ? this.state.sessions.get(this.state.focusedId) : undefined;
+  }
+
+  /** Show or hide the reader to match the focused tab's doc state. */
+  private syncReader(): void {
+    const session = this.focusedDocState();
+    const ds = session?.docState;
+    if (ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0) {
+      void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+      this.docReader.render(ds);
+    } else {
+      this.docReader.render(emptyDocState());
+      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+    }
+  }
+
+  private dismissReader(): void {
+    const session = this.focusedDocState();
+    if (!session) return;
+    session.docState = { ...session.docState, readerVisible: false };
+    this.persistDocs(session.info.id);
+    this.syncReader();
+    this.render();
+  }
+
+  private selectDoc(index: number): void {
+    const session = this.focusedDocState();
+    if (!session) return;
+    session.docState = { ...session.docState, activeDocIndex: index, readerVisible: true };
+    this.persistDocs(session.info.id);
+    this.syncReader();
+    this.render();
+  }
+
+  private closeDoc(index: number): void {
+    const session = this.focusedDocState();
+    if (!session) return;
+    session.docState = closeDocAt(session.docState, index);
+    this.persistDocs(session.info.id);
+    this.syncReader();
+    this.render();
+  }
+
+  private reviewDoc(index: number, review: ReviewState): void {
+    const session = this.focusedDocState();
+    if (!session) return;
+    session.docState = setReview(session.docState, index, review);
+    this.persistDocs(session.info.id);
+    this.syncReader();
+  }
+
+  private moveDoc(delta: number): void {
+    const session = this.focusedDocState();
+    if (!session) return;
+    session.docState = moveActive(session.docState, delta);
+    this.persistDocs(session.info.id);
+    this.syncReader();
+    this.render();
+  }
+
+  private persistDocs(tabId: SessionId): void {
+    const session = this.state.sessions.get(tabId);
+    if (!session) return;
+    const { docs, activeDocIndex } = toPersistedDocs(session.docState);
+    void this.bridge.send(IpcChannel.LayoutPersistDocs, { tabId, docs, activeDocIndex });
+  }
+
+  private async restoreDocs(tabId: SessionId): Promise<void> {
+    let res: { docs: unknown[]; activeDocIndex: number | null } | { error: string };
+    try {
+      res = (await this.bridge.send(IpcChannel.LayoutDocsForTab, { tabId })) as typeof res;
+    } catch { return; }
+    if (!res || 'error' in res || !res.docs || res.docs.length === 0) return;
+    const session = this.state.sessions.get(tabId);
+    if (!session) return;
+    session.docState = fromPersistedDocs(res.docs as never, res.activeDocIndex);
     this.render();
   }
 
@@ -399,7 +514,13 @@ export class LayoutManager {
     const tabs: TabViewModel[] = this.state.tabOrder
       .map((id) => this.state.sessions.get(id))
       .filter((s): s is SessionState => !!s)
-      .map((s) => ({ info: s.info, attention: s.attention, broken: s.broken, resumeAt: s.resumeAt }));
+      .map((s) => ({
+        info: s.info,
+        attention: s.attention,
+        broken: s.broken,
+        resumeAt: s.resumeAt,
+        hasDoc: s.docState.activeDocIndex !== null,
+      }));
     this.tabStrip.render(tabs, this.state.focusedId);
 
     const rows: SidebarRowVm[] = this.state.tabOrder

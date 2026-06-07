@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   PersistedSplitNodeSchema,
   PersistedTabsSchema,
@@ -7,8 +7,8 @@ import {
 } from '@awakon/contracts';
 
 describe('PERSISTENCE_SCHEMA_VERSION', () => {
-  it('is 2', () => {
-    expect(PERSISTENCE_SCHEMA_VERSION).toBe(2);
+  it('is 3', () => {
+    expect(PERSISTENCE_SCHEMA_VERSION).toBe(3);
   });
 });
 
@@ -91,7 +91,7 @@ describe('migratePersistedTabs', () => {
     const parsed = PersistedTabsSchema.safeParse(migrated);
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.version).toBe(2);
+      expect(parsed.data.version).toBe(3);
       expect(parsed.data.tabs[0]!.splits).toBeUndefined();
       expect(parsed.data.tabs[1]!.splits).toBeUndefined();
     }
@@ -112,7 +112,6 @@ describe('migratePersistedTabs', () => {
       focusedTabId: 't1',
     };
     const migrated = migratePersistedTabs(v2);
-    expect(migrated).toEqual(v2);
     expect(PersistedTabsSchema.safeParse(migrated).success).toBe(true);
   });
 
@@ -121,12 +120,59 @@ describe('migratePersistedTabs', () => {
   });
 
   it('returns null for an unknown version', () => {
-    expect(migratePersistedTabs({ version: 3, tabs: [], focusedTabId: null })).toBeNull();
+    expect(migratePersistedTabs({ version: 99, tabs: [], focusedTabId: null })).toBeNull();
   });
 
   it('returns null for non-object inputs', () => {
     expect(migratePersistedTabs(null)).toBeNull();
     expect(migratePersistedTabs('hello')).toBeNull();
     expect(migratePersistedTabs(42)).toBeNull();
+  });
+});
+
+describe('migratePersistedTabs — v2 to v3', () => {
+  it('upgrades a v2 payload to v3 with undefined docs', () => {
+    const v2 = {
+      version: 2,
+      tabs: [{ tabId: 't1', shell: 'pwsh', cwd: '/x' }],
+      focusedTabId: 't1',
+    };
+    const migrated = migratePersistedTabs(v2);
+    const parsed = PersistedTabsSchema.safeParse(migrated);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.version).toBe(3);
+      expect(parsed.data.tabs[0]!.docs).toBeUndefined();
+    }
+  });
+
+  it('chains v1 -> v3', () => {
+    const v1 = { version: 1, tabs: [{ tabId: 't1', shell: 'pwsh', cwd: '/x' }], focusedTabId: 't1' };
+    const parsed = PersistedTabsSchema.safeParse(migratePersistedTabs(v1));
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.version).toBe(3);
+  });
+
+  it('accepts a v3 payload carrying reader docs', () => {
+    const v3 = {
+      version: 3,
+      tabs: [{
+        tabId: 't1', shell: 'pwsh', cwd: '/x',
+        docs: [{
+          rawPath: 'docs/migration.md',
+          resolvedPath: '/x/docs/migration.md',
+          provenanceTitle: 'pwsh',
+          provenanceStatus: 'running',
+          reviewState: 'proposed',
+        }],
+        activeDocIndex: 0,
+      }],
+      focusedTabId: 't1',
+    };
+    expect(PersistedTabsSchema.safeParse(migratePersistedTabs(v3)).success).toBe(true);
+  });
+
+  it('returns null for version 4', () => {
+    expect(migratePersistedTabs({ version: 4, tabs: [], focusedTabId: null })).toBeNull();
   });
 });
