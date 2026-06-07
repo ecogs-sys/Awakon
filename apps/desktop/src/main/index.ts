@@ -452,12 +452,12 @@ async function createChromeWindow(): Promise<void> {
   })();
   ipcRouter.subscribe(chromeWindow.webContents);
 
-  // Create the initial session so the app boots with something visible.
+  // Restore the persisted layout. Returns null when there is nothing to restore (first
+  // launch, or the user closed every tab before quitting) — the app then boots into the
+  // welcome/empty state and never auto-opens a tab.
   const restoredFocus = await bootstrapSessions({
     loadPersisted: () => sessionStore.load(),
     createTabSession: (opts) => createTabSession(opts),
-    defaultShell,
-    defaultCwd: () => homedir(),
   });
   if (restoredFocus) {
     focusedSessionId = restoredFocus;
