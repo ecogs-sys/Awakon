@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { IpcChannel } from '@awakon/contracts';
 import { DocReader } from './doc-reader.js';
 import { emptyDocState, openDoc, type OpenDoc } from './doc-state.js';
 
@@ -211,5 +212,35 @@ describe('DocReader slide animation', () => {
     r.render(openDoc(emptyDocState(), doc())); // reopen -> animates again
     const panel = host.querySelector('.aip-reader__panel')!;
     expect(panel.classList.contains('aip-reader__panel--static')).toBe(false);
+  });
+});
+
+describe('DocReader markdown links', () => {
+  it('opens an http(s) link externally and never navigates the chrome window', async () => {
+    const bridge = fakeBridge({ content: '[site](https://example.com)', sizeBytes: 28, mtimeMs: 1 });
+    const r = new DocReader(host, bridge, callbacks());
+    r.render(openDoc(emptyDocState(), doc()));
+    await Promise.resolve(); await Promise.resolve();
+    const a = host.querySelector('.aip-reader__body a') as HTMLAnchorElement;
+    expect(a).not.toBeNull();
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    a.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(bridge.send.mock.calls.some(
+      (c) => c[0] === IpcChannel.ChromeOpenExternal && (c[1] as { url: string }).url === 'https://example.com',
+    )).toBe(true);
+  });
+
+  it('swallows a non-http link without opening anything external', async () => {
+    const bridge = fakeBridge({ content: '[anchor](#section)', sizeBytes: 18, mtimeMs: 1 });
+    const r = new DocReader(host, bridge, callbacks());
+    r.render(openDoc(emptyDocState(), doc()));
+    await Promise.resolve(); await Promise.resolve();
+    const a = host.querySelector('.aip-reader__body a') as HTMLAnchorElement;
+    expect(a).not.toBeNull();
+    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
+    a.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(bridge.send.mock.calls.some((c) => c[0] === IpcChannel.ChromeOpenExternal)).toBe(false);
   });
 });

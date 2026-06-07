@@ -129,6 +129,18 @@ export class DocReader {
 
     const bodyEl = root.querySelector<HTMLElement>('.aip-reader__body')!;
     const statsEl = root.querySelector<HTMLElement>('.aip-reader__stats')!;
+    // Links inside rendered markdown must never navigate the chrome window (that would
+    // replace the whole app UI). Intercept clicks and hand http(s) links to the OS
+    // default browser; swallow everything else. Delegated so it covers async body content.
+    bodyEl.addEventListener('click', (ev) => {
+      const anchor = (ev.target as HTMLElement | null)?.closest('a');
+      if (!anchor) return;
+      ev.preventDefault();
+      const href = anchor.getAttribute('href') ?? '';
+      if (/^https?:\/\//i.test(href)) {
+        void this.bridge.send(IpcChannel.ChromeOpenExternal, { url: href });
+      }
+    });
     void this.loadBody(active.resolvedPath, bodyEl, statsEl);
 
     this.keyHandler = (e: KeyboardEvent): void => {
