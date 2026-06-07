@@ -140,3 +140,47 @@ describe('DocReader body', () => {
     expect(host.querySelector('.aip-reader__body')?.textContent).toContain('too large');
   });
 });
+
+describe('DocReader keyboard navigation', () => {
+  it('fires onPrevFile on Ctrl/Cmd+[ while visible', () => {
+    const cb = callbacks();
+    const r = new DocReader(host, fakeBridge({ notFound: true }), cb);
+    r.render(openDoc(emptyDocState(), doc()));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '[', ctrlKey: true }));
+    expect(cb.onPrevFile).toHaveBeenCalled();
+  });
+
+  it('fires onNextFile on Ctrl/Cmd+] while visible', () => {
+    const cb = callbacks();
+    const r = new DocReader(host, fakeBridge({ notFound: true }), cb);
+    r.render(openDoc(emptyDocState(), doc()));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: ']', ctrlKey: true }));
+    expect(cb.onNextFile).toHaveBeenCalled();
+  });
+
+  it('does not fire nav callbacks after the reader is hidden', () => {
+    const cb = callbacks();
+    const r = new DocReader(host, fakeBridge({ notFound: true }), cb);
+    r.render(openDoc(emptyDocState(), doc()));
+    r.render(emptyDocState()); // hide → keydown listener must be removed
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: ']', ctrlKey: true }));
+    expect(cb.onNextFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('DocReader close cell + error body', () => {
+  it('fires onDismiss when the right-aligned close cell is clicked', () => {
+    const cb = callbacks();
+    const r = new DocReader(host, fakeBridge({ notFound: true }), cb);
+    r.render(openDoc(emptyDocState(), doc()));
+    (host.querySelector('.aip-reader__close') as HTMLElement).click();
+    expect(cb.onDismiss).toHaveBeenCalled();
+  });
+
+  it('renders an error message when the read fails', async () => {
+    const r = new DocReader(host, fakeBridge({ error: 'boom' }), callbacks());
+    r.render(openDoc(emptyDocState(), doc()));
+    await Promise.resolve(); await Promise.resolve();
+    expect(host.querySelector('.aip-reader__body')?.textContent).toContain('Could not read file');
+  });
+});
