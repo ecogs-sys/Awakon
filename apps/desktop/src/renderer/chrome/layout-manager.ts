@@ -1,4 +1,5 @@
 ﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+import { emptyDocState } from './doc-state.js';
 import { IpcChannel } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
@@ -388,6 +389,7 @@ export class LayoutManager {
         broken: false,
         statusSinceMs: Date.now(),
         resumeAt: null,
+        docState: emptyDocState(),
       };
       this.state.sessions.set(info.id, fresh);
       this.state.tabOrder.push(info.id);

@@ -1,4 +1,5 @@
 ﻿import type { SessionId, SessionInfo, RecentTab } from '@awakon/contracts';
+import type { TabDocState } from './doc-state.js';
 
 export interface SessionState {
   info: SessionInfo;
@@ -9,6 +10,8 @@ export interface SessionState {
   statusSinceMs: number;
   /** Epoch ms a pending auto-resume will fire, or null when none is scheduled. */
   resumeAt: number | null;
+  /** Per-tab markdown reader state. */
+  docState: TabDocState;
 }
 
 export interface ChromeState {
