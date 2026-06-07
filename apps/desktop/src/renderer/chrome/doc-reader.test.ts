@@ -184,3 +184,32 @@ describe('DocReader close cell + error body', () => {
     expect(host.querySelector('.aip-reader__body')?.textContent).toContain('Could not read file');
   });
 });
+
+describe('DocReader slide animation', () => {
+  it('plays the slide-in on a fresh open (no --static class)', () => {
+    const r = new DocReader(host, fakeBridge({ notFound: true }), callbacks());
+    r.render(openDoc(emptyDocState(), doc()));
+    const panel = host.querySelector('.aip-reader__panel')!;
+    expect(panel.classList.contains('aip-reader__panel--static')).toBe(false);
+  });
+
+  it('suppresses the slide when re-rendering while already visible (file switch)', () => {
+    const cb = callbacks();
+    const r = new DocReader(host, fakeBridge({ notFound: true }), cb);
+    let s = openDoc(emptyDocState(), doc({ resolvedPath: '/x/a.md', rawPath: 'a.md' }));
+    s = openDoc(s, doc({ resolvedPath: '/x/b.md', rawPath: 'b.md' }));
+    r.render(s);                       // fresh open -> animates
+    r.render({ ...s, activeDocIndex: 0 }); // switch file while visible -> no slide
+    const panel = host.querySelector('.aip-reader__panel')!;
+    expect(panel.classList.contains('aip-reader__panel--static')).toBe(true);
+  });
+
+  it('animates again after the reader was closed and reopened', () => {
+    const r = new DocReader(host, fakeBridge({ notFound: true }), callbacks());
+    r.render(openDoc(emptyDocState(), doc()));
+    r.render(emptyDocState());         // close (removes the panel)
+    r.render(openDoc(emptyDocState(), doc())); // reopen -> animates again
+    const panel = host.querySelector('.aip-reader__panel')!;
+    expect(panel.classList.contains('aip-reader__panel--static')).toBe(false);
+  });
+});

@@ -44,6 +44,9 @@ export class DocReader {
   render(state: TabDocState): void {
     this.teardownKeys();
     const existing = this.host.querySelector('.aip-reader');
+    // Whether the panel was already on-screen. If so, this render is an in-place update
+    // (file switch / review toggle) and the slide-in animation must NOT replay.
+    const wasVisible = existing !== null;
     if (existing) existing.remove();
 
     const visible = state.readerVisible && state.activeDocIndex !== null && state.openDocs.length > 0;
@@ -54,11 +57,14 @@ export class DocReader {
 
     const root = document.createElement('div');
     root.className = 'aip-reader';
+    // Only animate the slide-in on a fresh open (closed -> open), not on re-renders
+    // while the reader is already visible.
+    const panelClass = 'aip-reader__panel' + (wasVisible ? ' aip-reader__panel--static' : '');
     root.innerHTML = `
       <div class="aip-reader__scrim">
         <div class="aip-reader__scrim-hint">click or esc to close</div>
       </div>
-      <div class="aip-reader__panel" role="dialog" aria-label="Markdown reader">
+      <div class="${panelClass}" role="dialog" aria-label="Markdown reader">
         <div class="aip-reader__files"></div>
         <div class="aip-reader__review">
           <span class="aip-reader__path"></span>

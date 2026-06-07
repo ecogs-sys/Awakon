@@ -1128,6 +1128,8 @@ select.dlg-input {
   animation: aip-reader-in 200ms ease-out;
 }
 @keyframes aip-reader-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+/* In-place updates (switching files / toggling review while open) must not replay the slide. */
+.aip-reader__panel--static { animation: none; }
 
 .aip-reader__files {
   display: flex; align-items: stretch; height: 36px;
