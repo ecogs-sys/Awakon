@@ -23,13 +23,9 @@ if ! command -v pnpm &>/dev/null; then
   exit 1
 fi
 
-# --- dependency install (skip if already done) ---
-if [ -d "node_modules/.pnpm" ]; then
-  echo "deps already installed, skipping"
-else
-  echo "Installing dependencies..."
-  pnpm install --frozen-lockfile
-fi
+# --- dependency install ---
+echo "Installing dependencies..."
+pnpm install --frozen-lockfile
 
 # --- build ---
 echo "Building workspace packages..."
