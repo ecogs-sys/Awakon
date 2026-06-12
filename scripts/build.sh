@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Anchor to repo root so relative paths work regardless of where the script is invoked from.
