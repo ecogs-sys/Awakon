@@ -9,9 +9,9 @@
     "test": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
-    "@types/node": "^20.14.0",
-    "electron": "^33.0.0",
-    "typescript": "^5.5.0"
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^20.19.43",
+    "electron": "^33.4.11",
+    "typescript": "^5.9.3"
   }
 }
