@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Anchor to repo root so relative paths work regardless of where the script is invoked from.
@@ -23,13 +23,9 @@ if ! command -v pnpm &>/dev/null; then
   exit 1
 fi
 
-# --- dependency install (skip if already done) ---
-if [ -d "node_modules/.pnpm" ]; then
-  echo "deps already installed, skipping"
-else
-  echo "Installing dependencies..."
-  pnpm install --frozen-lockfile
-fi
+# --- dependency install ---
+echo "Installing dependencies..."
+pnpm install --frozen-lockfile
 
 # --- build ---
 echo "Building workspace packages..."
