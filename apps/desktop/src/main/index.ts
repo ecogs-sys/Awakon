@@ -16,12 +16,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 
-// AppImage mounts via FUSE; chrome-sandbox can't be setuid-root inside the mount,
-// so Electron aborts unless we disable the SUID sandbox.
-if (process.platform === 'linux' && process.env['APPIMAGE']) {
-  app.commandLine.appendSwitch('no-sandbox');
-}
-
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);

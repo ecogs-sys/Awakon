@@ -15,6 +15,7 @@
   "extraResources": [
     { "from": "build/icon.png", "to": "icon.png" }
   ],
+  "afterPack": "./afterPack.js",
   "nodeGypRebuild": false,
   "npmRebuild": false,
   "win": {
