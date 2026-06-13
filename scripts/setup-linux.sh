@@ -13,7 +13,7 @@ fi
 
 if ! command -v apt-get &>/dev/null; then
   echo "Warning: apt-get not found. This script targets Debian/Ubuntu." >&2
-  echo "Install the following manually: build-essential, python3, Node.js >= 20, pnpm" >&2
+  echo "Install the following manually: build-essential, python3, libfuse2, Node.js >= 20, pnpm" >&2
   exit 1
 fi
 
@@ -23,6 +23,17 @@ sudo apt-get update -qq
 # --- build tools (required by node-pty native addon) ---
 echo "==> Installing build-essential and python3..."
 sudo apt-get install -y build-essential python3
+
+# --- AppImage runtime (libfuse2 required to run AppImage builds) ---
+# Ubuntu 24.04+ renamed the package to libfuse2t64; fall back gracefully.
+echo "==> Installing AppImage runtime (libfuse2)..."
+if apt-cache show libfuse2 &>/dev/null 2>&1; then
+  sudo apt-get install -y libfuse2
+elif apt-cache show libfuse2t64 &>/dev/null 2>&1; then
+  sudo apt-get install -y libfuse2t64
+else
+  echo "Warning: neither libfuse2 nor libfuse2t64 found in apt cache. AppImage builds may not run." >&2
+fi
 
 # --- Node.js >= 20 ---
 if command -v node &>/dev/null; then
