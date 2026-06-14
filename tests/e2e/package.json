@@ -6,7 +6,8 @@
   "author": "ecogs",
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test --grep-invert \"screenshot:\"",
+    "test:screenshots": "playwright test take-screenshots"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -30,9 +30,15 @@ test('split menu action creates a new pane session', async () => {
     env: { ...process.env, NODE_ENV: 'production' },
   });
   const chrome = await electronApp.firstWindow();
+
+  // No tab is auto-opened on launch (isolated userData dir has no saved layout to
+  // restore), so create the first tab via the chrome's "+" button.
+  await chrome.locator('#new-tab').click();
+  await expect(chrome.locator('#ns-start')).toBeVisible();
+  await chrome.locator('#ns-start').click();
   await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 8_000 });
 
-  // One tab session at boot, no panes yet.
+  // One tab session now, no panes yet.
   await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(1);
 
   // Give the terminal view's renderer time to mount its SplitContainer and register
