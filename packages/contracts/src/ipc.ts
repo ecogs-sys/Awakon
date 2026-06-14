@@ -28,6 +28,7 @@ export const IpcChannel = {
   SessionReplay: 'core.session.replay',
   LayoutShow: 'core.layout.show',
   LayoutSetSidebarWidth: 'core.layout.set-sidebar-width',
+  LayoutViewportSize: 'core.layout.viewport-size',
   LayoutModal: 'core.layout.modal',
   LayoutReorderTabs: 'core.layout.reorder-tabs',
   LayoutPersistSplits: 'core.layout.persist-splits',
@@ -109,6 +110,14 @@ export const LayoutShowPayloadSchema = z.object({
 
 export const LayoutSetSidebarWidthPayloadSchema = z.object({
   widthPx: z.number().int().min(0),
+});
+
+/** Sent by the chrome renderer with its measured viewport (window.innerWidth/Height) on
+ * every resize. The renderer is the source of truth for the content area size because the
+ * main process's getContentBounds() is unreliable on some Linux WMs after maximize. */
+export const LayoutViewportSizePayloadSchema = z.object({
+  width: z.number().int().min(0),
+  height: z.number().int().min(0),
 });
 
 /** Sent by the chrome renderer to suspend/restore the terminal WebContentsView so a

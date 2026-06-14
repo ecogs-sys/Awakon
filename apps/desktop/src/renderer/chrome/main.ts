@@ -66,6 +66,24 @@ const manager = new LayoutManager({
 
 void manager.start();
 
+// Report the viewport size to main so it can position the terminal WebContentsView. The
+// renderer is the authoritative size source: it always reflows on maximize/resize, whereas
+// the main process's getContentBounds() is unreliable on some Linux WMs. Coalesce bursts
+// of resize events with rAF and send the settled size.
+let viewportRaf = 0;
+const reportViewport = (): void => {
+  viewportRaf = 0;
+  void bridge.send(IpcChannel.LayoutViewportSize, {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+};
+window.addEventListener('resize', () => {
+  if (viewportRaf) return;
+  viewportRaf = requestAnimationFrame(reportViewport);
+});
+reportViewport(); // initial size
+
 // Expose for keyboard handler (T14).
 (window as unknown as { __awakonLayout: LayoutManager }).__awakonLayout = manager;
 

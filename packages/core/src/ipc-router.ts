@@ -11,6 +11,7 @@ import {
   SessionReplayPayloadSchema,
   LayoutShowPayloadSchema,
   LayoutSetSidebarWidthPayloadSchema,
+  LayoutViewportSizePayloadSchema,
   LayoutModalPayloadSchema,
   LayoutReorderTabsPayloadSchema,
   LayoutPersistSplitsPayloadSchema,
@@ -40,6 +41,7 @@ import type { SessionManager } from './session-manager.js';
  */
 export type LayoutShowCallback = (sessionId: SessionId) => void;
 export type SetSidebarWidthCallback = (widthPx: number) => void;
+export type ViewportSizeCallback = (width: number, height: number) => void;
 export type SessionCreateCallback = (opts: SessionCreateOptions) => Promise<SessionInfo>;
 export type SessionCreateForPaneCallback = (
   opts: SessionCreateOptions,
@@ -71,6 +73,7 @@ export class IpcRouter {
   private readonly sessionViews = new Map<SessionId, WebContents>();
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
+  private viewportSizeCallback: ViewportSizeCallback | null = null;
   private sessionCreateCallback: SessionCreateCallback | null = null;
   private sessionCreateForPaneCallback: SessionCreateForPaneCallback | null = null;
   private layoutModalCallback: LayoutModalCallback | null = null;
@@ -98,6 +101,10 @@ export class IpcRouter {
 
   onSetSidebarWidth(cb: SetSidebarWidthCallback): void {
     this.setSidebarWidthCallback = cb;
+  }
+
+  onViewportSize(cb: ViewportSizeCallback): void {
+    this.viewportSizeCallback = cb;
   }
 
   onSessionCreate(cb: SessionCreateCallback): void {
@@ -258,6 +265,13 @@ export class IpcRouter {
       const parsed = LayoutSetSidebarWidthPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
       this.setSidebarWidthCallback?.(parsed.data.widthPx);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.LayoutViewportSize, (_e, raw): { ok: true } | { error: string } => {
+      const parsed = LayoutViewportSizePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      this.viewportSizeCallback?.(parsed.data.width, parsed.data.height);
       return { ok: true };
     });
 
