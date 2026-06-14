@@ -31,16 +31,27 @@ export class ViewManager {
   private parent: BrowserWindow | null = null;
   private currentSessionId: SessionId | null = null;
   private sidebarPx = SIDEBAR_OPEN_PX;
+  private viewport: { width: number; height: number } | null = null;
 
   constructor(private readonly opts: ViewManagerOptions) {}
 
   attach(window: BrowserWindow): void {
     this.parent = window;
+    // The main process drives layout on its own resize/maximize events where it can, but
+    // on some Linux WMs neither 'resize' nor 'maximize' fires reliably after maximize, and
+    // getContentBounds() can stay at the pre-maximize size. The renderer (which always
+    // reflows correctly) is therefore the authoritative size source — see setViewport(),
+    // fed by the LayoutViewportSize IPC. These listeners are a harmless fallback.
     window.on('resize', () => this.layout());
-    // On Linux, maximize/unmaximize don't reliably trigger 'resize' (or fire it before
-    // the WM commits the new bounds). Deferring via setImmediate lets bounds settle first.
-    window.on('maximize', () => setImmediate(() => this.layout()));
-    window.on('unmaximize', () => setImmediate(() => this.layout()));
+    window.on('maximize', () => this.layout());
+    window.on('unmaximize', () => this.layout());
+  }
+
+  /** Record the renderer's measured viewport (CSS px == DIP) and re-layout. This is the
+   * authoritative content-area size; getContentBounds() is only a fallback. */
+  setViewport(width: number, height: number): void {
+    this.viewport = { width, height };
+    this.layout();
   }
 
   setSidebarWidth(px: number): void {
@@ -151,7 +162,9 @@ export class ViewManager {
 
   private applyVisibleBounds(view: WebContentsView): void {
     if (!this.parent) return;
-    const { width, height } = this.parent.getContentBounds();
+    // Prefer the renderer-reported viewport (reliable across WMs); fall back to
+    // getContentBounds() before the first viewport report arrives.
+    const { width, height } = this.viewport ?? this.parent.getContentBounds();
     view.setBounds({
       x: this.sidebarPx,
       y: CHROME_TOP_PX,

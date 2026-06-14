@@ -299,6 +299,10 @@ ipcRouter.onLayoutShow((sessionId) => {
   viewManager?.show(sessionId);
 });
 
+ipcRouter.onViewportSize((width, height) => {
+  viewManager?.setViewport(width, height);
+});
+
 ipcRouter.onSetSidebarWidth((widthPx) => {
   viewManager?.setSidebarWidth(widthPx);
 });
