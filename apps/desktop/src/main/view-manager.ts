@@ -37,6 +37,10 @@ export class ViewManager {
   attach(window: BrowserWindow): void {
     this.parent = window;
     window.on('resize', () => this.layout());
+    // On Linux, maximize/unmaximize don't reliably trigger 'resize' (or fire it before
+    // the WM commits the new bounds). Deferring via setImmediate lets bounds settle first.
+    window.on('maximize', () => setImmediate(() => this.layout()));
+    window.on('unmaximize', () => setImmediate(() => this.layout()));
   }
 
   setSidebarWidth(px: number): void {
