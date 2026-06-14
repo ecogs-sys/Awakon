@@ -9,10 +9,10 @@
  *
  * Demo paths: each session is started in a throwaway project directory under a
  * demo base (C:\dev\… on Windows) so the terminal prompt and sidebar show clean,
- * realistic paths instead of the developer's home directory. The home directory
- * the app derives its *default* cwd from is also overridden per-launch via env so
- * the auto-created first tab gets a demo path too. All demo directories that did
- * not already exist are removed in afterAll.
+ * realistic paths instead of the developer's home directory. No tab is auto-opened
+ * on launch, so each test creates its first tab explicitly with a demo cwd. The home
+ * directory the app derives its *default* cwd from is also overridden per-launch via
+ * env. All demo directories that did not already exist are removed in afterAll.
  */
 import { _electron as electron, expect, test } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
@@ -348,7 +348,7 @@ function encodePng(w: number, h: number, pixels: Uint8Array): Buffer {
 test('screenshot: main — single session', async () => {
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(2_500);
 
@@ -363,7 +363,7 @@ test('screenshot: main — single session', async () => {
 test('screenshot: new-session — pick your shell dialog', async () => {
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(1_500);
 
@@ -382,7 +382,7 @@ test('screenshot: multi-tab — badges and sidebar', async () => {
   test.setTimeout(60_000);
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(1_500);
 
@@ -408,7 +408,7 @@ test('screenshot: multi-tab — badges and sidebar', async () => {
 test('screenshot: auto-resume — rate-limited tab with pending resume', async () => {
   const app = await launch(DIRS.api);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.api, 1);
   await resizeWindow(app);
   // Let the boot shell finish starting before we apply settings + write to it,
   // otherwise the rate-limit line can be written before the PTY is ready.
@@ -456,7 +456,7 @@ test('screenshot: settings — auto-resume dialog', async () => {
 test('screenshot: splits — horizontal split pane', async () => {
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(2_500);
 
@@ -475,7 +475,7 @@ test('screenshot: splits — horizontal split pane', async () => {
 test('screenshot: splits-vertical — vertical split pane', async () => {
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(2_500);
 
@@ -495,7 +495,7 @@ test('screenshot: sidebar — live status close-up', async () => {
   test.setTimeout(60_000);
   const app = await launch(DIRS.web);
   const chrome = await app.firstWindow();
-  await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1, { timeout: 10_000 });
+  await newTab(chrome, DIRS.web, 1);
   await resizeWindow(app);
   await chrome.waitForTimeout(1_500);
 
