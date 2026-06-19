@@ -2,8 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveLogConfig, IpcLogger } from './ipc-logger.js';
-import { installIpcInterceptors, type IpcLogEntry } from './ipc-logger.js';
+import { resolveLogConfig, IpcLogger, installIpcInterceptors, type IpcLogEntry } from './ipc-logger.js';
 
 describe('resolveLogConfig', () => {
   it('returns null when neither flag nor env is set', () => {
@@ -217,6 +216,26 @@ describe('installIpcInterceptors', () => {
     expect(logger.entries[0]).toMatchObject({
       dir: 'event', channel: 'event.session.data', wcId: 42,
       payload: { sessionId: 's', data: 'AA==' },
+    });
+  });
+
+  it('logs a request entry for ipcMain.on listeners and still calls the original', () => {
+    const listeners = new Map<string, Listener>();
+    let called = false;
+    const ipcMain = {
+      handle: vi.fn(),
+      on: (c: string, l: Listener) => { listeners.set(c, l); },
+    };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+
+    ipcMain.on('core.fire', () => { called = true; });
+    listeners.get('core.fire')!({ sender: { id: 3 } }, { k: 'v' });
+
+    expect(called).toBe(true);
+    expect(logger.entries).toHaveLength(1);
+    expect(logger.entries[0]).toMatchObject({
+      dir: 'req', channel: 'core.fire', wcId: 3, payload: { k: 'v' },
     });
   });
 });

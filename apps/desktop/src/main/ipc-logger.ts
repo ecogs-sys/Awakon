@@ -242,7 +242,7 @@ export function installIpcInterceptors(
     ...args: unknown[]
   ): unknown {
     if (isAppChannel(channel)) {
-      const wcId = this?.id;
+      const wcId = this.id;
       safeLog(logger, {
         t: new Date().toISOString(), dir: 'event', channel,
         ...(wcId !== undefined ? { wcId } : {}),
