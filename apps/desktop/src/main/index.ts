@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
+﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell, webContents } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
@@ -11,6 +11,7 @@ import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
+import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +20,21 @@ const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
+}
+
+// IPC logging (opt-in via --log-ipc <dir> or AWAKON_LOG_IPC). Installed BEFORE the
+// IpcRouter and any window so every ipcMain.handle + webContents.send is captured.
+const ipcLogConfig = resolveLogConfig(process.argv, process.env);
+let ipcLogger: IpcLogger | null = null;
+if (ipcLogConfig) {
+  try {
+    ipcLogger = new IpcLogger(ipcLogConfig);
+    installIpcInterceptors(ipcMain, webContents.prototype, ipcLogger);
+    console.log(`[ipc-log] enabled -> ${ipcLogConfig.dir}`);
+  } catch (err) {
+    console.warn('[ipc-log] disabled:', err instanceof Error ? err.message : err);
+    ipcLogger = null;
+  }
 }
 
 const sessionManager = new SessionManager();
@@ -546,4 +562,8 @@ app.on('before-quit', async (event) => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('quit', () => {
+  void ipcLogger?.close();
 });
