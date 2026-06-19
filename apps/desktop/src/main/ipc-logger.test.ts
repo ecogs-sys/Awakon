@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, readdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveLogConfig, IpcLogger } from './ipc-logger.js';
+import { installIpcInterceptors, type IpcLogEntry } from './ipc-logger.js';
 
 describe('resolveLogConfig', () => {
   it('returns null when neither flag nor env is set', () => {
@@ -136,5 +137,86 @@ describe('IpcLogger', () => {
     expect(files).toHaveLength(1);
     const line = (await readFile(join(dir, files[0]!), 'utf8')).trim();
     expect(() => JSON.parse(line)).not.toThrow();
+  });
+});
+
+function fakeLogger(): { entries: IpcLogEntry[]; log: (e: IpcLogEntry) => void } {
+  const entries: IpcLogEntry[] = [];
+  return { entries, log: (e) => { entries.push(e); } };
+}
+
+type Listener = (event: unknown, ...args: unknown[]) => unknown;
+
+describe('installIpcInterceptors', () => {
+  it('logs a request entry with payload, response, and duration', async () => {
+    const handlers = new Map<string, Listener>();
+    const ipcMain = {
+      handle: (c: string, l: Listener) => { handlers.set(c, l); },
+      on: (c: string, l: Listener) => { handlers.set(c, l); },
+    };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+
+    ipcMain.handle('core.session.create', async () => ({ id: 's1' }));
+    const result = await handlers.get('core.session.create')!({ sender: { id: 7 } }, { shell: 'bash' });
+
+    expect(result).toEqual({ id: 's1' });
+    expect(logger.entries).toHaveLength(1);
+    expect(logger.entries[0]).toMatchObject({
+      dir: 'req', channel: 'core.session.create', wcId: 7,
+      payload: { shell: 'bash' }, response: { id: 's1' },
+    });
+    expect(typeof logger.entries[0]!.durationMs).toBe('number');
+  });
+
+  it('logs an error entry and re-throws when the handler throws', async () => {
+    const handlers = new Map<string, Listener>();
+    const ipcMain = {
+      handle: (c: string, l: Listener) => { handlers.set(c, l); },
+      on: vi.fn(),
+    };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    ipcMain.handle('core.session.write', async () => { throw new Error('boom'); });
+
+    await expect(handlers.get('core.session.write')!({ sender: { id: 1 } }, { x: 1 }))
+      .rejects.toThrow('boom');
+    expect(logger.entries[0]).toMatchObject({
+      dir: 'req', channel: 'core.session.write', error: 'boom',
+    });
+  });
+
+  it('ignores non-application channels on handle', async () => {
+    const handlers = new Map<string, Listener>();
+    const ipcMain = {
+      handle: (c: string, l: Listener) => { handlers.set(c, l); },
+      on: vi.fn(),
+    };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    ipcMain.handle('some.internal.channel', async () => 'ok');
+    await handlers.get('some.internal.channel')!({}, {});
+    expect(logger.entries).toHaveLength(0);
+  });
+
+  it('logs an event entry on webContents.send for an app channel only', () => {
+    const sent: Array<[string, unknown]> = [];
+    const proto = {
+      id: 42,
+      send(channel: string, payload: unknown): void { sent.push([channel, payload]); },
+    };
+    const ipcMain = { handle: vi.fn(), on: vi.fn() };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, proto, logger);
+
+    proto.send('event.session.data', { sessionId: 's', data: 'AA==' });
+    proto.send('devtools-internal', { x: 1 });
+
+    expect(sent).toHaveLength(2);
+    expect(logger.entries).toHaveLength(1);
+    expect(logger.entries[0]).toMatchObject({
+      dir: 'event', channel: 'event.session.data', wcId: 42,
+      payload: { sessionId: 's', data: 'AA==' },
+    });
   });
 });

@@ -157,3 +157,98 @@ export class IpcLogger {
     }
   }
 }
+
+export interface IpcMainLike {
+  handle(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): void;
+  on(channel: string, listener: (event: unknown, ...args: unknown[]) => unknown): unknown;
+}
+
+export interface WebContentsSendLike {
+  id?: number;
+  send: (channel: string, ...args: unknown[]) => unknown;
+}
+
+interface LoggerLike {
+  log(entry: IpcLogEntry): void;
+}
+
+const isAppChannel = (channel: string): boolean =>
+  channel.startsWith('core.') || channel.startsWith('event.');
+
+function senderId(event: unknown): number | undefined {
+  const id = (event as { sender?: { id?: number } } | null)?.sender?.id;
+  return typeof id === 'number' ? id : undefined;
+}
+
+function safeLog(logger: LoggerLike, entry: IpcLogEntry): void {
+  try { logger.log(entry); } catch { /* logging must never break IPC */ }
+}
+
+/**
+ * Monkey-patch ipcMain.handle/.on and webContents.prototype.send so every application
+ * IPC message (channels prefixed `core.`/`event.`) is captured. Must be called BEFORE any
+ * handler registers or any window opens. Targets are injected for testability.
+ */
+export function installIpcInterceptors(
+  ipcMain: IpcMainLike,
+  webContentsProto: WebContentsSendLike,
+  logger: LoggerLike,
+): void {
+  const origHandle = ipcMain.handle.bind(ipcMain);
+  ipcMain.handle = (channel, listener): void => {
+    if (!isAppChannel(channel)) return origHandle(channel, listener);
+    origHandle(channel, async (event: unknown, ...args: unknown[]) => {
+      const start = Date.now();
+      const payload = args[0];
+      const wcId = senderId(event);
+      try {
+        const response = await listener(event, ...args);
+        safeLog(logger, {
+          t: new Date().toISOString(), dir: 'req', channel,
+          ...(wcId !== undefined ? { wcId } : {}),
+          payload, response, durationMs: Date.now() - start,
+        });
+        return response;
+      } catch (err) {
+        safeLog(logger, {
+          t: new Date().toISOString(), dir: 'req', channel,
+          ...(wcId !== undefined ? { wcId } : {}),
+          payload, durationMs: Date.now() - start,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
+    });
+  };
+
+  const origOn = ipcMain.on.bind(ipcMain);
+  ipcMain.on = (channel, listener): unknown => {
+    if (!isAppChannel(channel)) return origOn(channel, listener);
+    return origOn(channel, (event: unknown, ...args: unknown[]) => {
+      const wcId = senderId(event);
+      safeLog(logger, {
+        t: new Date().toISOString(), dir: 'req', channel,
+        ...(wcId !== undefined ? { wcId } : {}),
+        payload: args[0],
+      });
+      return listener(event, ...args);
+    });
+  };
+
+  const origSend = webContentsProto.send;
+  webContentsProto.send = function (
+    this: { id?: number },
+    channel: string,
+    ...args: unknown[]
+  ): unknown {
+    if (isAppChannel(channel)) {
+      const wcId = this?.id;
+      safeLog(logger, {
+        t: new Date().toISOString(), dir: 'event', channel,
+        ...(wcId !== undefined ? { wcId } : {}),
+        payload: args[0],
+      });
+    }
+    return origSend.apply(this, [channel, ...args]);
+  };
+}
