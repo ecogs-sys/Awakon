@@ -126,4 +126,15 @@ describe('IpcLogger', () => {
     expect(parsed.serializeError).toBe(true);
     expect(parsed.channel).toBe('core.x');
   });
+
+  it('writes an entry larger than maxBytes without rotating more than once', async () => {
+    const logger = new IpcLogger({ dir, maxFiles: 20, maxBytes: 10 });
+    logger.log({ t: 't', dir: 'req', channel: 'c', payload: { data: 'x'.repeat(200) } });
+    await logger.close();
+
+    const files = await jsonlFiles();
+    expect(files).toHaveLength(1);
+    const line = (await readFile(join(dir, files[0]!), 'utf8')).trim();
+    expect(() => JSON.parse(line)).not.toThrow();
+  });
 });

@@ -56,7 +56,10 @@ export interface IpcLogEntry {
   error?: string;
 }
 
-/** JSON replacer that tolerates circular refs and BigInt so logging never throws on them. */
+/** JSON replacer that tolerates circular refs and BigInt so logging never throws on them.
+ * Note: the WeakSet tracks all visited objects, not just ancestors, so a value referenced
+ * from two sibling keys appears as '[Circular]' on its second occurrence even without a
+ * true cycle. Acceptable for a debug log. */
 function safeReplacer(): (key: string, value: unknown) => unknown {
   const seen = new WeakSet<object>();
   return (_key, value) => {
@@ -93,6 +96,7 @@ export class IpcLogger {
   constructor(private readonly config: IpcLogConfig) {
     mkdirSync(config.dir, { recursive: true });
     this.openNextFile();
+    this.enforceRetention();
   }
 
   log(entry: IpcLogEntry): void {
@@ -108,7 +112,8 @@ export class IpcLogger {
     try {
       const size = Buffer.byteLength(line);
       if (this.bytes > 0 && this.bytes + size > this.config.maxBytes) this.rotate();
-      writeSync(this.fd!, line);
+      if (this.fd === null) { this.failed = true; return; }
+      writeSync(this.fd, line);
       this.bytes += size;
     } catch (err) {
       this.failed = true;
@@ -135,7 +140,7 @@ export class IpcLogger {
 
   private openNextFile(): void {
     this.seq += 1;
-    const name = `ipc-${this.stamp}-${String(this.seq).padStart(3, '0')}.jsonl`;
+    const name = `ipc-${this.stamp}-${String(this.seq).padStart(6, '0')}.jsonl`;
     this.fd = openSync(join(this.config.dir, name), 'a');
     this.bytes = 0;
   }
