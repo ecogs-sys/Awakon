@@ -45,4 +45,8 @@ describe('resolveLogConfig', () => {
     expect(resolveLogConfig(['--log-ipc'], {})).toBeNull();
     expect(resolveLogConfig(['--log-ipc', '--other'], {})).toBeNull();
   });
+
+  it('returns null for --log-ipc= (empty equals form)', () => {
+    expect(resolveLogConfig(['--log-ipc='], {})).toBeNull();
+  });
 });

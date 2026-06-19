@@ -5,7 +5,7 @@ export interface IpcLogConfig {
 }
 
 const DEFAULT_MAX_FILES = 20;
-const DEFAULT_MAX_BYTES = 50 * 1024 * 1024; // 52428800
+const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
 
 function dirFromArgv(argv: string[]): string | null {
   for (let i = 0; i < argv.length; i++) {
@@ -24,7 +24,7 @@ function dirFromArgv(argv: string[]): string | null {
 
 function positiveIntOr(raw: string | undefined, fallback: number): number {
   if (raw === undefined) return fallback;
-  const n = Number.parseInt(raw, 10);
+  const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : fallback;
 }
 
