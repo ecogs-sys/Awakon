@@ -557,6 +557,8 @@ app.on('before-quit', async (event) => {
   if (sessionManager.list().length === 0) return;
   event.preventDefault();
   await sessionManager.closeAll();
+  // app.exit() does not emit 'quit', so flush the IPC log here before exiting.
+  void ipcLogger?.close();
   app.exit(0);
 });
 
@@ -564,6 +566,7 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// Safety net for the no-open-sessions quit path (before-quit returns early there).
 app.on('quit', () => {
   void ipcLogger?.close();
 });

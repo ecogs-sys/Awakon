@@ -205,13 +205,17 @@ enable it at startup by pointing the app at a directory:
 - Flag: `Awakon --log-ipc C:\temp\ipc`
 - Env var: `AWAKON_LOG_IPC=C:\temp\ipc`
 
-Logs are written as rotating JSON-lines files (`ipc-<timestamp>-NNN.jsonl`, ~50 MB
-each). The directory keeps the 20 most recent files by default; override the count
-with `AWAKON_LOG_IPC_MAX_FILES` and the per-file size threshold (in bytes) with
-`AWAKON_LOG_IPC_MAX_BYTES`.
+Logs are written as rotating JSON-lines files (`ipc-<timestamp>-NNNNNN.jsonl`,
+~50 MB each). The directory keeps the 20 most recent files by default; override the
+count with `AWAKON_LOG_IPC_MAX_FILES` and the per-file size threshold (in bytes)
+with `AWAKON_LOG_IPC_MAX_BYTES`.
 
 > The log captures full payloads, including terminal output and keystrokes. Treat
 > the log directory as sensitive and clear it when you are done.
+
+> Logging writes to disk synchronously on every IPC message, so enabling it can
+> reduce terminal throughput under heavy output. Turn it off when you are not
+> actively collecting a trace.
 
 ### Project scripts
 
