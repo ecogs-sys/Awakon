@@ -1,3 +1,6 @@
+import { closeSync, mkdirSync, openSync, readdirSync, unlinkSync, writeSync } from 'node:fs';
+import { join } from 'node:path';
+
 export interface IpcLogConfig {
   dir: string;
   maxFiles: number;
@@ -40,4 +43,112 @@ export function resolveLogConfig(
     maxFiles: positiveIntOr(env['AWAKON_LOG_IPC_MAX_FILES'], DEFAULT_MAX_FILES),
     maxBytes: positiveIntOr(env['AWAKON_LOG_IPC_MAX_BYTES'], DEFAULT_MAX_BYTES),
   };
+}
+
+export interface IpcLogEntry {
+  t: string;
+  dir: 'req' | 'event';
+  channel: string;
+  wcId?: number;
+  payload?: unknown;
+  response?: unknown;
+  durationMs?: number;
+  error?: string;
+}
+
+/** JSON replacer that tolerates circular refs and BigInt so logging never throws on them. */
+function safeReplacer(): (key: string, value: unknown) => unknown {
+  const seen = new WeakSet<object>();
+  return (_key, value) => {
+    if (typeof value === 'bigint') return value.toString();
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    return value;
+  };
+}
+
+function launchStamp(): string {
+  const d = new Date();
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+/** Append-only, size-rotating JSONL sink with a retention cap. Never throws into callers.
+ *
+ * Uses synchronous file I/O (openSync/writeSync/closeSync) so that file handles are
+ * fully released before enforceRetention runs. On Windows, async stream.end() defers
+ * fd.close() to the next event-loop tick; in a tight synchronous log loop we never
+ * yield, so unlinkSync would encounter still-open handles and throw EPERM. Sync I/O
+ * avoids that race entirely.
+ */
+export class IpcLogger {
+  private readonly stamp = launchStamp();
+  private seq = 0;
+  private fd: number | null = null;
+  private bytes = 0;
+  private failed = false;
+
+  constructor(private readonly config: IpcLogConfig) {
+    mkdirSync(config.dir, { recursive: true });
+    this.openNextFile();
+  }
+
+  log(entry: IpcLogEntry): void {
+    if (this.failed || this.fd === null) return;
+    let line: string;
+    try {
+      line = JSON.stringify(entry, safeReplacer()) + '\n';
+    } catch {
+      line = JSON.stringify({
+        t: entry.t, dir: entry.dir, channel: entry.channel, serializeError: true,
+      }) + '\n';
+    }
+    try {
+      const size = Buffer.byteLength(line);
+      if (this.bytes > 0 && this.bytes + size > this.config.maxBytes) this.rotate();
+      writeSync(this.fd!, line);
+      this.bytes += size;
+    } catch (err) {
+      this.failed = true;
+      console.warn('[ipc-log] write failed; disabling:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  close(): Promise<void> {
+    if (this.fd !== null) {
+      try { closeSync(this.fd); } catch { /* ignore */ }
+      this.fd = null;
+    }
+    return Promise.resolve();
+  }
+
+  private rotate(): void {
+    if (this.fd !== null) {
+      try { closeSync(this.fd); } catch { /* ignore */ }
+      this.fd = null;
+    }
+    this.openNextFile();
+    this.enforceRetention();
+  }
+
+  private openNextFile(): void {
+    this.seq += 1;
+    const name = `ipc-${this.stamp}-${String(this.seq).padStart(3, '0')}.jsonl`;
+    this.fd = openSync(join(this.config.dir, name), 'a');
+    this.bytes = 0;
+  }
+
+  private enforceRetention(): void {
+    try {
+      const files = readdirSync(this.config.dir)
+        .filter((f) => /^ipc-.*\.jsonl$/.test(f))
+        .sort();
+      const excess = files.length - this.config.maxFiles;
+      for (let i = 0; i < excess; i++) unlinkSync(join(this.config.dir, files[i]!));
+    } catch {
+      // retention is best-effort; never throw into the IPC path
+    }
+  }
 }
