@@ -196,6 +196,23 @@ The packaged output lands in `apps/desktop/release/<version>/`.
 > `electron-builder` can only target the OS it is running on without additional
 > cross-compilation setup, so run each `dist:*` command on the matching platform.
 
+### IPC logging (troubleshooting)
+
+Awakon can record all of its internal IPC traffic to disk, which helps diagnose
+issues that only surface during long-running sessions. It is **off by default** —
+enable it at startup by pointing the app at a directory:
+
+- Flag: `Awakon --log-ipc C:\temp\ipc`
+- Env var: `AWAKON_LOG_IPC=C:\temp\ipc`
+
+Logs are written as rotating JSON-lines files (`ipc-<timestamp>-NNN.jsonl`, ~50 MB
+each). The directory keeps the 20 most recent files by default; override the count
+with `AWAKON_LOG_IPC_MAX_FILES` and the per-file size threshold (in bytes) with
+`AWAKON_LOG_IPC_MAX_BYTES`.
+
+> The log captures full payloads, including terminal output and keystrokes. Treat
+> the log directory as sensitive and clear it when you are done.
+
 ### Project scripts
 
 | Command | Effect |
