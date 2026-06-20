@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Awakon IPC Log Viewer</title>
+<style>
+  :root {
+    --bg: #1e1e2e;
+    --bg-2: #181825;
+    --bg-3: #11111b;
+    --panel: #252535;
+    --fg: #cdd6f4;
+    --fg-dim: #9399b2;
+    --fg-faint: #6c7086;
+    --border: #313244;
+    --accent: #89b4fa;
+    --req: #a6e3a1;
+    --event: #f9e2af;
+    --error: #f38ba8;
+    --slow: #fab387;
+    --row-h: 26px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg); color: var(--fg);
+    font: 13px/1.4 ui-monospace, "Cascadia Code", "Consolas", monospace;
+  }
+  body { display: flex; flex-direction: column; }
+
+  /* ---- Toolbar ---- */
+  header {
+    flex: 0 0 auto;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .row1, .row2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h1 { font-size: 14px; margin: 0; font-weight: 600; color: var(--accent); }
+  .stats { color: var(--fg-dim); font-size: 12px; }
+  .stats b { color: var(--fg); font-weight: 600; }
+  input[type="search"], select {
+    background: var(--bg-3); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 8px; font: inherit;
+  }
+  input[type="search"] { min-width: 280px; flex: 1 1 280px; }
+  label.chk { display: inline-flex; align-items: center; gap: 4px; color: var(--fg-dim); cursor: pointer; user-select: none; }
+  label.chk input { accent-color: var(--accent); }
+  button {
+    background: var(--panel); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 5px;
+    padding: 5px 10px; font: inherit; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  .filechip { color: var(--fg-faint); }
+  .matchcount { color: var(--accent); }
+
+  /* ---- Main split ---- */
+  main { flex: 1 1 auto; display: flex; min-height: 0; }
+  #listwrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  #detail {
+    flex: 0 0 42%; max-width: 42%; min-width: 320px;
+    border-left: 1px solid var(--border);
+    background: var(--bg-2);
+    overflow: auto; padding: 12px;
+    display: none;
+  }
+  #detail.open { display: block; }
+
+  /* ---- Column grid (shared by header + rows) ---- */
+  .grid {
+    display: grid;
+    grid-template-columns: 64px 112px 64px 56px 52px minmax(160px, 280px) 64px 1fr;
+    align-items: center;
+  }
+  .colhead {
+    flex: 0 0 auto;
+    background: var(--bg-3);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--fg-faint);
+  }
+  .colhead > div { padding: 6px 8px; white-space: nowrap; overflow: hidden; }
+
+  /* ---- Virtualized list ---- */
+  #scroll { flex: 1 1 auto; overflow: auto; position: relative; }
+  #spacer { position: relative; width: 100%; }
+  .rows { position: absolute; top: 0; left: 0; right: 0; }
+  .r {
+    height: var(--row-h);
+    border-bottom: 1px solid var(--bg-3);
+    cursor: pointer;
+  }
+  .r:hover { background: #2a2a3c; }
+  .r.sel { background: #313a52; }
+  .r.err { background: rgba(243,139,168,.08); }
+  .r > div { padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: var(--row-h); }
+  .c-num { color: var(--fg-faint); text-align: right; }
+  .c-time { color: var(--fg-dim); }
+  .c-delta { color: var(--fg-faint); text-align: right; font-size: 11px; }
+  .c-wc { color: var(--fg-faint); text-align: right; }
+  .c-chan { color: var(--fg); }
+  .c-dur { text-align: right; color: var(--fg-dim); }
+  .c-dur.slow { color: var(--slow); font-weight: 600; }
+  .c-sum { color: var(--fg-dim); }
+  .c-sum .data { color: var(--fg); }
+  .badge { display: inline-block; min-width: 40px; text-align: center; border-radius: 4px; font-size: 11px; padding: 1px 0; }
+  .badge.req { background: rgba(166,227,161,.18); color: var(--req); }
+  .badge.event { background: rgba(249,226,175,.18); color: var(--event); }
+  .errflag { color: var(--error); font-weight: 700; }
+  .unparsed { color: var(--error); font-style: italic; }
+
+  /* ---- Detail panel ---- */
+  #detail h2 { font-size: 13px; margin: 0 0 8px; color: var(--accent); display: flex; justify-content: space-between; }
+  #detail .meta { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin-bottom: 12px; }
+  #detail .meta dt { color: var(--fg-faint); }
+  #detail .meta dd { margin: 0; color: var(--fg); word-break: break-all; }
+  .section { margin-bottom: 14px; }
+  .section > .lbl { color: var(--fg-faint); text-transform: uppercase; font-size: 11px; letter-spacing: .04em; margin-bottom: 4px; }
+  pre {
+    margin: 0; background: var(--bg-3); border: 1px solid var(--border);
+    border-radius: 5px; padding: 8px; overflow: auto; max-height: 320px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .tabs { display: flex; gap: 4px; margin-bottom: 4px; }
+  .tabs button { padding: 2px 8px; font-size: 11px; }
+  .tabs button.active { border-color: var(--accent); color: var(--accent); }
+  .closebtn { background: none; border: none; color: var(--fg-faint); font-size: 16px; cursor: pointer; padding: 0 4px; }
+  .closebtn:hover { color: var(--fg); }
+
+  /* ---- Drop zone (empty state) ---- */
+  #drop {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 14px; color: var(--fg-dim); text-align: center;
+  }
+  #drop.hide { display: none; }
+  #drop.over { background: #2a2a3c; }
+  #drop .big { font-size: 16px; color: var(--fg); }
+  #drop small { color: var(--fg-faint); max-width: 460px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="row1">
+    <h1>Awakon IPC Log Viewer</h1>
+    <button id="openBtn">Open .jsonl&hellip;</button>
+    <span class="filechip" id="fileName">no file loaded</span>
+    <span class="stats" id="stats"></span>
+    <input type="file" id="fileInput" accept=".jsonl,.json,.log,.txt" style="display:none" />
+  </div>
+  <div class="row2">
+    <input type="search" id="search" placeholder="Search channel, payload, decoded text, raw JSON&hellip;" />
+    <select id="dirFilter" title="Direction">
+      <option value="">dir: all</option>
+      <option value="req">req</option>
+      <option value="event">event</option>
+    </select>
+    <select id="chanFilter" title="Channel"><option value="">channel: all</option></select>
+    <select id="wcFilter" title="WebContents id"><option value="">wcId: all</option></select>
+    <label class="chk"><input type="checkbox" id="hideData" /> hide session.data</label>
+    <label class="chk"><input type="checkbox" id="errOnly" /> errors only</label>
+    <span class="matchcount" id="matchCount"></span>
+  </div>
+</header>
+
+<main>
+  <div id="listwrap">
+    <div class="grid colhead" id="colhead">
+      <div class="c-num">#</div><div>time</div><div class="c-delta">+&Delta;ms</div>
+      <div>dir</div><div class="c-wc">wc</div><div>channel</div>
+      <div class="c-dur">ms</div><div>summary</div>
+    </div>
+    <div id="scroll">
+      <div id="drop">
+        <div class="big">Drop an IPC log file here, or click &ldquo;Open .jsonl&hellip;&rdquo;.</div>
+        <small>Reads Awakon IPC JSONL logs (e.g. <code>C:\temp\ipc-logs\ipc-*.jsonl</code>).
+        Terminal <code>session.data</code> payloads are base64-decoded and ANSI/OSC escapes are stripped for readability. Everything runs locally in your browser &mdash; nothing is uploaded.</small>
+      </div>
+      <div id="spacer"><div class="rows" id="rows"></div></div>
+    </div>
+  </div>
+  <aside id="detail"></aside>
+</main>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------------------
+// ANSI / OSC / control-sequence stripping
+// ---------------------------------------------------------------------------
+// Built with new RegExp + \u escapes so there are NO literal control bytes in
+// this source file. ESC = U+001B, BEL = U+0007, ST = ESC '\'.
+var ESC = '\\u001b';
+var CSI_RE    = new RegExp(ESC + '\\[[0-9;?]*[ -/]*[@-~]', 'g');                    // CSI / SGR
+var OSC_RE    = new RegExp(ESC + '\\][^\\u0007\\u001b]*(?:\\u0007|' + ESC + '\\\\)', 'g'); // OSC ... BEL|ST
+var STRING_RE = new RegExp(ESC + '[PX^_][^\\u001b]*' + ESC + '\\\\', 'g');          // DCS/SOS/PM/APC ... ST
+var LONE_RE   = new RegExp(ESC + '[@-_]?', 'g');                                    // stray ESC (+ final byte)
+var CTRL_RE   = new RegExp("[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]", "g"); // C0/DEL controls (keep \t \n \r)
+
+function stripAnsi(s) {
+  return s
+    .replace(OSC_RE, '')
+    .replace(STRING_RE, '')
+    .replace(CSI_RE, '')
+    .replace(LONE_RE, '')
+    .replace(CTRL_RE, '');
+}
+
+// base64 -> UTF-8 string. Returns null if not decodable.
+function b64ToUtf8(b64) {
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+// Make escape/control chars visible for the "raw decoded" view.
+function visibleEscapes(s) {
+  return s.replace(new RegExp("[\u0000-\u001f\u007f]", "g"), (c) => {
+    const code = c.charCodeAt(0);
+    if (c === '\n') return '␊\n';   // SYMBOL FOR LF + real newline
+    if (c === '\t') return '␉\t';   // SYMBOL FOR HT + real tab
+    if (c === '\r') return '␍';     // SYMBOL FOR CR
+    if (code === 27) return '␛';    // SYMBOL FOR ESC
+    return '␀' + ('0' + code.toString(16)).slice(-2); // SYMBOL FOR NUL + hex
+  });
+}
+
+// Find a base64 `data` string inside payload/response, if present.
+function extractData(obj) {
+  if (obj && typeof obj === 'object' && typeof obj.data === 'string') return obj.data;
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Record model
+// ---------------------------------------------------------------------------
+// Each parsed record is augmented with cached, derived fields:
+//   _i        line number (1-based among non-empty lines)
+//   _ok       parsed JSON successfully
+//   _raw      original line text (for unparsed display / search)
+//   _tMs      Date.parse(t)
+//   _delta    ms since previous record
+//   _isData   channel is session.data/write/replay noise
+//   _clean    decoded + ANSI-stripped text (terminal channels only)
+//   _summary  one-line summary string
+//   _search   lowercased haystack
+let records = [];
+let filtered = [];   // record refs passing current filters
+let selected = null; // selected record ref
+
+const DATA_CHANNELS = /session\.(data|write|replay)/;
+
+function deriveRecord(rec, i, prevMs) {
+  rec._i = i;
+  rec._tMs = rec.t ? Date.parse(rec.t) : NaN;
+  rec._delta = (prevMs != null && !isNaN(rec._tMs)) ? rec._tMs - prevMs : null;
+  rec._isData = typeof rec.channel === 'string' && DATA_CHANNELS.test(rec.channel);
+
+  const dataB64 = extractData(rec.response) || extractData(rec.payload);
+
+  let summary, dataClean = false;
+  if (rec.error) {
+    summary = 'ERROR: ' + rec.error;
+  } else if (dataB64) {
+    const decoded = b64ToUtf8(dataB64);
+    if (decoded != null) {
+      rec._clean = stripAnsi(decoded).replace(/\s+/g, ' ').trim();
+      summary = rec._clean || '(empty / control-only)';
+      dataClean = true;
+    } else {
+      summary = '(undecodable base64, ' + dataB64.length + ' chars)';
+    }
+  } else {
+    const main = rec.response !== undefined ? rec.response : rec.payload;
+    summary = main === undefined ? '' : compactJson(main);
+  }
+  rec._summary = summary;
+  rec._summaryIsData = dataClean;
+
+  rec._search = (
+    (rec.channel || '') + ' ' +
+    (rec.dir || '') + ' ' +
+    (rec._clean || '') + ' ' +
+    rec._raw
+  ).toLowerCase();
+  return rec;
+}
+
+function compactJson(v) {
+  let s;
+  try { s = JSON.stringify(v); } catch { s = String(v); }
+  if (s == null) s = String(v);
+  return s.length > 400 ? s.slice(0, 400) + '…' : s;
+}
+
+// ---------------------------------------------------------------------------
+// Loading / parsing
+// ---------------------------------------------------------------------------
+function loadText(name, text) {
+  const lines = text.split('\n');
+  records = [];
+  let prevMs = null;
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    if (!line.trim()) continue;
+    const i = records.length + 1;
+    let rec;
+    try {
+      rec = JSON.parse(line);
+      if (rec == null || typeof rec !== 'object') throw new Error('not object');
+      rec._ok = true;
+    } catch {
+      rec = { _ok: false, channel: '(unparseable line)', dir: '', _badLine: li + 1 };
+    }
+    rec._raw = line;
+    deriveRecord(rec, i, prevMs);
+    if (!isNaN(rec._tMs)) prevMs = rec._tMs;
+    records.push(rec);
+  }
+  document.getElementById('fileName').textContent = name;
+  document.getElementById('drop').classList.add('hide');
+  buildChannelFilter();
+  buildWcFilter();
+  updateStats();
+  applyFilters();
+}
+
+function updateStats() {
+  const n = records.length;
+  const first = records.find((r) => !isNaN(r._tMs));
+  const last = [...records].reverse().find((r) => !isNaN(r._tMs));
+  const chans = new Set(records.map((r) => r.channel));
+  const errs = records.filter((r) => r.error || r._ok === false).length;
+  let span = '';
+  if (first && last && first !== last) {
+    span = ' · span <b>' + fmtSpan(last._tMs - first._tMs) + '</b>';
+  }
+  document.getElementById('stats').innerHTML =
+    '<b>' + n + '</b> records · <b>' + chans.size + '</b> channels' +
+    (errs ? ' · <b style="color:var(--error)">' + errs + '</b> errors' : '') + span;
+}
+
+function fmtSpan(ms) {
+  if (ms < 1000) return ms + 'ms';
+  const s = ms / 1000;
+  if (s < 60) return s.toFixed(1) + 's';
+  const m = Math.floor(s / 60);
+  return m + 'm ' + Math.round(s % 60) + 's';
+}
+
+function buildChannelFilter() {
+  const sel = document.getElementById('chanFilter');
+  const cur = sel.value;
+  const chans = [...new Set(records.map((r) => r.channel).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">channel: all</option>' +
+    chans.map((c) => '<option>' + escapeHtml(c) + '</option>').join('');
+  sel.value = cur;
+}
+
+function buildWcFilter() {
+  const sel = document.getElementById('wcFilter');
+  const cur = sel.value;
+  const ids = [...new Set(records.map((r) => r.wcId).filter((x) => x != null))].sort((a, b) => a - b);
+  sel.innerHTML = '<option value="">wcId: all</option>' +
+    ids.map((c) => '<option>' + c + '</option>').join('');
+  sel.value = cur;
+}
+
+// ---------------------------------------------------------------------------
+// Filtering
+// ---------------------------------------------------------------------------
+function applyFilters() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const dir = document.getElementById('dirFilter').value;
+  const chan = document.getElementById('chanFilter').value;
+  const wc = document.getElementById('wcFilter').value;
+  const hideData = document.getElementById('hideData').checked;
+  const errOnly = document.getElementById('errOnly').checked;
+  const terms = q ? q.split(/\s+/) : [];
+
+  filtered = records.filter((r) => {
+    if (dir && r.dir !== dir) return false;
+    if (chan && r.channel !== chan) return false;
+    if (wc && String(r.wcId) !== wc) return false;
+    if (hideData && r._isData) return false;
+    if (errOnly && !(r.error || r._ok === false)) return false;
+    for (const t of terms) if (!r._search.includes(t)) return false;
+    return true;
+  });
+
+  document.getElementById('matchCount').textContent =
+    records.length ? filtered.length + ' / ' + records.length + ' shown' : '';
+  renderVirtual(true);
+}
+
+// ---------------------------------------------------------------------------
+// Virtualized rendering
+// ---------------------------------------------------------------------------
+const ROW_H = 26;
+const BUFFER = 8;
+const scrollEl = document.getElementById('scroll');
+const spacerEl = document.getElementById('spacer');
+const rowsEl = document.getElementById('rows');
+
+function renderVirtual(reset) {
+  spacerEl.style.height = (filtered.length * ROW_H) + 'px';
+  if (reset) scrollEl.scrollTop = 0;
+  const top = scrollEl.scrollTop;
+  const viewport = scrollEl.clientHeight;
+  let start = Math.floor(top / ROW_H) - BUFFER;
+  let end = Math.ceil((top + viewport) / ROW_H) + BUFFER;
+  start = Math.max(0, start);
+  end = Math.min(filtered.length, end);
+
+  rowsEl.style.transform = 'translateY(' + (start * ROW_H) + 'px)';
+  let html = '';
+  for (let i = start; i < end; i++) html += rowHtml(filtered[i]);
+  rowsEl.innerHTML = html;
+}
+
+scrollEl.addEventListener('scroll', () => renderVirtual(false));
+window.addEventListener('resize', () => renderVirtual(false));
+
+function rowHtml(r) {
+  const sel = r === selected ? ' sel' : '';
+  const err = (r.error || r._ok === false) ? ' err' : '';
+  if (r._ok === false) {
+    return '<div class="r grid' + sel + err + '" data-i="' + r._i + '">' +
+      '<div class="c-num">' + r._i + '</div><div class="c-time"></div><div class="c-delta"></div>' +
+      '<div></div><div class="c-wc"></div><div class="c-chan unparsed">unparseable line ' + r._badLine + '</div>' +
+      '<div class="c-dur"></div><div class="c-sum unparsed">' + escapeHtml(trunc(r._raw, 200)) + '</div></div>';
+  }
+  const dirBadge = r.dir
+    ? '<span class="badge ' + (r.dir === 'req' ? 'req' : 'event') + '">' + r.dir + '</span>' : '';
+  const dur = r.durationMs != null
+    ? '<div class="c-dur' + (r.durationMs >= 50 ? ' slow' : '') + '">' + r.durationMs + '</div>'
+    : '<div class="c-dur"></div>';
+  const delta = r._delta != null ? '+' + r._delta : '';
+  const sumInner = r._summaryIsData
+    ? '<span class="data">' + escapeHtml(trunc(r._summary, 300)) + '</span>'
+    : escapeHtml(trunc(r._summary, 300));
+  const errFlag = r.error ? '<span class="errflag">⚠ </span>' : '';
+  return '<div class="r grid' + sel + err + '" data-i="' + r._i + '">' +
+    '<div class="c-num">' + r._i + '</div>' +
+    '<div class="c-time">' + fmtTime(r._tMs) + '</div>' +
+    '<div class="c-delta">' + delta + '</div>' +
+    '<div>' + dirBadge + '</div>' +
+    '<div class="c-wc">' + (r.wcId != null ? r.wcId : '') + '</div>' +
+    '<div class="c-chan" title="' + escapeHtml(r.channel || '') + '">' + escapeHtml(r.channel || '') + '</div>' +
+    dur +
+    '<div class="c-sum">' + errFlag + sumInner + '</div></div>';
+}
+
+function fmtTime(ms) {
+  if (isNaN(ms)) return '';
+  const d = new Date(ms);
+  const p = (n, w) => String(n).padStart(w || 2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds()) + '.' + p(d.getMilliseconds(), 3);
+}
+
+function trunc(s, n) { s = String(s); return s.length > n ? s.slice(0, n) + '…' : s; }
+
+// ---------------------------------------------------------------------------
+// Row selection / detail panel
+// ---------------------------------------------------------------------------
+rowsEl.addEventListener('click', (e) => {
+  const row = e.target.closest('.r');
+  if (!row) return;
+  const i = Number(row.dataset.i);
+  selected = records[i - 1] || null;
+  renderVirtual(false);
+  showDetail(selected);
+});
+
+const detailEl = document.getElementById('detail');
+
+function showDetail(r) {
+  if (!r) { detailEl.classList.remove('open'); return; }
+  detailEl.classList.add('open');
+
+  if (r._ok === false) {
+    detailEl.innerHTML = '<h2>Line ' + r._i + ' <button class="closebtn" id="closeDetail">×</button></h2>' +
+      '<div class="section"><div class="lbl">unparseable raw line ' + r._badLine + '</div>' +
+      '<pre>' + escapeHtml(r._raw) + '</pre></div>';
+    document.getElementById('closeDetail').onclick = closeDetail;
+    return;
+  }
+
+  const meta = [
+    ['#', r._i],
+    ['time', r.t || ''],
+    ['+Δ', r._delta != null ? r._delta + ' ms' : ''],
+    ['dir', r.dir || ''],
+    ['channel', r.channel || ''],
+    ['wcId', r.wcId != null ? r.wcId : ''],
+    ['durationMs', r.durationMs != null ? r.durationMs : ''],
+    ['error', r.error || ''],
+  ].filter((kv) => kv[1] !== '' && kv[1] != null)
+    .map((kv) => '<dt>' + kv[0] + '</dt><dd>' + escapeHtml(String(kv[1])) + '</dd>').join('');
+
+  let html = '<h2>Record ' + r._i + ' <button class="closebtn" id="closeDetail">×</button></h2>' +
+    '<dl class="meta">' + meta + '</dl>';
+
+  html += dataOrJsonSection('payload', r.payload);
+  html += dataOrJsonSection('response', r.response);
+
+  detailEl.innerHTML = html;
+  document.getElementById('closeDetail').onclick = closeDetail;
+  wireDataTabs();
+}
+
+function closeDetail() { selected = null; detailEl.classList.remove('open'); renderVirtual(false); }
+
+// Render a payload/response block. If it carries base64 `data`, render the
+// three-view data widget (clean / raw-escapes / base64); otherwise pretty JSON.
+let dataWidgetSeq = 0;
+function dataOrJsonSection(label, obj) {
+  if (obj === undefined) return '';
+  const b64 = extractData(obj);
+  if (b64) {
+    const decoded = b64ToUtf8(b64);
+    const clean = decoded != null ? stripAnsi(decoded) : '(undecodable)';
+    const rawVis = decoded != null ? visibleEscapes(decoded) : '(undecodable)';
+    const id = 'dw' + (++dataWidgetSeq);
+    const ctx = {};
+    for (const k of Object.keys(obj)) if (k !== 'data') ctx[k] = obj[k];
+    const ctxHtml = Object.keys(ctx).length
+      ? '<div style="margin-bottom:6px;color:var(--fg-faint)">other keys: <code>' + escapeHtml(JSON.stringify(ctx)) + '</code></div>' : '';
+    return '<div class="section" data-widget="' + id + '">' +
+      '<div class="lbl">' + label + ' · terminal data (' + b64.length + ' b64 chars)</div>' +
+      ctxHtml +
+      '<div class="tabs">' +
+        '<button data-view="clean" class="active">decoded (clean)</button>' +
+        '<button data-view="raw">raw + escapes</button>' +
+        '<button data-view="b64">base64</button>' +
+      '</div>' +
+      '<pre data-pane="clean">' + escapeHtml(clean) + '</pre>' +
+      '<pre data-pane="raw" style="display:none">' + escapeHtml(rawVis) + '</pre>' +
+      '<pre data-pane="b64" style="display:none">' + escapeHtml(b64) + '</pre>' +
+    '</div>';
+  }
+  let pretty;
+  try { pretty = JSON.stringify(obj, null, 2); } catch { pretty = String(obj); }
+  return '<div class="section"><div class="lbl">' + label + '</div><pre>' + escapeHtml(pretty) + '</pre></div>';
+}
+
+function wireDataTabs() {
+  detailEl.querySelectorAll('[data-widget]').forEach((w) => {
+    w.querySelectorAll('.tabs button').forEach((btn) => {
+      btn.onclick = () => {
+        w.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b === btn));
+        const view = btn.dataset.view;
+        w.querySelectorAll('pre[data-pane]').forEach((p) => {
+          p.style.display = p.dataset.pane === view ? '' : 'none';
+        });
+      };
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Util + wiring
+// ---------------------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+document.getElementById('openBtn').onclick = () => document.getElementById('fileInput').click();
+document.getElementById('fileInput').onchange = (e) => {
+  const f = e.target.files[0];
+  if (f) f.text().then((t) => loadText(f.name, t));
+};
+
+['search', 'dirFilter', 'chanFilter', 'wcFilter', 'hideData', 'errOnly'].forEach((id) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', applyFilters);
+  el.addEventListener('change', applyFilters);
+});
+
+// Drag & drop
+window.addEventListener('dragover', (e) => { e.preventDefault(); document.getElementById('drop').classList.add('over'); });
+window.addEventListener('dragleave', (e) => { if (e.target === document.body) document.getElementById('drop').classList.remove('over'); });
+window.addEventListener('drop', (e) => {
+  e.preventDefault();
+  document.getElementById('drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) f.text().then((t) => loadText(f.name, t));
+});
+
+// Keyboard: Up/Down to move selection, Esc to close detail.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeDetail(); return; }
+  if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !filtered.length) return;
+  if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+  e.preventDefault();
+  let idx = selected ? filtered.indexOf(selected) : -1;
+  idx += e.key === 'ArrowDown' ? 1 : -1;
+  idx = Math.max(0, Math.min(filtered.length - 1, idx));
+  selected = filtered[idx];
+  const y = idx * ROW_H;
+  if (y < scrollEl.scrollTop) scrollEl.scrollTop = y;
+  else if (y + ROW_H > scrollEl.scrollTop + scrollEl.clientHeight) scrollEl.scrollTop = y + ROW_H - scrollEl.clientHeight;
+  renderVirtual(false);
+  showDetail(selected);
+});
+</script>
+</body>
+</html>
