@@ -168,6 +168,13 @@ export interface WebContentsSendLike {
   send: (channel: string, ...args: unknown[]) => unknown;
 }
 
+export interface AppLike {
+  on(
+    event: 'web-contents-created',
+    listener: (event: unknown, contents: WebContentsSendLike) => void,
+  ): unknown;
+}
+
 interface LoggerLike {
   log(entry: IpcLogEntry): void;
 }
@@ -185,13 +192,23 @@ function safeLog(logger: LoggerLike, entry: IpcLogEntry): void {
 }
 
 /**
- * Monkey-patch ipcMain.handle/.on and webContents.prototype.send so every application
- * IPC message (channels prefixed `core.`/`event.`) is captured. Must be called BEFORE any
- * handler registers or any window opens. Targets are injected for testability.
+ * Capture every application IPC message (channels prefixed `core.`/`event.`).
+ *
+ * Requests (renderer→main) are caught by monkey-patching `ipcMain.handle`/`.on`.
+ * Events (main→renderer) are caught by wrapping each WebContents' `send` as it is
+ * created, via `app.on('web-contents-created', …)`. We deliberately do NOT patch
+ * `WebContents.prototype.send`: Electron exports `WebContents` only as a type, and the
+ * runtime `webContents` namespace object has no usable `.prototype`, so prototype
+ * patching silently captures nothing. Per-instance wrapping works regardless of
+ * Electron's internal prototype layout and covers the chrome window and every
+ * terminal WebContentsView.
+ *
+ * Must be called BEFORE any handler registers or any window opens. Targets are injected
+ * for testability.
  */
 export function installIpcInterceptors(
   ipcMain: IpcMainLike,
-  webContentsProto: WebContentsSendLike,
+  app: AppLike,
   logger: LoggerLike,
 ): void {
   const origHandle = ipcMain.handle.bind(ipcMain);
@@ -235,20 +252,18 @@ export function installIpcInterceptors(
     });
   };
 
-  const origSend = webContentsProto.send;
-  webContentsProto.send = function (
-    this: { id?: number },
-    channel: string,
-    ...args: unknown[]
-  ): unknown {
-    if (isAppChannel(channel)) {
-      const wcId = this.id;
-      safeLog(logger, {
-        t: new Date().toISOString(), dir: 'event', channel,
-        ...(wcId !== undefined ? { wcId } : {}),
-        payload: args[0],
-      });
-    }
-    return origSend.apply(this, [channel, ...args]);
-  };
+  app.on('web-contents-created', (_event, wc) => {
+    const origSend = wc.send.bind(wc);
+    wc.send = (channel: string, ...args: unknown[]): unknown => {
+      if (isAppChannel(channel)) {
+        const wcId = wc.id;
+        safeLog(logger, {
+          t: new Date().toISOString(), dir: 'event', channel,
+          ...(wcId !== undefined ? { wcId } : {}),
+          payload: args[0],
+        });
+      }
+      return origSend(channel, ...args);
+    };
+  });
 }

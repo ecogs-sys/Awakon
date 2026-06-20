@@ -146,6 +146,21 @@ function fakeLogger(): { entries: IpcLogEntry[]; log: (e: IpcLogEntry) => void }
 
 type Listener = (event: unknown, ...args: unknown[]) => unknown;
 
+interface WcLike { id?: number; send: (channel: string, ...args: unknown[]) => unknown }
+
+/** A fake Electron `app` that captures the 'web-contents-created' handler so a test can
+ * emit a WebContents and assert the interceptor wrapped its `send`. */
+function fakeApp(): { on: (e: string, l: (event: unknown, wc: WcLike) => void) => void; emit: (wc: WcLike) => void } {
+  let handler: ((event: unknown, wc: WcLike) => void) | null = null;
+  return {
+    on: (_e, l) => { handler = l; },
+    emit: (wc) => handler?.({}, wc),
+  };
+}
+
+/** No-op `app` for tests that only exercise the ipcMain patches. */
+const noopApp = { on: (): void => undefined };
+
 describe('installIpcInterceptors', () => {
   it('logs a request entry with payload, response, and duration', async () => {
     const handlers = new Map<string, Listener>();
@@ -154,7 +169,7 @@ describe('installIpcInterceptors', () => {
       on: (c: string, l: Listener) => { handlers.set(c, l); },
     };
     const logger = fakeLogger();
-    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    installIpcInterceptors(ipcMain, noopApp, logger);
 
     ipcMain.handle('core.session.create', async () => ({ id: 's1' }));
     const result = await handlers.get('core.session.create')!({ sender: { id: 7 } }, { shell: 'bash' });
@@ -175,7 +190,7 @@ describe('installIpcInterceptors', () => {
       on: vi.fn(),
     };
     const logger = fakeLogger();
-    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    installIpcInterceptors(ipcMain, noopApp, logger);
     ipcMain.handle('core.session.write', async () => { throw new Error('boom'); });
 
     await expect(handlers.get('core.session.write')!({ sender: { id: 1 } }, { x: 1 }))
@@ -192,26 +207,30 @@ describe('installIpcInterceptors', () => {
       on: vi.fn(),
     };
     const logger = fakeLogger();
-    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    installIpcInterceptors(ipcMain, noopApp, logger);
     ipcMain.handle('some.internal.channel', async () => 'ok');
     await handlers.get('some.internal.channel')!({}, {});
     expect(logger.entries).toHaveLength(0);
   });
 
-  it('logs an event entry on webContents.send for an app channel only', () => {
+  it('wraps each web-contents-created instance, logging app-channel sends only', () => {
+    const app = fakeApp();
+    const ipcMain = { handle: vi.fn(), on: vi.fn() };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, app, logger);
+
+    // A WebContents born after install — the interceptor must wrap its own `send`.
     const sent: Array<[string, unknown]> = [];
-    const proto = {
+    const wc = {
       id: 42,
       send(channel: string, payload: unknown): void { sent.push([channel, payload]); },
     };
-    const ipcMain = { handle: vi.fn(), on: vi.fn() };
-    const logger = fakeLogger();
-    installIpcInterceptors(ipcMain, proto, logger);
+    app.emit(wc);
 
-    proto.send('event.session.data', { sessionId: 's', data: 'AA==' });
-    proto.send('devtools-internal', { x: 1 });
+    wc.send('event.session.data', { sessionId: 's', data: 'AA==' });
+    wc.send('devtools-internal', { x: 1 });
 
-    expect(sent).toHaveLength(2);
+    expect(sent).toHaveLength(2); // original send still runs for both channels
     expect(logger.entries).toHaveLength(1);
     expect(logger.entries[0]).toMatchObject({
       dir: 'event', channel: 'event.session.data', wcId: 42,
@@ -227,7 +246,7 @@ describe('installIpcInterceptors', () => {
       on: (c: string, l: Listener) => { listeners.set(c, l); },
     };
     const logger = fakeLogger();
-    installIpcInterceptors(ipcMain, { send: () => undefined }, logger);
+    installIpcInterceptors(ipcMain, noopApp, logger);
 
     ipcMain.on('core.fire', () => { called = true; });
     listeners.get('core.fire')!({ sender: { id: 3 } }, { k: 'v' });

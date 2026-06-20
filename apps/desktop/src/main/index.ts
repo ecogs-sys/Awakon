@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell, webContents } from 'electron';
+﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
@@ -23,13 +23,15 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 // IPC logging (opt-in via --log-ipc <dir> or AWAKON_LOG_IPC). Installed BEFORE the
-// IpcRouter and any window so every ipcMain.handle + webContents.send is captured.
+// IpcRouter and any window so every ipcMain.handle request and every main→renderer
+// webContents.send event is captured. Event capture wraps each WebContents as it is
+// created (app.on('web-contents-created')), so this must run before any window opens.
 const ipcLogConfig = resolveLogConfig(process.argv, process.env);
 let ipcLogger: IpcLogger | null = null;
 if (ipcLogConfig) {
   try {
     ipcLogger = new IpcLogger(ipcLogConfig);
-    installIpcInterceptors(ipcMain, webContents.prototype, ipcLogger);
+    installIpcInterceptors(ipcMain, app, ipcLogger);
     console.log(`[ipc-log] enabled -> ${ipcLogConfig.dir}`);
   } catch (err) {
     console.warn('[ipc-log] disabled:', err instanceof Error ? err.message : err);

@@ -85,10 +85,18 @@ rather than throwing; those are captured normally as the `response`.
 
 ### Events (main → renderer)
 
-Monkey-patch `WebContents.prototype.send`. This captures `IpcRouter.broadcast`,
-the direct `chromeWindow.webContents.send(...)` calls in `main/index.ts`, and
-any future sender. A broadcast to N views produces N entries, each tagged with
-the target `wcId`, so fan-out is visible.
+Wrap each WebContents' `send` as it is created, via
+`app.on('web-contents-created', (_e, wc) => { /* wrap wc.send */ })`. This
+captures `IpcRouter.broadcast`, the direct `chromeWindow.webContents.send(...)`
+calls in `main/index.ts`, and any future sender. A broadcast to N views produces
+N entries, each tagged with the target `wcId`, so fan-out is visible.
+
+> **Note:** an earlier draft proposed patching `WebContents.prototype.send`.
+> That does not work: Electron exports `WebContents` only as a *type*, and the
+> runtime `webContents` namespace object has no usable `.prototype`, so prototype
+> patching captures nothing (the dereference throws and only request logging
+> survives). Per-instance wrapping at creation time is version-agnostic and
+> covers the chrome window and every terminal WebContentsView.
 
 ### Channel filter
 
@@ -166,9 +174,10 @@ New file `apps/desktop/src/main/ipc-logger.ts` (co-located with
 - `class IpcLogger` — the rotating sink: constructor opens the first file;
   `log(entry: IpcLogEntry): void`; `close(): void`. No Electron import, so it
   is unit-testable in isolation.
-- `installIpcInterceptors(ipcMain, webContentsProto, logger): void` — performs
-  the monkey-patching. Targets are injected (not imported) so the function can
-  be exercised against fakes in tests.
+- `installIpcInterceptors(ipcMain, app, logger): void` — patches `ipcMain` and
+  subscribes to `app`'s `web-contents-created` to wrap each WebContents' `send`.
+  Targets are injected (not imported) so the function can be exercised against
+  fakes in tests.
 
 Wiring in `main/index.ts`:
 
@@ -178,7 +187,7 @@ let ipcLogger: IpcLogger | null = null;
 if (logConfig) {
   try {
     ipcLogger = new IpcLogger(logConfig);
-    installIpcInterceptors(ipcMain, WebContents.prototype, ipcLogger);
+    installIpcInterceptors(ipcMain, app, ipcLogger);
   } catch (err) {
     console.warn('[ipc-log] disabled:', err instanceof Error ? err.message : err);
     ipcLogger = null;
@@ -187,8 +196,9 @@ if (logConfig) {
 // ... must run BEFORE: const ipcRouter = new IpcRouter(ipcMain, sessionManager);
 ```
 
-(`WebContents` is imported from `electron`.) On `app` quit, `ipcLogger?.close()`
-flushes the stream.
+(`app` is imported from `electron`; the interceptor subscribes to its
+`web-contents-created` event.) On `app` quit, `ipcLogger?.close()` flushes the
+stream.
 
 ## Data Flow
 
@@ -201,7 +211,7 @@ renderer  --invoke(channel,payload)-->  [patched ipcMain.handle]
                                               v
                                          IpcLogger.log({dir:"req", ...})
 
-main  --webContents.send(channel,payload)--> [patched WebContents.send]
+main  --webContents.send(channel,payload)--> [wrapped per-instance wc.send]
                                               |  capture (core./event. only)
                                               v
                                          IpcLogger.log({dir:"event", ...})
