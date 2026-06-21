@@ -166,8 +166,10 @@ export class DocReader {
     if ('content' in res) {
       bodyEl.innerHTML = `<div class="aip-reader__prose">${renderMarkdown(res.content)}</div>`;
       statsEl.textContent = `${countLoc(res.content)} LOC · ${formatKb(res.sizeBytes)}`;
-      // Mermaid renders asynchronously; bail if the active doc changed mid-render
-      // or the body was detached so we never write SVG into a stale panel.
+      // Mermaid renders asynchronously, swapping markers for SVG in place. If the
+      // active doc changed mid-render, render() has already rebuilt the body via
+      // root.innerHTML, so this bodyEl is detached and those writes are invisible.
+      // The guard then stops any further work on the stale body.
       await renderMermaidBlocks(bodyEl);
       if (token !== this.loadToken || !bodyEl.isConnected) return;
     } else if ('tooLarge' in res) {
