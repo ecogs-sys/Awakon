@@ -11,6 +11,7 @@ import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
+import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +20,23 @@ const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
+}
+
+// IPC logging (opt-in via --log-ipc <dir> or AWAKON_LOG_IPC). Installed BEFORE the
+// IpcRouter and any window so every ipcMain.handle request and every main→renderer
+// webContents.send event is captured. Event capture wraps each WebContents as it is
+// created (app.on('web-contents-created')), so this must run before any window opens.
+const ipcLogConfig = resolveLogConfig(process.argv, process.env);
+let ipcLogger: IpcLogger | null = null;
+if (ipcLogConfig) {
+  try {
+    ipcLogger = new IpcLogger(ipcLogConfig);
+    installIpcInterceptors(ipcMain, app, ipcLogger);
+    console.log(`[ipc-log] enabled -> ${ipcLogConfig.dir}`);
+  } catch (err) {
+    console.warn('[ipc-log] disabled:', err instanceof Error ? err.message : err);
+    ipcLogger = null;
+  }
 }
 
 const sessionManager = new SessionManager();
@@ -541,9 +559,16 @@ app.on('before-quit', async (event) => {
   if (sessionManager.list().length === 0) return;
   event.preventDefault();
   await sessionManager.closeAll();
+  // app.exit() does not emit 'quit', so flush the IPC log here before exiting.
+  void ipcLogger?.close();
   app.exit(0);
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Safety net for the no-open-sessions quit path (before-quit returns early there).
+app.on('quit', () => {
+  void ipcLogger?.close();
 });

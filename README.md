@@ -196,6 +196,14 @@ The packaged output lands in `apps/desktop/release/<version>/`.
 > `electron-builder` can only target the OS it is running on without additional
 > cross-compilation setup, so run each `dist:*` command on the matching platform.
 
+### IPC logging (troubleshooting)
+
+Awakon can record all of its internal IPC traffic to disk to help diagnose issues
+that only surface during long-running sessions (off by default; enable with
+`--log-ipc <dir>` or `AWAKON_LOG_IPC`). See
+[docs/troubleshooting/ipc-logging.md](docs/troubleshooting/ipc-logging.md) for setup,
+configuration, and the log format.
+
 ### Project scripts
 
 | Command | Effect |
