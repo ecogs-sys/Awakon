@@ -1,6 +1,7 @@
 import { IpcChannel } from '@awakon/contracts';
 import type { TabDocState, ReviewState } from './doc-state.js';
 import { renderMarkdown, countLoc } from './markdown.js';
+import { renderMermaidBlocks } from './mermaid.js';
 
 /** Local mirror of the FsReadFile response union (see contracts FsReadFileResponseSchema). */
 type ReadFileResponse =
@@ -165,6 +166,10 @@ export class DocReader {
     if ('content' in res) {
       bodyEl.innerHTML = `<div class="aip-reader__prose">${renderMarkdown(res.content)}</div>`;
       statsEl.textContent = `${countLoc(res.content)} LOC · ${formatKb(res.sizeBytes)}`;
+      // Mermaid renders asynchronously; bail if the active doc changed mid-render
+      // or the body was detached so we never write SVG into a stale panel.
+      await renderMermaidBlocks(bodyEl);
+      if (token !== this.loadToken || !bodyEl.isConnected) return;
     } else if ('tooLarge' in res) {
       bodyEl.textContent = `This file is too large to preview (${formatKb(res.sizeBytes)}).`;
       statsEl.textContent = formatKb(res.sizeBytes);
