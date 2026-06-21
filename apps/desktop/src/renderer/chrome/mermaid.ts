@@ -4,20 +4,19 @@ type MermaidApi = {
 };
 
 let mermaidPromise: Promise<MermaidApi> | null = null;
-let initialized = false;
 let idSeq = 0;
 
-/** Lazily load mermaid once and initialize it once (dark, non-interactive). */
-async function loadMermaid(): Promise<MermaidApi> {
+/** Lazily load and initialize mermaid once (dark, non-interactive). The promise
+ * is memoized so the import and initialize() run exactly once across all calls. */
+function loadMermaid(): Promise<MermaidApi> {
   if (!mermaidPromise) {
-    mermaidPromise = import('mermaid').then((m) => m.default as MermaidApi);
+    mermaidPromise = import('mermaid').then((m) => {
+      const mermaid = m.default as MermaidApi;
+      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
+      return mermaid;
+    });
   }
-  const mermaid = await mermaidPromise;
-  if (!initialized) {
-    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
-    initialized = true;
-  }
-  return mermaid;
+  return mermaidPromise;
 }
 
 /**

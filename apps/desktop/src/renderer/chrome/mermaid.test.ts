@@ -59,4 +59,15 @@ describe('renderMermaidBlocks', () => {
     expect(initializeMock).not.toHaveBeenCalled();
     expect(renderMock).not.toHaveBeenCalled();
   });
+
+  it('imports and initializes mermaid only once across multiple calls', async () => {
+    // The memoized module promise persists across tests, so by the time this
+    // test runs mermaid may already be loaded/initialized. Assert on the delta:
+    // a second render call must add no further initialize() beyond the first.
+    await renderMermaidBlocks(host('<pre class="aip-mermaid"><code>graph TD; A-->B</code></pre>'));
+    const afterFirstCall = initializeMock.mock.calls.length;
+    await renderMermaidBlocks(host('<pre class="aip-mermaid"><code>graph LR; C-->D</code></pre>'));
+    expect(initializeMock.mock.calls.length).toBe(afterFirstCall);
+    expect(initializeMock.mock.calls.length).toBeLessThanOrEqual(1);
+  });
 });
