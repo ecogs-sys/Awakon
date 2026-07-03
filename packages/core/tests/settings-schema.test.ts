@@ -27,9 +27,9 @@ describe('AppSettingsSchema', () => {
     expect(AppSettingsSchema.safeParse(ok).success).toBe(true);
   });
 
-  it('defaults to enabled with the Claude-Code limit phrase and "continue"', () => {
+  it('defaults to enabled, matching Claude Code\'s rate-limit menu and selecting "wait"', () => {
     expect(DEFAULT_APP_SETTINGS.autoResume.enabled).toBe(true);
-    expect(DEFAULT_APP_SETTINGS.autoResume.detectText).toBe("You've hit your limit");
-    expect(DEFAULT_APP_SETTINGS.autoResume.responseText).toBe('continue');
+    expect(DEFAULT_APP_SETTINGS.autoResume.detectText).toBe('Stop and wait for limit to reset');
+    expect(DEFAULT_APP_SETTINGS.autoResume.responseText).toBe('1');
   });
 });

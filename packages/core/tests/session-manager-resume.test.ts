@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { homedir, platform } from 'node:os';
 import { SessionManager } from '../src/session-manager.js';
 import type { Shell } from '@awakon/contracts';
@@ -12,54 +12,56 @@ function newSession(m: SessionManager) {
   return m.create({ shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 });
 }
 
+// The rate-limit menu must be answered while it is on screen, so detection fires
+// the response immediately (selecting "Stop and wait for limit to reset") rather
+// than scheduling anything for later.
 describe('SessionManager auto-resume', () => {
   let manager: SessionManager;
   beforeEach(() => { manager = new SessionManager(); });
   afterEach(async () => { await manager.closeAll(); });
 
-  it('schedules a resume when an enabled session detects the phrase', () => {
-    manager.applyAutoResumeConfig({ enabled: true, detectText: 'P', responseText: 'continue' });
-    const scheduled: Array<{ id: string; at: number }> = [];
-    manager.on('resumeScheduled', (id, at) => scheduled.push({ id, at }));
+  it('sends the response and fires resumeFired when an enabled session detects the phrase', () => {
+    manager.applyAutoResumeConfig({
+      enabled: true,
+      detectText: 'Stop and wait for limit to reset',
+      responseText: '1',
+    });
+    const fired: string[] = [];
+    manager.on('resumeFired', (id) => fired.push(id));
     const session = newSession(manager);
+    const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
 
-    const future = Date.now() + 60 * 60 * 1000;
-    // Drive the detector directly: emit a phrase + a time ~1h out.
-    const dt = new Date(future);
-    const hh = ((dt.getHours() + 11) % 12) + 1;
-    const ampm = dt.getHours() < 12 ? 'am' : 'pm';
-    session.emit('rateLimitDetected', `P resets ${hh}:${String(dt.getMinutes()).padStart(2, '0')}${ampm}`);
+    session.emit('rateLimitDetected', 'Stop and wait for limit to reset');
 
-    expect(scheduled).toHaveLength(1);
-    expect(scheduled[0]!.id).toBe(session.id);
+    expect(writeSpy).toHaveBeenCalledWith('1\r');
+    expect(fired).toEqual([session.id]);
   });
 
-  it('does not schedule when auto-resume is disabled', () => {
-    manager.applyAutoResumeConfig({ enabled: false, detectText: 'P', responseText: 'continue' });
-    const scheduled: string[] = [];
-    manager.on('resumeScheduled', (id) => scheduled.push(id));
+  it('does not respond when auto-resume is disabled', () => {
+    manager.applyAutoResumeConfig({ enabled: false, detectText: 'P', responseText: '1' });
+    const fired: string[] = [];
+    manager.on('resumeFired', (id) => fired.push(id));
     const session = newSession(manager);
-    session.emit('rateLimitDetected', 'P resets 9:30pm');
-    expect(scheduled).toEqual([]);
+    const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
+
+    session.emit('rateLimitDetected', 'P');
+
+    expect(writeSpy).not.toHaveBeenCalled();
+    expect(fired).toEqual([]);
   });
 
-  it('cancelResume removes a pending resume and emits resumeCancelled', () => {
-    manager.applyAutoResumeConfig({ enabled: true, detectText: 'P', responseText: 'continue' });
-    const cancelled: string[] = [];
-    manager.on('resumeCancelled', (id) => cancelled.push(id));
+  it('does not respond after the session has exited', async () => {
+    manager.applyAutoResumeConfig({ enabled: true, detectText: 'P', responseText: '1' });
+    const fired: string[] = [];
+    manager.on('resumeFired', (id) => fired.push(id));
     const session = newSession(manager);
-    session.emit('rateLimitDetected', 'P resets 9:30pm');
-    manager.cancelResume(session.id);
-    expect(cancelled).toEqual([session.id]);
-  });
+    const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
 
-  it('disabling auto-resume cancels all pending resumes', () => {
-    manager.applyAutoResumeConfig({ enabled: true, detectText: 'P', responseText: 'continue' });
-    const cancelled: string[] = [];
-    manager.on('resumeCancelled', (id) => cancelled.push(id));
-    const session = newSession(manager);
-    session.emit('rateLimitDetected', 'P resets 9:30pm');
-    manager.applyAutoResumeConfig({ enabled: false, detectText: 'P', responseText: 'continue' });
-    expect(cancelled).toEqual([session.id]);
+    session.kill();
+    await new Promise((r) => setTimeout(r, 300));
+    session.emit('rateLimitDetected', 'P');
+
+    expect(writeSpy).not.toHaveBeenCalled();
+    expect(fired).toEqual([]);
   });
 });
