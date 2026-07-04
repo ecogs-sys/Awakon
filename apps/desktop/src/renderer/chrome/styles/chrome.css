@@ -683,7 +683,7 @@ body.sidebar-collapsed #sidebar-rail { display: flex; }
   font-weight: 600;
   padding: 7px 16px;
 }
-.dlg-btn-primary:hover { background: #6a96cd; color: #0d1117; }
+.dlg-btn-primary:hover { filter: brightness(1.08); }
 
 select.dlg-input {
   appearance: none;
@@ -945,7 +945,8 @@ select.dlg-input {
 }
 .aip-about__actions { display: flex; gap: 8px; }
 
-/* ── Empty state ──────────────────────────────────────────── */
+/* ── Empty state ──────────────────────────────────────────────────────────
+   Class names track empty-state.ts; colors track the Hot Wax theme tokens. */
 #empty-state-host {
   position: absolute;
   inset: 0;
@@ -953,7 +954,7 @@ select.dlg-input {
   align-items: center;
   justify-content: center;
   overflow: auto;
-  background: var(--color-bg, #0e0e10);
+  background: var(--bg-0);
   z-index: 1;
 }
 
@@ -970,14 +971,14 @@ select.dlg-input {
 .aip-empty__inner {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 28px;
 }
 
 /* Brand */
 .aip-empty__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .aip-empty__brand-icon {
@@ -985,6 +986,7 @@ select.dlg-input {
   height: 40px;
   flex-shrink: 0;
 }
+.aip-empty__brand-icon svg { width: 100%; height: 100%; display: block; }
 
 .aip-empty__brand-text {
   display: flex;
@@ -993,15 +995,18 @@ select.dlg-input {
 }
 
 .aip-empty__brand-title {
-  font-size: 18px;
+  font-family: var(--font-sans);
+  font-size: 22px;
   font-weight: 600;
-  color: var(--color-fg, #e2e2e5);
+  color: var(--text-1);
+  letter-spacing: -0.3px;
   line-height: 1.2;
 }
 
 .aip-empty__brand-sub {
+  font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--color-fg-muted, #8b8b99);
+  color: var(--text-3);
 }
 
 /* Cards */
@@ -1012,115 +1017,123 @@ select.dlg-input {
 
 .aip-empty__card {
   flex: 1;
-  padding: 16px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border, #2a2a35);
-  background: var(--color-surface, #18181c);
+  padding: 20px 22px;
+  border-radius: 10px;
+  border: 1px solid var(--border-1);
+  background: var(--bg-1);
   cursor: pointer;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: border-color 120ms;
+  gap: 10px;
+  transition: border-color 120ms ease;
+}
+.aip-empty__card:hover { border-color: var(--accent); }
+
+.aip-empty__card--primary {
+  background: var(--bg-2);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.aip-empty__card:hover {
-  border-color: var(--color-accent, #7b61ff);
+.aip-empty__card-title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
 }
 
-.aip-empty__card-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-fg, #e2e2e5);
+.aip-empty__card-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
 }
+.aip-empty__card--primary .aip-empty__card-meta { color: var(--accent); }
 
-.aip-empty__card-hint {
-  font-size: 11px;
-  color: var(--color-fg-muted, #8b8b99);
+.aip-empty__card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
 }
-
-.aip-empty__card-hint kbd {
-  font-family: inherit;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--color-surface-raised, #222228);
-  border: 1px solid var(--color-border, #2a2a35);
-  color: var(--color-fg, #e2e2e5);
+.aip-empty__card-kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
 }
+.aip-empty__card-arrow { color: var(--text-4); font-size: 14px; }
+.aip-empty__card--primary .aip-empty__card-arrow { color: var(--accent); }
 
 /* Recents */
-.aip-empty__recents-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-fg-muted, #8b8b99);
-  margin-bottom: 8px;
+.aip-empty__recents {
+  border-top: 1px solid var(--border-1);
+  padding-top: 20px;
 }
-
-.aip-empty__recent-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.aip-empty__recents-title {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-4);
+  margin-bottom: 10px;
 }
 
 .aip-empty__recent {
-  display: grid;
-  grid-template-columns: 36px 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 7px 8px;
   border-radius: 6px;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background 80ms, border-color 80ms;
+  transition: background 80ms ease, border-color 80ms ease;
 }
-
 .aip-empty__recent:hover {
-  background: var(--color-surface, #18181c);
-  border-color: var(--color-border, #2a2a35);
+  background: var(--bg-2);
+  border-color: var(--border-1);
 }
 
 .aip-empty__recent-chip {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-align: center;
-  padding: 2px 6px;
+  width: 22px; height: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
   border-radius: 4px;
-  background: var(--color-surface-raised, #222228);
-  border: 1px solid var(--color-border, #2a2a35);
-  color: var(--color-fg-muted, #8b8b99);
-}
-
-.aip-empty__recent-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border-2);
+  color: var(--text-3);
+  flex-shrink: 0;
 }
 
 .aip-empty__recent-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-fg, #e2e2e5);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 40%;
 }
 
 .aip-empty__recent-cwd {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--color-fg-muted, #8b8b99);
+  color: var(--text-4);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .aip-empty__recent-when {
-  font-size: 11px;
-  color: var(--color-fg-subtle, #55555f);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
   white-space: nowrap;
   flex-shrink: 0;
 }

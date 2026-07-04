@@ -86,7 +86,7 @@ export class SplitContainer {
 
     const newLeafEl = this.makePaneElement();
     const divider = document.createElement('div');
-    divider.style.background = '#333';
+    divider.style.background = 'var(--border-2)';
     divider.style.flex = '0 0 4px';
     divider.style.cursor = orientation === 'horizontal' ? 'col-resize' : 'row-resize';
 

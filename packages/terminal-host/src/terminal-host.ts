@@ -62,30 +62,32 @@ export class TerminalHost {
       cursorBlink: true,
       convertEol: false,
       scrollback: 5000,
+      // Direction 1 "Hot Wax" palette. xterm needs concrete hex, so these are the
+      // sRGB equivalents of the --term-* oklch tokens in chrome/styles/tokens.css.
       theme: {
-        background:    '#1c1f25', // --term-bg / --bg-0
-        foreground:    '#e8eaee', // --term-fg
-        cursor:        '#e8eaee',
-        cursorAccent:  '#1c1f25',
-        selectionBackground: '#7CA8E059', // --accent-glow
+        background:    '#0d0d12', // --term-bg
+        foreground:    '#e5e4e8', // --term-fg
+        cursor:        '#e5e4e8',
+        cursorAccent:  '#0d0d12',
+        selectionBackground: '#C36BEF59', // --accent-glow
         // ANSI standard colors
-        black:         '#1c1f25',
-        red:           '#d27566', // --term-red
-        green:         '#82c69b', // --term-green
-        yellow:        '#d8c376', // --term-yellow
-        blue:          '#7CA8E0', // --term-blue / --accent
-        magenta:       '#c388d8', // --term-magenta
-        cyan:          '#7dc3d4', // --term-cyan
-        white:         '#e8eaee',
+        black:         '#0b0b10', // --bg-0
+        red:           '#f97772', // --term-red
+        green:         '#73e087', // --term-green
+        yellow:        '#f5cc58', // --term-yellow
+        blue:          '#96b4ff', // --term-blue
+        magenta:       '#e08ced', // --term-magenta
+        cyan:          '#56d2df', // --term-cyan
+        white:         '#e5e4e8', // --term-fg
         // ANSI bright colors
-        brightBlack:   '#5a5e66',
-        brightRed:     '#e08879',
-        brightGreen:   '#9bd6b3',
-        brightYellow:  '#e8d489',
-        brightBlue:    '#9ac2f0',
-        brightMagenta: '#d39ce8',
-        brightCyan:    '#92d5e8',
-        brightWhite:   '#f4f5f7',
+        brightBlack:   '#605e66',
+        brightRed:     '#ff948e',
+        brightGreen:   '#8ef29e',
+        brightYellow:  '#ffde75',
+        brightBlue:    '#afcbff',
+        brightMagenta: '#f5a5ff',
+        brightCyan:    '#7de8f3',
+        brightWhite:   '#f6f5f9', // --text-1
       },
     });
     this.fit = new FitAddon();
