@@ -1,5 +1,6 @@
 ﻿import type { PreloadBridge } from '@awakon/terminal-host';
 import { IpcChannel } from '@awakon/contracts';
+import { renderAwakonMark } from './icon.js';
 
 const MENU_NAMES = ['File', 'Tabs', 'View', 'Window', 'Help'] as const;
 type MenuName = (typeof MENU_NAMES)[number];
@@ -71,46 +72,8 @@ export class TitleBar {
   }
 
   private renderGlyphSvg(): SVGSVGElement {
-    // 16x16 app glyph — matches the AppGlyph in design/app.jsx.
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('width', '16');
-    svg.setAttribute('height', '16');
-    svg.setAttribute('viewBox', '0 0 24 24');
-    svg.style.display = 'block';
-
-    const rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('width', '24');
-    rect.setAttribute('height', '24');
-    rect.setAttribute('rx', '6');
-    rect.setAttribute('fill', '#2a2f38');
-    svg.appendChild(rect);
-
-    const dot = (cx: string, cy: string, fill: string): SVGCircleElement => {
-      const c = document.createElementNS(ns, 'circle');
-      c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', '1.6'); c.setAttribute('fill', fill);
-      return c;
-    };
-    svg.appendChild(dot('7',  '9', '#9bc8a3'));
-    svg.appendChild(dot('12', '9', '#7CA8E0'));
-    svg.appendChild(dot('17', '9', '#e0c477'));
-
-    const path = document.createElementNS(ns, 'path');
-    path.setAttribute('d', 'M 7 15 L 10 17 L 7 19');
-    path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#e8eaee');
-    path.setAttribute('stroke-width', '1.4');
-    path.setAttribute('stroke-linecap', 'round');
-    path.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(path);
-
-    const bar = document.createElementNS(ns, 'rect');
-    bar.setAttribute('x', '12'); bar.setAttribute('y', '18');
-    bar.setAttribute('width', '5'); bar.setAttribute('height', '1.2');
-    bar.setAttribute('rx', '0.6'); bar.setAttribute('fill', '#7CA8E0');
-    svg.appendChild(bar);
-
-    return svg;
+    // Awakon aperture mark — see icon.ts. Phase 2 restructures this bar around it.
+    return renderAwakonMark(16);
   }
 
   private renderControls(): HTMLElement {

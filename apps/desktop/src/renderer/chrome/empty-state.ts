@@ -1,4 +1,5 @@
 import type { RecentTab, Shell } from '@awakon/contracts';
+import { awakonMarkMarkup } from './icon.js';
 
 export interface EmptyStateCallbacks {
   onNew:        () => void;
@@ -34,14 +35,7 @@ export function formatWhen(closedAt: number): string {
 }
 
 function appGlyph(): string {
-  return `<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-    <rect width="32" height="32" rx="8" fill="var(--bg-2)"/>
-    <circle cx="11" cy="13" r="2.2" fill="var(--st-running)"/>
-    <circle cx="16" cy="13" r="2.2" fill="var(--accent)"/>
-    <circle cx="21" cy="13" r="2.2" fill="var(--st-awaiting)"/>
-    <path d="M10 20 L14.5 23 L10 26" fill="none" stroke="var(--text-1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <rect x="16" y="24" width="7" height="1.5" rx="0.75" fill="var(--accent)"/>
-  </svg>`;
+  return awakonMarkMarkup(40);
 }
 
 export class EmptyStateView {

@@ -1,4 +1,5 @@
 ﻿import { IpcChannel, type ChromeAppInfoResponse } from '@awakon/contracts';
+import { renderAwakonMark } from './icon.js';
 
 interface Bridge {
   send: (channel: string, payload?: unknown) => Promise<unknown>;
@@ -69,7 +70,7 @@ export function showAboutDialog(
     root.querySelector<HTMLDivElement>('.aip-about__tagline')!.textContent = TAGLINE;
     const versionEl = root.querySelector<HTMLDivElement>('.aip-about__version')!;
     versionEl.textContent = `Version ${info.version}`;
-    root.querySelector<HTMLDivElement>('#ab-icon')!.appendChild(renderAppGlyph());
+    root.querySelector<HTMLDivElement>('#ab-icon')!.appendChild(renderAwakonMark(64));
 
     const details = root.querySelector<HTMLDivElement>('#ab-details')!;
     appendRow(details, 'Electron', info.electron);
@@ -158,44 +159,4 @@ async function copyInfo(info: ChromeAppInfoResponse, btn: HTMLButtonElement): Pr
   } catch (err) {
     console.warn('[about] copy failed:', err);
   }
-}
-
-/** App glyph SVG. Mirrors the one in titlebar.ts and the design handoff's appGlyph(). */
-function renderAppGlyph(): SVGSVGElement {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.style.display = 'block';
-
-  const bg = document.createElementNS(ns, 'rect');
-  bg.setAttribute('width', '24'); bg.setAttribute('height', '24');
-  bg.setAttribute('rx', '6'); bg.setAttribute('fill', '#2a2f38');
-  svg.appendChild(bg);
-
-  const dot = (cx: string, fill: string): SVGCircleElement => {
-    const c = document.createElementNS(ns, 'circle');
-    c.setAttribute('cx', cx); c.setAttribute('cy', '9'); c.setAttribute('r', '1.6');
-    c.setAttribute('fill', fill);
-    return c;
-  };
-  svg.appendChild(dot('7',  '#9bc8a3'));
-  svg.appendChild(dot('12', '#7CA8E0'));
-  svg.appendChild(dot('17', '#e0c477'));
-
-  const path = document.createElementNS(ns, 'path');
-  path.setAttribute('d', 'M 7 15 L 10 17 L 7 19');
-  path.setAttribute('fill', 'none');
-  path.setAttribute('stroke', '#e8eaee');
-  path.setAttribute('stroke-width', '1.4');
-  path.setAttribute('stroke-linecap', 'round');
-  path.setAttribute('stroke-linejoin', 'round');
-  svg.appendChild(path);
-
-  const bar = document.createElementNS(ns, 'rect');
-  bar.setAttribute('x', '12'); bar.setAttribute('y', '18');
-  bar.setAttribute('width', '5'); bar.setAttribute('height', '1.2');
-  bar.setAttribute('rx', '0.6'); bar.setAttribute('fill', '#7CA8E0');
-  svg.appendChild(bar);
-
-  return svg;
 }

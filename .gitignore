@@ -53,3 +53,6 @@ coverage/
 playwright-report/
 test-results/
 .vs/
+
+# Local design handoff bundle (reference only, not part of the app)
+docs/Design/
