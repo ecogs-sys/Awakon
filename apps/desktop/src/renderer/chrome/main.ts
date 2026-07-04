@@ -28,7 +28,6 @@ const titlebarEl = document.getElementById('titlebar')!;
 const platform = navigator.userAgent.includes('Mac OS') ? 'darwin'
               : navigator.userAgent.includes('Windows') ? 'win32'
               : 'linux';
-new TitleBar(titlebarEl, { bridge, platform });
 
 const manager = new LayoutManager({
   bridge,
@@ -63,6 +62,14 @@ const manager = new LayoutManager({
     },
   }),
 });
+
+const titleBar = new TitleBar(titlebarEl, {
+  bridge,
+  platform,
+  onOpenSettings: () => void manager.openSettings(),
+  onOpenPalette: () => { /* wired in Phase 4 (command palette) */ },
+});
+manager.attachTitleBar(titleBar);
 
 void manager.start();
 

@@ -25,10 +25,13 @@ html, body {
 }
 
 /* ── Tab strip ───────────────────────────────────────────────────────────── */
+/* Rounded tabs whose active surface merges into the terminal pane below. */
 #tab-strip {
   height: var(--tabbar-h);
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
+  gap: 4px;
+  padding-left: 8px;
   background: var(--bg-1);
   border-bottom: 1px solid var(--border-1);
   flex-shrink: 0;
@@ -40,12 +43,13 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
-  height: var(--tabbar-h);
-  min-width: 160px;
+  padding: 0 12px 0 13px;
+  height: 34px;
+  margin-top: 5px;
+  min-width: 150px;
   max-width: 220px;
   background: transparent;
-  border-right: 1px solid var(--border-1);
+  border-radius: 9px 9px 0 0;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-3);
@@ -54,8 +58,10 @@ html, body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.tab.active        { background: var(--bg-0); color: var(--text-1); }
-.tab .tab-stripe   { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); }
+.tab:hover:not(.active) { background: var(--bg-2); }
+/* Active tab: sits on the terminal surface with an accent top edge. The inset
+   box-shadow follows the rounded corners (no separate stripe element). */
+.tab.active { background: var(--term-bg); color: var(--text-1); box-shadow: inset 0 2px 0 var(--accent); }
 
 .tab .dot          { width: 7px; height: 7px; border-radius: 50%; background: transparent; flex-shrink: 0; }
 .tab .dot.running  { background: var(--st-running); }
@@ -91,8 +97,15 @@ html, body {
 }
 .tab .close:hover { background: var(--bg-3); color: var(--text-1); }
 
-#new-tab { width: 36px; padding: 0; background: transparent; color: var(--text-3); cursor: pointer; border: none; font-size: 16px; }
-#new-tab:hover { color: var(--text-1); }
+#new-tab {
+  width: 30px; height: 30px; margin-bottom: 4px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text-3); cursor: pointer;
+  border: none; border-radius: 7px; font-size: 17px; line-height: 1;
+  flex-shrink: 0;
+  transition: background .12s ease, color .12s ease;
+}
+#new-tab:hover { color: var(--text-1); background: var(--bg-3); }
 
 /* ── Body + sidebar ──────────────────────────────────────────────────────── */
 #body {
@@ -468,70 +481,80 @@ body.sidebar-collapsed #sidebar-rail { display: flex; }
 #dialog-mount.open { display: flex; }
 
 
-/* ── Titlebar ────────────────────────────────────────────────────────────── */
+/* ── Titlebar — platform-neutral bar (Direction 1) ───────────────────────── */
 #titlebar {
   height: var(--titlebar-h);
   background: var(--bg-1);
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  padding-left: 14px;
   border-bottom: 1px solid var(--border-1);
   user-select: none;
   flex-shrink: 0;
   -webkit-app-region: drag;
 }
-#titlebar .tb-glyph {
-  display: flex;
-  align-items: center;
-  padding: 0 10px 0 12px;
+.tb-no-drag { -webkit-app-region: no-drag; }
+
+/* Wordmark */
+#titlebar .tb-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+#titlebar .tb-mark  { width: 20px; height: 20px; border-radius: 5px; overflow: hidden; flex-shrink: 0; display: flex; }
+#titlebar .tb-mark svg { width: 100%; height: 100%; display: block; }
+#titlebar .tb-name  { font-family: var(--font-sans); font-weight: 600; font-size: 14.5px; color: var(--text-1); letter-spacing: -0.2px; }
+
+#titlebar .tb-divider { width: 1px; height: 18px; background: var(--border-2); margin: 0 16px; flex-shrink: 0; }
+
+/* Breadcrumb */
+#titlebar .tb-crumb { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); flex-shrink: 0; }
+#titlebar .tb-crumb[hidden] { display: none; }
+#titlebar .tb-crumb-project { color: var(--text-2); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#titlebar .tb-crumb-sep     { color: var(--text-4); }
+#titlebar .tb-crumb-branch  { display: inline-flex; align-items: center; gap: 5px; color: var(--text-3); }
+#titlebar .tb-crumb-branch[hidden] { display: none; }
+#titlebar .tb-crumb-branch svg { opacity: 0.8; }
+
+/* Centered subtitle */
+#titlebar .tb-subtitle {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-size: 12px; color: var(--text-4);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  padding: 0 12px;
 }
-#titlebar .tb-menu {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  -webkit-app-region: no-drag;
+
+/* Action cluster */
+#titlebar .tb-actions { display: flex; align-items: center; gap: 4px; margin-right: 6px; flex-shrink: 0; }
+#titlebar .tb-chip {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-4);
+  background: var(--bg-2); border: 1px solid var(--border-1); border-radius: 6px;
+  padding: 4px 9px; cursor: pointer; line-height: 1;
+  transition: color .12s ease, border-color .12s ease;
 }
-#titlebar .tb-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  height: 100%;
-  font-size: 12.5px;
-  color: var(--text-2);
-  cursor: pointer;
+#titlebar .tb-chip:hover { color: var(--text-2); border-color: var(--border-2); }
+#titlebar .tb-iconbtn {
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: 6px;
+  color: var(--text-3); cursor: pointer;
+  transition: background .12s ease, color .12s ease;
 }
-#titlebar .tb-menu-item:hover { background: var(--bg-3); color: var(--text-1); }
-#titlebar .tb-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  color: var(--text-3);
-  letter-spacing: 0.2px;
-}
-#titlebar .tb-title b { color: var(--text-2); font-weight: 500; }
-#titlebar .tb-controls {
-  display: flex;
-  height: 100%;
-  -webkit-app-region: no-drag;
-}
+#titlebar .tb-iconbtn:hover { background: var(--bg-3); color: var(--text-1); }
+
+/* Neutral window controls */
+#titlebar .tb-controls { display: flex; align-self: stretch; }
 #titlebar .tb-ctrl {
-  width: 46px;
-  height: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  cursor: pointer;
+  width: 44px; align-self: stretch;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3); cursor: pointer;
+  transition: background .12s ease, color .12s ease;
 }
 #titlebar .tb-ctrl:hover { background: var(--bg-3); color: var(--text-1); }
 #titlebar .tb-ctrl.close:hover { background: #c4534b; color: #fff; }
 
-/* macOS: traffic lights sit in the top-left at (~14, ~12) with 70px of width.
- * Offset our glyph past them and hide the menu strip + window controls. */
-#titlebar[data-platform="darwin"] .tb-glyph    { padding-left: 78px; }
-#titlebar[data-platform="darwin"] .tb-menu     { display: none; }
-#titlebar[data-platform="darwin"] .tb-controls { display: none; }
+/* macOS: traffic lights sit top-left; offset the wordmark past them and hide the
+ * hamburger + window controls (the OS menu bar + traffic lights cover them). */
+#titlebar[data-platform="darwin"]                { padding-left: 78px; }
+#titlebar[data-platform="darwin"] .tb-menu-btn   { display: none; }
+#titlebar[data-platform="darwin"] .tb-controls   { display: none; }
 
 /* ── Dialogs (sectioned card) ───────────────────────────────────────────── */
 #dialog-mount { backdrop-filter: blur(2px); }

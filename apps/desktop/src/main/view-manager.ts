@@ -1,12 +1,13 @@
 ﻿import { BrowserWindow, WebContentsView } from 'electron';
 import type { SessionId } from '@awakon/contracts';
 
-// Chrome lays out as a vertical stack: titlebar (32px) above tab strip (36px) above
-// the body. The WebContentsView overlay must start below BOTH, not just the titlebar,
-// or terminal content paints over the tab strip.
-const TITLEBAR_PX = 32;
-const TAB_BAR_PX = 36;
-const CHROME_TOP_PX = TITLEBAR_PX + TAB_BAR_PX; // 68
+// Chrome lays out as a vertical stack: titlebar above tab strip above the body.
+// The WebContentsView overlay must start below BOTH, not just the titlebar, or
+// terminal content paints over the tab strip. These match the CSS layout tokens
+// --titlebar-h (44px) and --tabbar-h (39px) in styles/tokens.css.
+const TITLEBAR_PX = 44;
+const TAB_BAR_PX = 39;
+const CHROME_TOP_PX = TITLEBAR_PX + TAB_BAR_PX; // 83
 const SIDEBAR_OPEN_PX = 260; // matches CSS --sidebar-w
 const SIDEBAR_COLLAPSED_PX = 56;
 
