@@ -46,6 +46,7 @@ function buildTemplates(
   ];
 
   const viewSubmenu: MenuItemConstructorOptions[] = [
+    { label: 'Command Palette…', accelerator: Bindings.commandPalette.accelerator, click: () => send('commandPalette', chromeWindow) },
     { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => send('openSettings', chromeWindow) },
     { type: 'separator' },
     { label: 'Toggle Sidebar', accelerator: Bindings.toggleSidebar.accelerator, click: () => send('toggleSidebar', chromeWindow) },

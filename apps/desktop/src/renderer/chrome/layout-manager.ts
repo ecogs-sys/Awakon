@@ -192,6 +192,14 @@ export class LayoutManager {
     await this.openNewTabDialog();
   }
 
+  /** Snapshot of the open sessions in tab order — used by the command palette. */
+  listSessions(): Array<{ info: SessionInfo; resumeAt: number | null; active: boolean }> {
+    return this.state.tabOrder
+      .map((id) => this.state.sessions.get(id))
+      .filter((s): s is SessionState => !!s)
+      .map((s) => ({ info: s.info, resumeAt: s.resumeAt, active: s.info.id === this.state.focusedId }));
+  }
+
   async openSettings(): Promise<void> {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;

@@ -50,6 +50,9 @@ const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager) => void> = {
   splitHorizontal: () => {},
   splitVertical: () => {},
   closePane: () => {},
+  // The command palette is opened from the ActionInvoke listener in main.ts (so the
+  // global menu accelerator works from any focused view); no chrome-keydown handler.
+  commandPalette: () => {},
 };
 
 export function wireKeyboard(manager: LayoutManager): void {

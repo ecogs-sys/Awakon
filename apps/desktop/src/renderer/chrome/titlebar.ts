@@ -1,5 +1,6 @@
 import type { PreloadBridge } from '@awakon/terminal-host';
 import { IpcChannel } from '@awakon/contracts';
+import { Bindings, formatAccelerator } from '@awakon/keymap';
 import { renderAwakonMark } from './icon.js';
 
 export interface TitleBarOptions {
@@ -155,8 +156,7 @@ export class TitleBar {
   }
 
   private paletteLabel(): string {
-    // Phase 4 replaces this with formatAccelerator(Bindings.commandPalette).
-    return this.platform === 'darwin' ? '⌘K' : 'Ctrl+K';
+    return formatAccelerator(Bindings.commandPalette.accelerator, this.platform);
   }
 
   private renderControls(): HTMLElement {
