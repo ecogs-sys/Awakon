@@ -21,29 +21,25 @@ describe('auto-resume + real PTY', () => {
   beforeEach(() => { manager = new SessionManager(); });
   afterEach(async () => { await manager.closeAll(); });
 
-  it('detects the phrase, schedules a resume, and types the response into the PTY', async () => {
+  it('detects the phrase and types the response into the PTY', async () => {
     manager.applyAutoResumeConfig({
       enabled: true,
       detectText: 'awakon-LIMIT',
       responseText: 'continue',
     });
 
-    const scheduled: string[] = [];
     const fired: string[] = [];
-    manager.on('resumeScheduled', (id) => scheduled.push(id));
     manager.on('resumeFired', (id) => fired.push(id));
 
     const session = manager.create({ shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 });
     await new Promise((r) => setTimeout(r, 400)); // flush startup noise
 
-    // Print a line containing the phrase and a clock time one minute in the future.
-    const dt = new Date(Date.now() + 60_000);
-    const hh = ((dt.getHours() + 11) % 12) + 1;
-    const ampm = dt.getHours() < 12 ? 'am' : 'pm';
-    const clock = `${hh}:${String(dt.getMinutes()).padStart(2, '0')}${ampm}`;
-    session.write(`echo awakon-LIMIT resets ${clock}\r`);
+    // Print a line containing the detect phrase. The rate-limit prompt is an
+    // interactive menu answered on the spot, so detection fires the response
+    // immediately rather than scheduling anything for a later reset time.
+    session.write(`echo awakon-LIMIT resets soon\r`);
 
-    await waitFor(() => scheduled.includes(session.id));
-    expect(scheduled).toContain(session.id);
+    await waitFor(() => fired.includes(session.id));
+    expect(fired).toContain(session.id);
   });
 });
