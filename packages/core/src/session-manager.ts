@@ -10,7 +10,6 @@ import type {
 } from '@awakon/contracts';
 import { Session } from './session.js';
 import { ResumeScheduler } from './resume-scheduler.js';
-import { parseResetTime } from './reset-time-parser.js';
 
 export interface SessionManagerEvents {
   sessionCreated: (info: SessionInfo) => void;
@@ -50,13 +49,16 @@ export class SessionManager extends EventEmitter {
     });
     session.on('titleChanged', (title) => this.emit('sessionTitleChanged', id, title));
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
-    session.on('rateLimitDetected', (resetText) => {
+    // The rate-limit prompt is an interactive menu ("1. Stop and wait for limit
+    // to reset" / "2. Upgrade your plan") that must be answered while it is on
+    // screen. Selecting option 1 hands the waiting to the agent itself, which
+    // resumes when the limit resets — so we respond the moment the phrase is
+    // detected rather than scheduling anything for a later reset time.
+    session.on('rateLimitDetected', () => {
       if (!this.autoResume.enabled) return;
-      const resetAt = parseResetTime(resetText, new Date());
-      if (resetAt == null) return;
-      if (this.resumeScheduler.schedule(id, resetAt)) {
-        this.emit('resumeScheduled', id, resetAt);
-      }
+      if (session.info().status === 'exited') return;
+      session.write(`${this.autoResume.responseText}\r`);
+      this.emit('resumeFired', id);
     });
 
     session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');

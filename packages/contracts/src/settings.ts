@@ -21,9 +21,15 @@ export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
 export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
   autoResume: Object.freeze({
+    // Claude Code shows an interactive menu on hitting the session limit:
+    //   1. Stop and wait for limit to reset   2. Upgrade your plan
+    // Matching the option-1 label fires only when that actionable menu is on
+    // screen (not on the "used NN% of your session limit" warnings, nor on
+    // nested subagent result lines). responseText '1' selects option 1, which
+    // makes Claude wait and resume itself when the limit resets.
     enabled: true,
-    detectText: "You've hit your limit",
-    responseText: 'continue',
+    detectText: 'Stop and wait for limit to reset',
+    responseText: '1',
   }),
   defaultCwd: '',
   recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],

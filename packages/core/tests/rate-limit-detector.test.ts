@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_APP_SETTINGS } from '@awakon/contracts';
 import { RateLimitDetector } from '../src/rate-limit-detector.js';
 
 const PHRASE = "You've hit your limit";
+
+/** A realistic frame of Claude Code's rate-limit menu, as captured from a real
+ * session's PTY output (ANSI stripped for readability). */
+const CLAUDE_MENU =
+  'What do you want to do?\n' +
+  '❯ 1. Stop and wait for limit to reset\n' +
+  '  2. Upgrade your plan\n' +
+  '\n  Enter to confirm · Esc to cancel\n';
 
 function collect(detector: RateLimitDetector): string[] {
   const out: string[] = [];
@@ -55,6 +64,13 @@ describe('RateLimitDetector', () => {
     const events = collect(d);
     d.process(Buffer.from(`${PHRASE} · resets 8am\n`, 'utf8'));
     expect(events).toHaveLength(0);
+  });
+
+  it("fires on Claude's real rate-limit menu using the shipped default phrase", () => {
+    const d = new RateLimitDetector(DEFAULT_APP_SETTINGS.autoResume.detectText);
+    const events = collect(d);
+    d.process(Buffer.from(CLAUDE_MENU, 'utf8'));
+    expect(events).toHaveLength(1);
   });
 
   it('re-arms after setDetectText so an on-screen phrase can trigger', () => {

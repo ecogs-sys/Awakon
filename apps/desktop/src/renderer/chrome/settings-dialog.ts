@@ -35,7 +35,7 @@ export function showSettingsDialog(
         <input id="set-enabled" type="checkbox" hidden />
         <div>
           <div class="dlg-toggle-title">Auto-resume rate-limited tabs</div>
-          <div class="dlg-toggle-help">When an agent hits its quota and you've set a response below, Awakon will send that response automatically once the quota refreshes.</div>
+          <div class="dlg-toggle-help">When an agent hits its usage limit and shows its prompt, Awakon answers it for you by sending the response below — for Claude Code that selects “Stop and wait for limit to reset”, so the agent resumes on its own once the limit refreshes.</div>
         </div>
       </section>
 
@@ -43,7 +43,7 @@ export function showSettingsDialog(
         <div class="dlg-label">TEXT TO DETECT</div>
         <input id="set-detect" type="text" maxlength="200" class="dlg-input" />
         <div class="dlg-chips" id="set-detect-chips">
-          <button type="button" class="dlg-chip" data-detect="You've hit your limit">You've hit your limit</button>
+          <button type="button" class="dlg-chip" data-detect="Stop and wait for limit to reset">Claude Code</button>
           <button type="button" class="dlg-chip" data-detect="rate limit reached">rate limit reached</button>
           <button type="button" class="dlg-chip" data-detect="quota exceeded">quota exceeded</button>
         </div>
@@ -52,6 +52,7 @@ export function showSettingsDialog(
       <section class="dlg-section">
         <div class="dlg-label">RESPONSE TO SEND</div>
         <input id="set-response" type="text" maxlength="200" class="dlg-input" />
+        <div class="dlg-help">Sent (followed by Enter) the moment the phrase appears. For Claude Code’s menu, “1” selects “Stop and wait for limit to reset”.</div>
       </section>
 
       <section class="dlg-section">
