@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0](https://github.com/ecogs-sys/Awakon/compare/v0.8.0...v0.9.0) (2026-07-04)
+
+
+### Features
+
+* **design-1:** command palette + OS-resolved shortcut helper ([62fec6e](https://github.com/ecogs-sys/Awakon/commit/62fec6ed80a13d75061fb6cace06372d112a3c0b))
+* **design-1:** Hot Wax theme + aperture brand icon ([53a96e4](https://github.com/ecogs-sys/Awakon/commit/53a96e424135993767c70b7887febaedec126686))
+* **design-1:** platform-neutral top bar, rounded tabs, hamburger menu ([3fb0f7b](https://github.com/ecogs-sys/Awakon/commit/3fb0f7bc15d8154d18bc2863f71f47e383460dd2))
+* **design-1:** re-skin fixes — empty state, terminal palette, strays ([76094bb](https://github.com/ecogs-sys/Awakon/commit/76094bb130d831625af5a83d87fe4c4ec68fd9fd))
+
+
+### Bug Fixes
+
+* **design-1:** gear settings icon + reveal command palette over terminal ([d55cdb1](https://github.com/ecogs-sys/Awakon/commit/d55cdb1328e23213c1c83274ef1f14b9dc6f5b6d))
+
 ## [0.8.0](https://github.com/ecogs-sys/Awakon/compare/awakon-v0.7.0...awakon-v0.8.0) (2026-06-21)
 
 
