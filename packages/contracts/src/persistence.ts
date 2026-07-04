@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ShellSchema, SessionStatusSchema } from './session.js';
 
-export const PERSISTENCE_SCHEMA_VERSION = 3;
+export const PERSISTENCE_SCHEMA_VERSION = 4;
 
 export type PersistedSplitNode =
   | { kind: 'leaf' }
@@ -56,7 +56,11 @@ export type PersistedTab = z.infer<typeof PersistedTabSchema>;
 export const PersistedTabsSchema = z.object({
   version: z.literal(PERSISTENCE_SCHEMA_VERSION),
   tabs: z.array(PersistedTabSchema),
-  focusedTabId: z.string().nullable(),
+  /** Position of the focused tab within `tabs`, or null when none was focused.
+   * Session ids are regenerated every launch (randomUUID), so a persisted id can
+   * never match a freshly restored session — position is the only stable anchor
+   * across restarts (M4). */
+  focusedTabIndex: z.number().int().nonnegative().nullable(),
 });
 export type PersistedTabs = z.infer<typeof PersistedTabsSchema>;
 
@@ -67,12 +71,23 @@ export type PersistedTabs = z.infer<typeof PersistedTabsSchema>;
  *
  * v1 -> v2: stamp version 2 (splits left undefined).
  * v2 -> v3: stamp version 3 (docs left undefined).
+ * v3 -> v4: replace focusedTabId (a session id, which can never match after restart —
+ * see M4) with focusedTabIndex, the matching tab's position in `tabs`.
  */
 export function migratePersistedTabs(parsed: unknown): unknown | null {
   if (parsed === null || typeof parsed !== 'object') return null;
-  let obj = parsed as { version?: unknown };
+  let obj = parsed as {
+    version?: unknown; tabs?: unknown; focusedTabId?: unknown; focusedTabIndex?: unknown;
+  };
   if (obj.version === 1) obj = { ...obj, version: 2 };
   if (obj.version === 2) obj = { ...obj, version: 3 };
-  if (obj.version === 3) return obj;
+  if (obj.version === 3) {
+    const tabs = Array.isArray(obj.tabs) ? (obj.tabs as Array<{ tabId?: unknown }>) : [];
+    const idx = tabs.findIndex((t) => t.tabId === obj.focusedTabId);
+    const next = { ...obj, version: 4 as const, focusedTabIndex: idx >= 0 ? idx : null };
+    delete next.focusedTabId;
+    obj = next;
+  }
+  if (obj.version === 4) return obj;
   return null;
 }

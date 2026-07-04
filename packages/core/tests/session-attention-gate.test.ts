@@ -91,4 +91,24 @@ describe('Session attention gate', () => {
     await new Promise((r) => setTimeout(r, 2500));
     expect(events.filter((e) => e.signal === 'idle').length).toBeGreaterThan(0);
   }, 10_000);
+
+  it('does not count a synthetic write (auto-resume) as user input (L1)', async () => {
+    session = newSession();
+    const events: AttentionEvent[] = [];
+    session.on('attention', (ev) => events.push(ev));
+
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events).toHaveLength(0);
+
+    // A restored session the user never touched must not start emitting attention
+    // just because auto-resume typed into it on the user's behalf.
+    session.write('1\r', { synthetic: true });
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events).toHaveLength(0);
+
+    // Real user input still unlocks the gate.
+    session.write('\r');
+    await new Promise((r) => setTimeout(r, 2500));
+    expect(events.filter((e) => e.signal === 'idle').length).toBeGreaterThan(0);
+  }, 10_000);
 });

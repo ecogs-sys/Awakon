@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- M8: hardening — all content here is local; this blunts H1/M2-style escalations
+         if a renderer is ever tricked into loading remote script/markup. unsafe-inline
+         on style-src is required by mermaid's inline SVG styling; connect-src allows
+         the electron-vite dev server's HMR websocket in dev only. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ws://localhost:* http://localhost:*;" />
     <title>Awakon</title>
   </head>
   <body>
@@ -14,8 +19,8 @@
             <span id="sidebar-label">Sessions</span>
             <div id="sidebar-header-actions">
               <button id="sidebar-sort" class="sb-iconbtn" title="Attention sort">⇅</button>
-              <button id="sidebar-new" class="sb-iconbtn" title="New session (Ctrl+T)">+</button>
-              <button id="sidebar-toggle" class="sb-iconbtn" title="Toggle sidebar (Ctrl+B)">⇔</button>
+              <button id="sidebar-new" class="sb-iconbtn" title="New session">+</button>
+              <button id="sidebar-toggle" class="sb-iconbtn" title="Toggle sidebar">⇔</button>
             </div>
           </div>
           <div id="sidebar-overview" hidden></div>
@@ -26,12 +31,12 @@
         </aside>
         <aside id="sidebar-rail" class="aip-rail">
           <div class="aip-rail__header">
-            <button id="sidebar-rail-expand" class="aip-rail__expand" title="Expand sidebar (Ctrl+B)">›</button>
+            <button id="sidebar-rail-expand" class="aip-rail__expand" title="Expand sidebar">›</button>
           </div>
           <div id="sidebar-rail-summary" class="aip-rail__summary"></div>
           <div id="sidebar-rail-list" class="aip-rail__list"></div>
           <div class="aip-rail__footer">
-            <button id="sidebar-rail-new" class="aip-rail__icon-btn aip-rail__icon-btn--new" title="New session (Ctrl+T)">+</button>
+            <button id="sidebar-rail-new" class="aip-rail__icon-btn aip-rail__icon-btn--new" title="New session">+</button>
           </div>
         </aside>
         <div id="view-host"><div id="view-anchor"></div><div id="empty-state-host" hidden></div></div>

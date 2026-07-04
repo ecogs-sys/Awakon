@@ -37,6 +37,7 @@ const manager = new LayoutManager({
   bodyEl,
   emptyStateHostEl,
   viewHostEl,
+  platform,
   tabStrip: new TabStrip(tabStripEl, {
     onTabClick: (id) => manager.focus(id),
     onTabClose: (id) => void manager.closeTab(id),
@@ -67,6 +68,16 @@ const manager = new LayoutManager({
 });
 
 const fmt = (accelerator: string): string => formatAccelerator(accelerator, platform);
+
+// L6: these hints previously hardcoded "Ctrl+T"/"Ctrl+B" in index.html, which is
+// wrong on macOS. Set them here from the shared Bindings + formatAccelerator so
+// they can never drift from the actual accelerator.
+const newTabHint = `New session (${fmt(Bindings.newTab.accelerator)})`;
+const sidebarHint = `sidebar (${fmt(Bindings.toggleSidebar.accelerator)})`;
+sidebarNewEl?.setAttribute('title', newTabHint);
+sidebarToggleEl.title = `Toggle ${sidebarHint}`;
+sidebarRailExpandEl?.setAttribute('title', `Expand ${sidebarHint}`);
+sidebarRailNewEl?.setAttribute('title', newTabHint);
 const jumpAccel = (i: number): string | undefined =>
   i < 9 ? fmt(Bindings[`jumpTab${i + 1}` as 'jumpTab1'].accelerator) : undefined;
 

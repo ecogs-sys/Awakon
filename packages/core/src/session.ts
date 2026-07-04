@@ -104,7 +104,12 @@ export class Session extends EventEmitter {
     });
   }
 
-  write(data: Buffer | string): void {
+  /** `synthetic: true` marks a write main generated on the user's behalf (currently
+   * only the auto-resume response) rather than something they typed. Synthetic
+   * writes must not unlock the attention gate (L1) — a restored session the user
+   * never touched would otherwise start emitting attention notifications the
+   * instant auto-resume fires, defeating the point of the gate. */
+  write(data: Buffer | string, opts?: { synthetic?: boolean }): void {
     if (this._status === 'exited') return;
     // Any user input clears the awaiting-input state.
     if (this._status === 'awaiting-input') this._status = 'running';
@@ -115,7 +120,7 @@ export class Session extends EventEmitter {
     // they must reach the PTY (apps like vim use them) but must not count as
     // user typing, otherwise opening the app and clicking elsewhere would
     // unlock the gate for every session.
-    if (str.length > 0 && !isXtermFocusReport(str)) {
+    if (str.length > 0 && !isXtermFocusReport(str) && !opts?.synthetic) {
       this.hasReceivedUserInput = true;
     }
     this.pty.write(str);

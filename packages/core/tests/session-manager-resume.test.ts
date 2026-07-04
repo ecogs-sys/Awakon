@@ -33,7 +33,8 @@ describe('SessionManager auto-resume', () => {
 
     session.emit('rateLimitDetected', 'Stop and wait for limit to reset');
 
-    expect(writeSpy).toHaveBeenCalledWith('1\r');
+    // synthetic: true (L1) — the auto-resume write must not count as user input.
+    expect(writeSpy).toHaveBeenCalledWith('1\r', { synthetic: true });
     expect(fired).toEqual([session.id]);
   });
 

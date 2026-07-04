@@ -23,7 +23,12 @@ export default defineConfig({
     build: {
       outDir: 'out/preload',
       rollupOptions: {
-        input: { index: resolve(__dirname, 'src/preload/index.ts') },
+        // Chrome and terminal each get their own preload with its own channel
+        // allowlist (M2) — no shared generic bridge.
+        input: {
+          chrome: resolve(__dirname, 'src/preload/chrome.ts'),
+          terminal: resolve(__dirname, 'src/preload/terminal.ts'),
+        },
       },
     },
   },

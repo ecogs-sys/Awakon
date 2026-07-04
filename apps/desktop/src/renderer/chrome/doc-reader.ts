@@ -1,4 +1,5 @@
 import { IpcChannel } from '@awakon/contracts';
+import { formatAccelerator } from '@awakon/keymap';
 import type { TabDocState, ReviewState } from './doc-state.js';
 import { renderMarkdown, countLoc } from './markdown.js';
 import { renderMermaidBlocks } from './mermaid.js';
@@ -32,14 +33,16 @@ export class DocReader {
   private readonly host: HTMLElement;
   private readonly bridge: Bridge;
   private readonly cb: DocReaderCallbacks;
+  private readonly platform: string;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
   /** Guards against a stale async body write after the active doc changed. */
   private loadToken = 0;
 
-  constructor(host: HTMLElement, bridge: Bridge, callbacks: DocReaderCallbacks) {
+  constructor(host: HTMLElement, bridge: Bridge, callbacks: DocReaderCallbacks, platform: string) {
     this.host = host;
     this.bridge = bridge;
     this.cb = callbacks;
+    this.platform = platform;
   }
 
   render(state: TabDocState): void {
@@ -79,8 +82,8 @@ export class DocReader {
         <div class="aip-reader__footer">
           <div class="aip-reader__hints">
             <span><span class="k">esc</span> close</span>
-            <span><span class="k">${mod()}[</span> prev file</span>
-            <span><span class="k">${mod()}]</span> next file</span>
+            <span><span class="k">${formatAccelerator('CmdOrCtrl+[', this.platform)}</span> prev file</span>
+            <span><span class="k">${formatAccelerator('CmdOrCtrl+]', this.platform)}</span> next file</span>
           </div>
           <span class="aip-reader__stats"></span>
         </div>
@@ -199,8 +202,4 @@ function basename(p: string): string {
 
 function formatKb(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-function mod(): string {
-  return navigator.userAgent.includes('Mac OS') ? '⌘' : 'Ctrl+';
 }

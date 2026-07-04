@@ -57,7 +57,7 @@ export class SessionManager extends EventEmitter {
     session.on('rateLimitDetected', () => {
       if (!this.autoResume.enabled) return;
       if (session.info().status === 'exited') return;
-      session.write(`${this.autoResume.responseText}\r`);
+      session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
       this.emit('resumeFired', id);
     });
 
@@ -129,7 +129,7 @@ export class SessionManager extends EventEmitter {
   private fireResume(sessionId: SessionId): void {
     const session = this.sessions.get(sessionId);
     if (!session || session.info().status === 'exited') return;
-    session.write(`${this.autoResume.responseText}\r`);
+    session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
     this.emit('resumeFired', sessionId);
   }
 

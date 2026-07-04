@@ -83,6 +83,7 @@ function makeLayout(bridge: BridgeMock) {
   const lm = new LayoutManager({
     bridge: bridge as unknown as PreloadBridge,
     tabStrip, sidebar, bodyEl, emptyStateHostEl, viewHostEl,
+    platform: 'linux',
   });
   return { lm, viewHostEl, tabStripEl };
 }

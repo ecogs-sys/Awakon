@@ -1,4 +1,4 @@
-﻿import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
+﻿import { app, Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
 import { Bindings } from '@awakon/keymap';
 import { IpcChannel } from '@awakon/contracts';
 
@@ -50,9 +50,11 @@ function buildTemplates(
     { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => send('openSettings', chromeWindow) },
     { type: 'separator' },
     { label: 'Toggle Sidebar', accelerator: Bindings.toggleSidebar.accelerator, click: () => send('toggleSidebar', chromeWindow) },
-    { type: 'separator' },
-    { role: 'reload' },
-    { role: 'toggleDevTools' },
+    // L5: Reload re-runs start() against live state and DevTools shouldn't be a
+    // menu item in a shipped build — dev-only.
+    ...(!app.isPackaged
+      ? [{ type: 'separator' as const }, { role: 'reload' as const }, { role: 'toggleDevTools' as const }]
+      : []),
   ];
 
   const windowSubmenu: MenuItemConstructorOptions[] = [

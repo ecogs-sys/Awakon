@@ -183,6 +183,27 @@ describe('installIpcInterceptors', () => {
     expect(typeof logger.entries[0]!.durationMs).toBe('number');
   });
 
+  it('redacts core.session.write payload data to a length, never the content (L4)', async () => {
+    const handlers = new Map<string, Listener>();
+    const ipcMain = {
+      handle: (c: string, l: Listener) => { handlers.set(c, l); },
+      on: (c: string, l: Listener) => { handlers.set(c, l); },
+    };
+    const logger = fakeLogger();
+    installIpcInterceptors(ipcMain, noopApp, logger);
+
+    ipcMain.handle('core.session.write', async () => ({ ok: true }));
+    await handlers.get('core.session.write')!(
+      { sender: { id: 1 } },
+      { sessionId: 's1', data: Buffer.from('super-secret-password').toString('base64') },
+    );
+
+    const entry = logger.entries[0]! as { payload: { sessionId: string; data?: string; dataLength?: number } };
+    expect(entry.payload.sessionId).toBe('s1');
+    expect(entry.payload.data).toBeUndefined();
+    expect(entry.payload.dataLength).toBeGreaterThan(0);
+  });
+
   it('logs an error entry and re-throws when the handler throws', async () => {
     const handlers = new Map<string, Listener>();
     const ipcMain = {

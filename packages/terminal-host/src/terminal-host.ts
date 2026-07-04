@@ -92,7 +92,14 @@ export class TerminalHost {
     });
     this.fit = new FitAddon();
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon());
+    // Terminal output is untrusted (any command/remote server can print a URL).
+    // Never let the addon's default window.open() land inside the Electron app —
+    // route http(s) links through main's shell.openExternal, same as doc-reader.
+    this.term.loadAddon(new WebLinksAddon((_ev, uri) => {
+      if (/^https?:\/\//i.test(uri)) {
+        void this.bridge.send(IpcChannel.ChromeOpenExternal, { url: uri });
+      }
+    }));
     this.term.registerLinkProvider(this.markdownLinkProvider());
 
     this.term.open(opts.container);

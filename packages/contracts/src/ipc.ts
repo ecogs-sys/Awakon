@@ -65,6 +65,7 @@ export const IpcChannel = {
   ResumeCancelled: 'event.resume.cancelled',
   ResumeFired: 'event.resume.fired',
   DocOpenRequest: 'event.doc.open-request',
+  LayoutTabReparented: 'event.layout.tab-reparented',
 } as const;
 
 // --- Request payloads ---
@@ -298,6 +299,14 @@ export const FsReadFileResponseSchema = z.union([
 export const DocOpenPayloadSchema = z.object({
   sessionId: SessionIdSchema,
   path: z.string().min(1),
+});
+
+/** main -> chrome + main -> the tab's own terminal WebContents: closing the tab's
+ * primary pane while sibling panes survive promotes one sibling to be the new
+ * primary/tabId instead of tearing the tab down (see H2 in the 2026-07-05 review). */
+export const LayoutTabReparentedEventSchema = z.object({
+  oldTabId: SessionIdSchema,
+  newTabId: SessionIdSchema,
 });
 
 /** main -> chrome: open this doc in the owning tab's reader. */

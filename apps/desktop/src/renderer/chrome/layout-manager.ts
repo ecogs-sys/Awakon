@@ -19,6 +19,9 @@ export interface LayoutDeps {
   bodyEl: HTMLElement;
   emptyStateHostEl: HTMLElement;
   viewHostEl: HTMLElement;
+  /** 'win32' | 'darwin' | 'linux' — forwarded to DocReader so its shortcut hints go
+   * through the shared formatAccelerator instead of a local UA sniff (L6). */
+  platform: string;
 }
 
 export class LayoutManager {
@@ -55,7 +58,7 @@ export class LayoutManager {
       onReview:     (i, r) => this.reviewDoc(i, r),
       onPrevFile:   () => this.moveDoc(-1),
       onNextFile:   () => this.moveDoc(1),
-    });
+    }, deps.platform);
   }
 
   /** Wire the top bar so its breadcrumb + subtitle track the focused session. */
@@ -142,6 +145,19 @@ export class LayoutManager {
     this.bridge.on(IpcChannel.SettingsChanged, (raw) => {
       const s = raw as AppSettings;
       this.defaultCwdSetting = s.defaultCwd ?? '';
+    });
+    // A tab's primary pane closed and a sibling pane was promoted to take its place
+    // (H2). The tab keeps its view/session-state — just relabel the id it's tracked
+    // under so the tab strip/sidebar keep pointing at the still-alive session.
+    this.bridge.on(IpcChannel.LayoutTabReparented, (raw) => {
+      const e = raw as { oldTabId: SessionId; newTabId: SessionId };
+      const session = this.state.sessions.get(e.oldTabId);
+      if (!session) return;
+      this.state.sessions.delete(e.oldTabId);
+      this.state.sessions.set(e.newTabId, { ...session, info: { ...session.info, id: e.newTabId } });
+      this.state.tabOrder = this.state.tabOrder.map((id) => (id === e.oldTabId ? e.newTabId : id));
+      if (this.state.focusedId === e.oldTabId) this.state.focusedId = e.newTabId;
+      this.render();
     });
     this.bridge.on(IpcChannel.DocOpenRequest, (raw) => {
       const e = raw as {

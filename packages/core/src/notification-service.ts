@@ -37,6 +37,12 @@ export class NotificationService {
     this.clickCallback = cb;
   }
 
+  /** Drop a closed session's coalescing timestamp (L7) — otherwise lastShownAt grows
+   * for the lifetime of the app, one entry per session that ever attention-notified. */
+  forget(sessionId: SessionId): void {
+    this.lastShownAt.delete(sessionId);
+  }
+
   notify(req: NotifyRequest): void {
     const now = Date.now();
     const last = this.lastShownAt.get(req.sessionId) ?? -Infinity;

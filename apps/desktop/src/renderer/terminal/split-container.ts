@@ -39,8 +39,9 @@ export class SplitContainer {
   private readonly cwd: string;
   private readonly rootEl: HTMLElement;
   /** Primary session id of the owning tab — sent with every pane create so main can
-   * scope pane cleanup to this tab. */
-  private readonly tabId: SessionId;
+   * scope pane cleanup to this tab. Reassigned by retarget() when main promotes a
+   * sibling pane to primary after the original primary pane closes (see H2). */
+  private tabId: SessionId;
   /** When true, persist() is a no-op. Used during restore() to avoid emitting one
    * IPC call per replayed split during startup — a single final persist runs once
    * the tree has been fully rebuilt. */
@@ -249,6 +250,13 @@ export class SplitContainer {
 
   getFocusedSessionId(): SessionId {
     return this.focused.sessionId;
+  }
+
+  /** Main promoted a sibling pane to be this tab's new primary/tabId after the
+   * original primary pane closed. Future pane creates + persist calls must use the
+   * new id (see event.layout.tab-reparented). */
+  retarget(newTabId: SessionId): void {
+    this.tabId = newTabId;
   }
 
   private serializeNode(node: SplitNode): PersistedSplitNode {

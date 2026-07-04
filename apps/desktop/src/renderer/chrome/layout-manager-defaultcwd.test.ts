@@ -57,7 +57,7 @@ function makeLayout(bridge: BridgeMock) {
   document.body.appendChild(mount);
   document.body.appendChild(emptyStateHostEl);
   document.body.appendChild(viewHostEl);
-  return new LayoutManager({ bridge: bridge as unknown as PreloadBridge, tabStrip, sidebar, bodyEl, emptyStateHostEl, viewHostEl });
+  return new LayoutManager({ bridge: bridge as unknown as PreloadBridge, tabStrip, sidebar, bodyEl, emptyStateHostEl, viewHostEl, platform: 'linux' });
 }
 
 beforeEach(() => {

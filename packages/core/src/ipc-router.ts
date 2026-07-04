@@ -71,6 +71,9 @@ export class IpcRouter {
   /** sessionId -> the WebContents that hosts it. High-volume session-data events are
    * sent only to the owning view instead of broadcast to every renderer. */
   private readonly sessionViews = new Map<SessionId, WebContents>();
+  /** The chrome window's WebContents — trusted for any sessionId (e.g. closing any
+   * tab), unlike a terminal view which only owns its own tab's sessions. */
+  private chromeWebContents: WebContents | null = null;
   private layoutShowCallback: LayoutShowCallback | null = null;
   private setSidebarWidthCallback: SetSidebarWidthCallback | null = null;
   private viewportSizeCallback: ViewportSizeCallback | null = null;
@@ -169,6 +172,20 @@ export class IpcRouter {
     this.sessionViews.set(sessionId, wc);
   }
 
+  /** Mark the chrome window's WebContents as trusted for any sessionId (M2: unlike
+   * a terminal view, chrome legitimately closes/manages tabs it doesn't "own"). */
+  setChromeWebContents(wc: WebContents): void {
+    this.chromeWebContents = wc;
+  }
+
+  /** M2: a terminal view must only write/resize/replay/close/doc-open sessions it
+   * actually hosts (itself or its own panes, which share its WebContents) — never a
+   * different tab's session. Chrome is exempt since it legitimately manages every tab. */
+  private isAuthorizedSender(sender: WebContents, sessionId: SessionId): boolean {
+    if (sender === this.chromeWebContents) return true;
+    return this.sessionViews.get(sessionId) === sender;
+  }
+
   private bindRequests(): void {
     this.ipcMain.handle(IpcChannel.SessionCreate, async (_e, raw): Promise<SessionInfo | { error: string }> => {
       const parsed = SessionCreateOptionsSchema.safeParse(raw);
@@ -199,24 +216,27 @@ export class IpcRouter {
       }
     });
 
-    this.ipcMain.handle(IpcChannel.SessionWrite, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionWrite, (e, raw): { ok: true } | { error: string } => {
       const parsed = SessionWritePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
       const buf = Buffer.from(parsed.data.data, 'base64');
       this.manager.write(parsed.data.sessionId, buf);
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.SessionResize, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionResize, (e, raw): { ok: true } | { error: string } => {
       const parsed = SessionResizePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
       this.manager.resize(parsed.data.sessionId, parsed.data.cols, parsed.data.rows);
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.SessionClose, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionClose, (e, raw): { ok: true } | { error: string } => {
       const parsed = SessionClosePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
       if (this.sessionCloseCallback) this.sessionCloseCallback(parsed.data.sessionId);
       else this.manager.close(parsed.data.sessionId);
       return { ok: true };
@@ -242,9 +262,10 @@ export class IpcRouter {
 
     this.ipcMain.handle(
       IpcChannel.SessionReplay,
-      (_e, raw): SessionReplayResponse | { error: string } => {
+      (e, raw): SessionReplayResponse | { error: string } => {
         const parsed = SessionReplayPayloadSchema.safeParse(raw);
         if (!parsed.success) return { error: parsed.error.message };
+        if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
         const session = this.manager.get(parsed.data.sessionId);
         if (!session) return { sessionId: parsed.data.sessionId, data: '' };
         return {
@@ -302,9 +323,10 @@ export class IpcRouter {
       return this.splitsForTabCallback?.(parsed.data.tabId) ?? null;
     });
 
-    this.ipcMain.handle(IpcChannel.DocOpen, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.DocOpen, (e, raw): { ok: true } | { error: string } => {
       const parsed = DocOpenPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
       this.docOpenCallback?.(parsed.data.sessionId, parsed.data.path);
       return { ok: true };
     });

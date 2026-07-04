@@ -23,21 +23,35 @@ export interface BootstrapDeps {
  *
  * The app must never spawn a tab the user didn't ask for, so there is deliberately no
  * fallback that creates a default boot tab.
+ *
+ * Each tab is restored independently (M5): a tab whose cwd no longer exists (deleted
+ * since last run) throws inside createTabSession, but that must not abort the whole
+ * restore — the remaining tabs still need to come back.
  */
 export async function bootstrapSessions(deps: BootstrapDeps): Promise<string | null> {
   const persisted = await deps.loadPersisted();
   if (!persisted) return null;
-  let firstId: string | null = null;
+  const createdIds: Array<string | null> = [];
   for (const tab of persisted.tabs) {
-    const info = await deps.createTabSession({
-      shell: tab.shell,
-      cwd: tab.cwd,
-      cols: 80,
-      rows: 24,
-      ...(tab.title ? { title: tab.title } : {}),
-      ...(tab.splits ? { splits: tab.splits } : {}),
-    });
-    if (firstId === null) firstId = info.id;
+    try {
+      const info = await deps.createTabSession({
+        shell: tab.shell,
+        cwd: tab.cwd,
+        cols: 80,
+        rows: 24,
+        ...(tab.title ? { title: tab.title } : {}),
+        ...(tab.splits ? { splits: tab.splits } : {}),
+      });
+      createdIds.push(info.id);
+    } catch (err) {
+      console.warn(`[bootstrap] could not restore tab at ${tab.cwd}:`, err instanceof Error ? err.message : err);
+      createdIds.push(null);
+    }
   }
-  return persisted.focusedTabId ?? firstId;
+  // M4: session ids are regenerated every launch, so the persisted focus can only be
+  // recovered by position, not by the old id.
+  const idx = persisted.focusedTabIndex;
+  const atIndex = idx !== null ? createdIds[idx] : undefined;
+  if (atIndex) return atIndex;
+  return createdIds.find((id): id is string => id !== null) ?? null;
 }

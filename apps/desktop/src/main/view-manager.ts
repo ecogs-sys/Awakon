@@ -73,7 +73,7 @@ export class ViewManager {
     const view = new WebContentsView({
       webPreferences: {
         preload: this.opts.preloadPath,
-        sandbox: false,
+        sandbox: true,
         contextIsolation: true,
       },
     });
@@ -144,6 +144,17 @@ export class ViewManager {
   /** Restore the previously-visible view after a modal closes. */
   resume(): void {
     this.layout();
+  }
+
+  /** Rekey a view from an old session id to a new one, in place — used when a tab's
+   * primary pane closes and a sibling pane is promoted to take over its identity
+   * (H2: closing the primary pane must not tear down the tab's view). */
+  rekey(oldId: SessionId, newId: SessionId): void {
+    const view = this.views.get(oldId);
+    if (!view) return;
+    this.views.delete(oldId);
+    this.views.set(newId, view);
+    if (this.currentSessionId === oldId) this.currentSessionId = newId;
   }
 
   /** Replace the underlying WebContentsView for a session (used during crash recovery). */

@@ -27,7 +27,12 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     // screen (not on the "used NN% of your session limit" warnings, nor on
     // nested subagent result lines). responseText '1' selects option 1, which
     // makes Claude wait and resume itself when the limit resets.
-    enabled: true,
+    //
+    // Off by default (M7): RateLimitDetector scans ALL PTY output, so any program
+    // that happens to print this phrase — cat of a file, a log line, a remote
+    // command's output — would make the app type responseText into that session.
+    // Users opt in from Settings once they understand the trade-off.
+    enabled: false,
     detectText: 'Stop and wait for limit to reset',
     responseText: '1',
   }),
