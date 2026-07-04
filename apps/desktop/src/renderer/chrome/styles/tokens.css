@@ -1,10 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   AI.Pad — design tokens
-   Paste-ready CSS custom properties. Drop into your renderer's root
-   stylesheet (or :root in a global.css) and reference via var(--token).
-   ─── Status colors are hex-derived from oklch() in the prototype.
-       If your toolchain doesn't support oklch, the comment next to each
-       value is the rough sRGB hex equivalent.
+   Awakon — design tokens · Direction 1 "Hot Wax"
+   Cool near-black nudged violet + a hot-wax purple accent. Values mirror the
+   `.awk-d1` theme in the design handoff (docs/Design/.../Awakon.html).
+   Reference via var(--token). oklch() is supported by the bundled Chromium.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -12,60 +10,60 @@
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* ── Surfaces (cool near-black, subtle blue tint) ─────────────────── */
-  --bg-0:       oklch(0.155 0.008 250);            /* #1c1f25  — terminal pane */
-  --bg-1:       oklch(0.195 0.008 250);            /* #24272d  — chrome (titlebar, tabs, sidebar) */
-  --bg-2:       oklch(0.235 0.008 250);            /* #2a2e35  — modal background */
-  --bg-3:       oklch(0.275 0.009 250);            /* #313640  — active row, hover */
-  --bg-4:       oklch(0.325 0.010 250);            /* #3a404a  — scrollbar thumb, soft chip */
-  --bg-overlay: oklch(0.10 0.008 250 / 0.7);       /* modal scrim */
+  /* ── Surfaces (cool near-black, violet tint) ──────────────────────── */
+  --bg-0:       oklch(0.152 0.010 288);            /* terminal pane */
+  --bg-1:       oklch(0.194 0.012 288);            /* chrome (titlebar, tabs, sidebar) */
+  --bg-2:       oklch(0.234 0.014 288);            /* modal background */
+  --bg-3:       oklch(0.276 0.016 288);            /* active row, hover */
+  --bg-4:       oklch(0.328 0.018 288);            /* scrollbar thumb, soft chip */
+  --bg-overlay: oklch(0.10 0.012 300 / 0.72);      /* modal scrim */
 
   /* ── Text ─────────────────────────────────────────────────────────── */
-  --text-1: oklch(0.97 0.003 250);                 /* #f4f5f7  — primary */
-  --text-2: oklch(0.74 0.006 250);                 /* #b1b4ba  — secondary */
-  --text-3: oklch(0.56 0.008 250);                 /* #80848d  — tertiary */
-  --text-4: oklch(0.42 0.008 250);                 /* #5a5e66  — muted */
+  --text-1: oklch(0.972 0.006 300);                /* primary */
+  --text-2: oklch(0.752 0.012 300);                /* secondary */
+  --text-3: oklch(0.572 0.014 300);                /* tertiary */
+  --text-4: oklch(0.432 0.014 300);                /* muted */
 
   /* ── Borders ──────────────────────────────────────────────────────── */
-  --border-1: oklch(0.30 0.010 250 / 0.6);
-  --border-2: oklch(0.36 0.012 250 / 0.5);
+  --border-1: oklch(0.32 0.016 300 / 0.6);
+  --border-2: oklch(0.38 0.022 300 / 0.5);
 
-  /* ── Accent (brand / selected / focus) ────────────────────────────── */
-  --accent:      #7CA8E0;                          /* dusty blue */
-  --accent-soft: #7CA8E02e;                        /* 18% alpha for focus rings */
-  --accent-glow: #7CA8E059;                        /* 35% alpha for soft glows */
+  /* ── Accent (brand / selected / focus) — hot-wax purple ───────────── */
+  --accent:      #C36BEF;
+  --accent-soft: #C36BEF2e;                        /* ~18% alpha for focus rings */
+  --accent-glow: #C36BEF59;                        /* ~35% alpha for soft glows */
 
   /* ── Session status palette ───────────────────────────────────────── */
-  --st-running:     oklch(0.78 0.15 155);          /* #82c69b  — sage green */
-  --st-running-bg:  oklch(0.78 0.15 155 / 0.14);
-  --st-running-ring:oklch(0.78 0.15 155 / 0.45);
+  --st-running:     oklch(0.80 0.15 158);          /* sage green */
+  --st-running-bg:  oklch(0.80 0.15 158 / 0.14);
+  --st-running-ring:oklch(0.80 0.15 158 / 0.45);
 
-  --st-awaiting:    oklch(0.82 0.13 88);           /* #d8c376  — warm amber */
-  --st-awaiting-bg: oklch(0.82 0.13 88 / 0.16);
-  --st-awaiting-ring:oklch(0.82 0.13 88 / 0.50);
+  --st-awaiting:    oklch(0.84 0.14 86);           /* warm amber */
+  --st-awaiting-bg: oklch(0.84 0.14 86 / 0.16);
+  --st-awaiting-ring:oklch(0.84 0.14 86 / 0.50);
 
-  --st-limited:     oklch(0.70 0.18 25);           /* #d27566  — soft red */
-  --st-limited-bg:  oklch(0.70 0.18 25 / 0.16);
-  --st-limited-ring:oklch(0.70 0.18 25 / 0.45);
+  --st-limited:     oklch(0.70 0.19 22);           /* soft red */
+  --st-limited-bg:  oklch(0.70 0.19 22 / 0.16);
+  --st-limited-ring:oklch(0.70 0.19 22 / 0.45);
 
-  --st-idle:        oklch(0.55 0.008 250);         /* #7f8389  — neutral */
-  --st-idle-bg:     oklch(0.55 0.008 250 / 0.14);
-  --st-idle-ring:   oklch(0.55 0.008 250 / 0.30);
+  --st-idle:        oklch(0.56 0.012 300);         /* neutral */
+  --st-idle-bg:     oklch(0.56 0.012 300 / 0.14);
+  --st-idle-ring:   oklch(0.56 0.012 300 / 0.30);
 
   /* ── Terminal ANSI palette ────────────────────────────────────────── */
-  --term-bg:      oklch(0.165 0.008 250);
-  --term-fg:      oklch(0.92 0.004 250);
-  --term-dim:     oklch(0.62 0.006 250);
-  --term-green:   oklch(0.82 0.16 145);
-  --term-cyan:    oklch(0.80 0.12 200);
-  --term-yellow:  oklch(0.86 0.14 92);
-  --term-blue:    oklch(0.78 0.13 240);
-  --term-magenta: oklch(0.74 0.14 320);
-  --term-red:     oklch(0.72 0.16 25);
+  --term-bg:      oklch(0.162 0.010 288);
+  --term-fg:      oklch(0.92 0.006 300);
+  --term-dim:     oklch(0.62 0.010 300);
+  --term-green:   oklch(0.82 0.16 148);
+  --term-cyan:    oklch(0.80 0.11 205);
+  --term-yellow:  oklch(0.86 0.14 90);
+  --term-blue:    oklch(0.78 0.12 268);
+  --term-magenta: oklch(0.76 0.16 322);
+  --term-red:     oklch(0.72 0.16 24);
 
   /* ── Layout constants ─────────────────────────────────────────────── */
-  --titlebar-h:  32px;
-  --tabbar-h:    36px;
+  --titlebar-h:  44px;
+  --tabbar-h:    39px;
   --sidebar-w:  260px;
 }
 

@@ -33,13 +33,8 @@ export class TabStrip {
       el.className = 'tab' + (tab.info.id === focusedId ? ' active' : '');
       el.dataset['sessionId'] = tab.info.id;
 
-      // Active-tab top stripe — rendered as a pseudo-element via CSS (.tab.active::before)
-      // OR an explicit element. Using an explicit child keeps the CSS simple.
-      if (tab.info.id === focusedId) {
-        const stripe = document.createElement('div');
-        stripe.className = 'tab-stripe';
-        el.appendChild(stripe);
-      }
+      // The active tab's accent edge is a CSS inset box-shadow (.tab.active), so
+      // it follows the tab's rounded top corners — no separate stripe element.
 
       // Status dot — color comes from status; resumeAt overrides to 'limited'.
       const dot = document.createElement('span');

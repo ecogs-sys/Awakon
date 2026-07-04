@@ -10,6 +10,7 @@ import { showNewSessionDialog, showRenameDialog } from './new-session-dialog.js'
 import { showSettingsDialog } from './settings-dialog.js';
 import { showAboutDialog } from './about-dialog.js';
 import { EmptyStateView } from './empty-state.js';
+import type { TitleBar } from './titlebar.js';
 
 export interface LayoutDeps {
   bridge: PreloadBridge;
@@ -36,6 +37,8 @@ export class LayoutManager {
   private readonly emptyStateView: EmptyStateView;
   private readonly viewHostEl: HTMLElement;
   private readonly docReader: DocReader;
+  /** Top bar, attached after construction so render() can reflect the focused session. */
+  private titleBar: TitleBar | null = null;
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -53,6 +56,11 @@ export class LayoutManager {
       onPrevFile:   () => this.moveDoc(-1),
       onNextFile:   () => this.moveDoc(1),
     });
+  }
+
+  /** Wire the top bar so its breadcrumb + subtitle track the focused session. */
+  attachTitleBar(titleBar: TitleBar): void {
+    this.titleBar = titleBar;
   }
 
   async start(): Promise<void> {
@@ -182,6 +190,14 @@ export class LayoutManager {
 
   async newTab(): Promise<void> {
     await this.openNewTabDialog();
+  }
+
+  /** Snapshot of the open sessions in tab order — used by the command palette. */
+  listSessions(): Array<{ info: SessionInfo; resumeAt: number | null; active: boolean }> {
+    return this.state.tabOrder
+      .map((id) => this.state.sessions.get(id))
+      .filter((s): s is SessionState => !!s)
+      .map((s) => ({ info: s.info, resumeAt: s.resumeAt, active: s.info.id === this.state.focusedId }));
   }
 
   async openSettings(): Promise<void> {
@@ -540,5 +556,39 @@ export class LayoutManager {
         onPickRecent: (r) => void this.openRecentTab(r),
       });
     }
+
+    this.updateTitleBar();
+  }
+
+  /** Reflect the focused session in the top bar's breadcrumb + subtitle. */
+  private updateTitleBar(): void {
+    if (!this.titleBar) return;
+    const focused = this.state.focusedId ? this.state.sessions.get(this.state.focusedId) : undefined;
+    if (!focused) {
+      this.titleBar.setContext({ project: '', subtitle: '' });
+      return;
+    }
+    const { info } = focused;
+    const status = focused.resumeAt !== null ? 'rate-limited' : statusLabel(info.status);
+    this.titleBar.setContext({
+      project: cwdBasename(info.cwd),
+      subtitle: `${info.title || info.shell} · ${status}`,
+    });
+  }
+}
+
+/** Last path segment of a cwd, tolerant of both separators and trailing slashes. */
+function cwdBasename(cwd: string): string {
+  const parts = cwd.split(/[/\\]+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1]! : cwd;
+}
+
+function statusLabel(status: SessionInfo['status']): string {
+  switch (status) {
+    case 'awaiting-input': return 'awaiting input';
+    case 'running':        return 'running';
+    case 'starting':       return 'starting';
+    case 'exited':         return 'exited';
+    default:               return status;
   }
 }

@@ -27,6 +27,40 @@ export const Bindings = {
   splitHorizontal: { id: 'splitHorizontal', description: 'Split horizontally', accelerator: 'CmdOrCtrl+\\' },
   splitVertical:   { id: 'splitVertical',   description: 'Split vertically',   accelerator: 'CmdOrCtrl+Shift+\\' },
   closePane:       { id: 'closePane',       description: 'Close pane',         accelerator: 'CmdOrCtrl+Shift+W' },
+  commandPalette:  { id: 'commandPalette',  description: 'Command palette',    accelerator: 'CmdOrCtrl+K' },
 } as const satisfies Record<string, KeyBinding>;
 
 export type BindingId = keyof typeof Bindings;
+
+/**
+ * Render an Electron accelerator as an OS-appropriate label. macOS uses the glyph
+ * cluster (⌃⌥⇧⌘K); Windows/Linux use the "Ctrl+Shift+K" form. This is the single
+ * source for shortcut display so labels can never drift from the bindings.
+ */
+export function formatAccelerator(accelerator: string, platform: NodeJS.Platform | string): string {
+  const mac = platform === 'darwin';
+  const mods = { ctrl: false, alt: false, shift: false, cmd: false };
+  let key = '';
+  for (const part of accelerator.split('+')) {
+    switch (part) {
+      case 'CmdOrCtrl':
+      case 'Cmd':
+      case 'Command':      mac ? (mods.cmd = true) : (mods.ctrl = true); break;
+      case 'Ctrl':
+      case 'Control':      mods.ctrl = true; break;
+      case 'Alt':
+      case 'Option':       mods.alt = true; break;
+      case 'Shift':        mods.shift = true; break;
+      default:             key = part;
+    }
+  }
+  const k = key.length === 1 ? key.toUpperCase() : key;
+  if (mac) {
+    return `${mods.ctrl ? '⌃' : ''}${mods.alt ? '⌥' : ''}${mods.shift ? '⇧' : ''}${mods.cmd ? '⌘' : ''}${k}`;
+  }
+  const prefix: string[] = [];
+  if (mods.ctrl) prefix.push('Ctrl');
+  if (mods.alt) prefix.push('Alt');
+  if (mods.shift) prefix.push('Shift');
+  return prefix.length ? `${prefix.join('+')}+${k}` : k;
+}

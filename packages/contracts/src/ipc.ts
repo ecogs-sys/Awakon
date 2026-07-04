@@ -40,6 +40,7 @@ export const IpcChannel = {
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
   ChromeMenuPopup: 'core.chrome.menu-popup',
+  ChromeAppMenuPopup: 'core.chrome.app-menu-popup',
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
   ChromeOpenExternal: 'core.chrome.open-external',
@@ -169,6 +170,14 @@ export const FsPathExistsResponseSchema = z.object({
  * given screen coordinates. Used by the custom in-window titlebar on Windows/Linux. */
 export const ChromeMenuPopupPayloadSchema = z.object({
   menu: z.enum(['File', 'Tabs', 'View', 'Window', 'Help']),
+  x: z.number().int().nonnegative(),
+  y: z.number().int().nonnegative(),
+});
+
+/** Renderer asks main to popup() the full application menu (all top-level menus,
+ * each with its submenu) at the given screen coordinates. Backs the top bar's
+ * hamburger (⋯) button — the platform-neutral bar has no menu strip. */
+export const ChromeAppMenuPopupPayloadSchema = z.object({
   x: z.number().int().nonnegative(),
   y: z.number().int().nonnegative(),
 });

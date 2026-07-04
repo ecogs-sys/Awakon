@@ -4,7 +4,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
 import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab, PersistedOpenDoc } from '@awakon/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
+import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
@@ -176,6 +176,21 @@ ipcMain.handle(IpcChannel.ChromeMenuPopup, (_e, raw): { ok: true } | { error: st
     x: parsed.data.x,
     y: parsed.data.y,
   });
+  return { ok: true };
+});
+
+// IPC: the top bar's hamburger (⋯) pops the whole application menu at a point.
+// The platform-neutral bar drops the menu strip, so this is the single entry to
+// File/Tabs/View/Window/Help on Windows/Linux. Same templates as the OS menu.
+ipcMain.handle(IpcChannel.ChromeAppMenuPopup, (_e, raw): { ok: true } | { error: string } => {
+  const parsed = ChromeAppMenuPopupPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  if (!chromeWindow) return { error: 'no chrome window' };
+  const menu = buildAppMenu(
+    () => chromeWindow,
+    () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
+  );
+  menu.popup({ window: chromeWindow, x: parsed.data.x, y: parsed.data.y });
   return { ok: true };
 });
 

@@ -6,6 +6,9 @@ import { Sidebar } from './sidebar.js';
 import { TitleBar } from './titlebar.js';
 import { LayoutManager } from './layout-manager.js';
 import { wireKeyboard, routeMenuAction } from './keyboard.js';
+import { CommandPalette, type PaletteCommand } from './command-palette.js';
+import { shellChip } from './empty-state.js';
+import { Bindings, formatAccelerator } from '@awakon/keymap';
 import { IpcChannel } from '@awakon/contracts';
 
 const bridge = (window as unknown as { awakon: PreloadBridge }).awakon;
@@ -28,7 +31,6 @@ const titlebarEl = document.getElementById('titlebar')!;
 const platform = navigator.userAgent.includes('Mac OS') ? 'darwin'
               : navigator.userAgent.includes('Windows') ? 'win32'
               : 'linux';
-new TitleBar(titlebarEl, { bridge, platform });
 
 const manager = new LayoutManager({
   bridge,
@@ -64,6 +66,48 @@ const manager = new LayoutManager({
   }),
 });
 
+const fmt = (accelerator: string): string => formatAccelerator(accelerator, platform);
+const jumpAccel = (i: number): string | undefined =>
+  i < 9 ? fmt(Bindings[`jumpTab${i + 1}` as 'jumpTab1'].accelerator) : undefined;
+
+const palette = new CommandPalette({
+  hotkeyLabel: fmt(Bindings.commandPalette.accelerator),
+  // Suspend the native terminal WebContentsView while the palette is up, else the
+  // overlay renders behind it and is invisible (same treatment as chrome modals).
+  onVisibilityChange: (open) => void bridge.send(IpcChannel.LayoutModal, { open }),
+  buildCommands: () => {
+    const cmds: PaletteCommand[] = [];
+    manager.listSessions().forEach((s, i) => {
+      cmds.push({
+        id: `session:${s.info.id}`,
+        group: 'Switch to session',
+        title: s.info.title || s.info.shell,
+        meta: s.info.cwd,
+        chip: shellChip(s.info.shell),
+        status: paletteStatus(s.info.status, s.resumeAt),
+        ...(jumpAccel(i) ? { accel: jumpAccel(i)! } : {}),
+        run: () => manager.focus(s.info.id),
+      });
+    });
+    cmds.push(
+      { id: 'act:new',      group: 'Actions', title: 'New session',    chip: '+', accel: fmt(Bindings.newTab.accelerator),        run: () => void manager.newTab() },
+      { id: 'act:settings', group: 'Actions', title: 'Settings…',      chip: '⚙', accel: fmt('CmdOrCtrl+,'),                       run: () => void manager.openSettings() },
+      { id: 'act:sidebar',  group: 'Actions', title: 'Toggle sidebar', chip: '▤', accel: fmt(Bindings.toggleSidebar.accelerator), run: () => manager.toggleSidebar() },
+      { id: 'act:about',    group: 'Actions', title: 'About Awakon…',  chip: 'i',                                                 run: () => void manager.openAbout() },
+      { id: 'act:close',    group: 'Actions', title: 'Close tab',      chip: '×', accel: fmt(Bindings.closeTab.accelerator),      run: () => manager.closeFocused() },
+    );
+    return cmds;
+  },
+});
+
+const titleBar = new TitleBar(titlebarEl, {
+  bridge,
+  platform,
+  onOpenSettings: () => void manager.openSettings(),
+  onOpenPalette: () => palette.open(),
+});
+manager.attachTitleBar(titleBar);
+
 void manager.start();
 
 // Report the viewport size to main so it can position the terminal WebContentsView. The
@@ -89,9 +133,20 @@ reportViewport(); // initial size
 
 bridge.on(IpcChannel.ActionInvoke, (raw) => {
   const { action } = raw as { action: string };
+  // The palette is opened here (not in keyboard.ts) so the global Ctrl/⌘+K menu
+  // accelerator toggles it regardless of which view currently has focus.
+  if (action === 'commandPalette') { palette.toggle(); return; }
   routeMenuAction(manager, action);
 });
 
 wireKeyboard(manager);
 
 console.info('[chrome] mounted');
+
+/** Map a session's status (+ pending resume) to a palette pill style. */
+function paletteStatus(status: string, resumeAt: number | null): 'running' | 'awaiting' | 'limited' | 'idle' {
+  if (resumeAt !== null) return 'limited';
+  if (status === 'running' || status === 'starting') return 'running';
+  if (status === 'awaiting-input') return 'awaiting';
+  return 'idle';
+}
