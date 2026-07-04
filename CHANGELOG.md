@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0](https://github.com/ecogs-sys/Awakon/compare/awakon-v0.7.0...awakon-v0.8.0) (2026-06-21)
+
+
+### Features
+
+* **ipc-log:** add ipcMain + webContents.send interceptors ([e253344](https://github.com/ecogs-sys/Awakon/commit/e25334497cd890d4286fb57ec1308f16aa334f65))
+* **ipc-log:** add resolveLogConfig argv/env parser ([2d636c9](https://github.com/ecogs-sys/Awakon/commit/2d636c9157c58cc637ded3760374b44fea45c77b))
+* **ipc-log:** add rotating JSONL sink with retention cap ([8a05bbf](https://github.com/ecogs-sys/Awakon/commit/8a05bbfb9fc0135d8fe6c377bb7bce38d4937262))
+* **ipc-log:** wire IPC logger into main process ([bbfa5f3](https://github.com/ecogs-sys/Awakon/commit/bbfa5f388f469fd956f065acee374b092ba8275b))
+* opt-in IPC logging for troubleshooting ([3c76bb3](https://github.com/ecogs-sys/Awakon/commit/3c76bb32890a01afe59d09ace937537d61cfd863))
+* **tools:** add standalone IPC log viewer ([c578552](https://github.com/ecogs-sys/Awakon/commit/c5785523341a59a3b1655ecd2ce8bbb3a53893fd))
+
+
+### Bug Fixes
+
+* **ipc-log:** capture main-&gt;renderer events via per-instance send wrap ([d469eb8](https://github.com/ecogs-sys/Awakon/commit/d469eb8d158eff53b064b1add19524ecf14c2737))
+* **ipc-log:** enforce retention on startup, widen seq padding, harden log() ([b612642](https://github.com/ecogs-sys/Awakon/commit/b612642903a3f231c0cffdf7428ba56e6c3f338e))
+* **ipc-log:** flush log on before-quit; correct docs ([68e8956](https://github.com/ecogs-sys/Awakon/commit/68e89569cdac59eb0d84f57904a4b2bc41451a86))
+
 ## [0.7.0](https://github.com/ecogs-sys/Awakon/compare/awakon-v0.6.1...awakon-v0.7.0) (2026-06-14)
 
 
