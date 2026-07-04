@@ -4,21 +4,15 @@
     ".": {
       "release-type": "node",
       "package-name": "awakon",
+      "include-component-in-tag": false,
       "bump-minor-pre-major": true,
       "draft": false,
-      "prerelease": false
-    },
-    "apps/desktop": {
-      "release-type": "node",
-      "package-name": "@awakon/desktop",
-      "bump-minor-pre-major": true,
-      "draft": false,
-      "prerelease": false
+      "prerelease": false,
+      "extra-files": [
+        { "type": "json", "path": "apps/desktop/package.json", "jsonpath": "$.version" }
+      ]
     }
   },
-  "plugins": [
-    { "type": "linked-versions", "groupName": "awakon", "components": ["awakon", "@awakon/desktop"] }
-  ],
   "changelog-sections": [
     { "type": "feat",     "section": "Features" },
     { "type": "fix",      "section": "Bug Fixes" },
