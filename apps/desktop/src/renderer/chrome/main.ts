@@ -72,6 +72,9 @@ const jumpAccel = (i: number): string | undefined =>
 
 const palette = new CommandPalette({
   hotkeyLabel: fmt(Bindings.commandPalette.accelerator),
+  // Suspend the native terminal WebContentsView while the palette is up, else the
+  // overlay renders behind it and is invisible (same treatment as chrome modals).
+  onVisibilityChange: (open) => void bridge.send(IpcChannel.LayoutModal, { open }),
   buildCommands: () => {
     const cmds: PaletteCommand[] = [];
     manager.listSessions().forEach((s, i) => {

@@ -33,6 +33,12 @@ export interface CommandPaletteDeps {
   hotkeyLabel: string;
   /** Build the current command list. Called every time the palette opens. */
   buildCommands: () => PaletteCommand[];
+  /**
+   * Notified when the palette opens (true) / closes (false). Chrome wires this to
+   * IpcChannel.LayoutModal so the native terminal WebContentsView is suspended
+   * while the overlay is up — otherwise the terminal view covers the palette.
+   */
+  onVisibilityChange?: (open: boolean) => void;
 }
 
 export class CommandPalette {
@@ -104,6 +110,7 @@ export class CommandPalette {
 
     this.renderList();
     this.inputEl!.focus();
+    this.deps.onVisibilityChange?.(true);
   }
 
   close(): void {
@@ -114,6 +121,7 @@ export class CommandPalette {
     this.inputEl = null;
     this.listEl = null;
     this.countEl = null;
+    this.deps.onVisibilityChange?.(false);
   }
 
   private handleKey(ev: KeyboardEvent): void {
