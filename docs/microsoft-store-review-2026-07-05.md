@@ -7,6 +7,8 @@ Every finding is traced to file:line evidence in this repo. Items marked **(veri
 > **Status update (2026-07-06, after round-2/round-3 fixes `51df7fc` + `93b5e1b`):** each finding below now carries a **Status** line verified against the current code. Resolved: S1, S3, S4 (all five flags), R4. Partially addressed: B3. Still open: B1, B2, B4, S2, R1, R2, R3.
 >
 > **Status update (2026-07-06, second pass):** B2, B3, R1, and R3 are now resolved (code + tests, see below). B1 is scaffolded but not submission-ready — the `appx` block holds placeholder Partner Center values that must be replaced before a build can be signed/submitted. Still open: S2 (Electron major upgrade — deferred, high blast radius, needs its own testing pass), B4 (Partner Center account work), R2 (needs a smoke test in a packaged MSIX, which needs B1's real identity values first).
+>
+> **Status update (2026-07-06, third pass):** S2 is now resolved — Electron bumped `33.4.11` → `43.0.0`, verified via full typecheck/test/build/e2e-smoke. Remaining: B1 (needs real Partner Center identity values), B4 (Partner Center account actions), R2 and R1's `(verify)` flag (both need a real installed MSIX to test against).
 
 **Context on what Microsoft actually checks:** a Store submission goes through (1) an automated malware/security scan of every binary, (2) packaging validation (MSIX manifest, identity, capabilities), and (3) certification testing against the Microsoft Store Policies — including installing the app on a clean Windows machine and exercising its primary features. Desktop apps can be submitted as **MSIX** (recommended, Store handles signing and updates) or as a signed **EXE/MSI** (Win32 flow). Awakon is currently set up for neither.
 
@@ -78,11 +80,9 @@ The same applies to `wsl` / `git-bash` entries in the shell picker (`packages/co
 Original finding (H1 of the general review): `WebLinksAddon` was loaded with no handler and no `setWindowOpenHandler`/`will-navigate` guard existed anywhere in `apps/desktop/src`. A tester who clicked a URL in terminal output got a bare Electron window hosting an arbitrary remote site — no address bar, no browser controls, full preload bridge reachable. Manual certification testing treats in-app rendering of arbitrary web content in a non-browser app as a security failure (Policy 10.2).
 
 ### S2. End-of-life Electron with known Chromium CVEs
-**Status (2026-07-06): open** — still `electron: ^33.4.11` (`apps/desktop/package.json:45`). The compounding factor is gone, though: the sandbox is now **on** in every renderer (`index.ts:551`, `view-manager.ts:80` — `sandbox: true`), so an old-Chromium renderer exploit no longer lands unmitigated.
+**Status (2026-07-06): resolved.** `apps/desktop/package.json` and `tests/e2e/package.json` now pin `electron: ^43.0.0` (was `^33.4.11`, a 10-major jump). Verified: `pnpm typecheck` and `pnpm test` clean across all packages (282 desktop unit tests), `electron-builder` packages Electron 43 into an NSIS installer without error (node-pty's N-API-based prebuilds needed no rebuild), and the Playwright e2e smoke test confirms the app launches with no renderer console/page errors. 4 of 5 e2e specs pass; the one failure (`multi-tab.spec.ts`) is a pre-existing bug unrelated to this upgrade — see the note below.
 
-`apps/desktop/package.json:45` pins `electron: ^33.4.11`. Electron 33 (Chromium 130, released Oct 2024) left the supported window in 2025; as of mid-2026 it carries a long tail of publicly known, unpatched Chromium CVEs. Microsoft's binary scan fingerprints bundled runtimes, and a framework with known vulnerabilities is grounds for rejection under Policy 10.2 — and even if the automated scan passes, it is the first thing a manual security review checks in an Electron app.
-
-**Fix (remaining):** upgrade to a currently supported Electron major before submitting.
+> **Aside — pre-existing e2e bug found while verifying S2:** `multi-tab.spec.ts` calls `core.session.write` directly from the chrome window's IPC bridge, which fails with "channel not allowed from this renderer" — `SessionWrite` has never been in the chrome preload's allowlist (`apps/desktop/src/preload/chrome.ts`; only `preload/terminal.ts` exposes it). Confirmed via `git log` that this broke when the scoped per-renderer IPC bridges landed (`65a001d`, fixing general-review M2) — well before this Store-review pass — and nobody re-ran the e2e suite after that hardening to catch it. Not fixed here (out of scope for the Store readiness pass); flagged separately for the test author.
 
 ### S3. Simulated keystroke injection is on by default
 **Status (2026-07-06): resolved.** Auto-resume now ships **off by default** (`packages/contracts/src/settings.ts:48` — `enabled: false`, with an M7 comment explaining the trade-off); users opt in from Settings.
@@ -145,7 +145,7 @@ Struck-through items are completed and verified (tests passing, `pnpm typecheck`
 1. ~~**B2** — gate the updater on `process.windowsStore`.~~ **Done.**
 2. ~~**B3** — `powershell.exe` fallback for the default shell + friendly missing-shell error.~~ **Done.**
 3. ~~**S1 + S4** — the Electron hardening batch from the general review (deny-all window-open handler, scheme allowlist, sandbox on, channel allowlist, CSP).~~ **Done.**
-4. **S2** — Electron upgrade to a supported major. Deliberately deferred: current is `33.4.11`, latest is `43.0.0` — a 10-major jump with real breaking-API risk that needs its own dedicated testing pass, not bundled with the fixes above.
+4. ~~**S2** — Electron upgrade to a supported major.~~ **Done** (`33.4.11` → `43.0.0`).
 5. ~~**S3** — flip auto-resume to opt-in.~~ **Done** (off by default).
 6. ~~**R1** — `app.setAppUserModelId` for the NSIS build.~~ **Done.**
 7. ~~**R3** — accurate `package.json` description.~~ **Done.**

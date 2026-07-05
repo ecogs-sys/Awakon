@@ -43,7 +43,7 @@
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.19.43",
     "@vitest/coverage-v8": "^2.1.9",
-    "electron": "^33.4.11",
+    "electron": "^43.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^2.3.0",
     "jsdom": "^25.0.1",
