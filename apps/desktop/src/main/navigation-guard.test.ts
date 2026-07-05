@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isAllowedNavigation } from './navigation-guard.js';
+import { join } from 'node:path';
+import { isAllowedNavigation, isPathInside } from './navigation-guard.js';
 
 const rendererDir =
   process.platform === 'win32' ? 'C:\\app\\out\\renderer' : '/app/out/renderer';
@@ -42,5 +43,37 @@ describe('isAllowedNavigation (R7)', () => {
 
   it('rejects a malformed URL instead of throwing', () => {
     expect(isAllowedNavigation('not a url', appIndexUrl, rendererDir)).toBe(false);
+  });
+});
+
+const cwd = process.platform === 'win32' ? 'C:\\project\\cwd' : '/project/cwd';
+
+describe('isPathInside (N9)', () => {
+  it('allows a plain file directly inside baseDir', () => {
+    expect(isPathInside(cwd, join(cwd, 'notes.md'))).toBe(true);
+  });
+
+  it('allows a nested file inside baseDir', () => {
+    expect(isPathInside(cwd, join(cwd, 'sub', 'dir', 'notes.md'))).toBe(true);
+  });
+
+  it('allows baseDir itself', () => {
+    expect(isPathInside(cwd, cwd)).toBe(true);
+  });
+
+  it('does NOT false-reject an in-cwd file literally named starting with ".."', () => {
+    // relative() returns '..plan.md' unchanged for this — starts with '..' as a string
+    // prefix without being a parent-traversal segment.
+    expect(isPathInside(cwd, join(cwd, '..plan.md'))).toBe(true);
+  });
+
+  it('rejects real parent-directory traversal', () => {
+    const parent = process.platform === 'win32' ? 'C:\\project\\escape.md' : '/project/escape.md';
+    expect(isPathInside(cwd, parent)).toBe(false);
+  });
+
+  it('rejects a path on a different Windows drive', () => {
+    if (process.platform !== 'win32') return;
+    expect(isPathInside(cwd, 'D:\\other\\file.md')).toBe(false);
   });
 });

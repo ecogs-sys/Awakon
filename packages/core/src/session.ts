@@ -43,21 +43,25 @@ function isXtermFocusReport(data: string): boolean {
 export class Session extends EventEmitter {
   readonly id: SessionId;
   readonly opts: SessionCreateOptions;
-  readonly kind: SessionKind;
+  /** Not readonly: promoteToTab() flips a pane session to tab role when H2's reparent
+   * makes it a tab's new primary — the role can change after creation, the identity can't. */
+  kind: SessionKind;
   readonly ringBuffer: RingBuffer;
   private readonly pty: pty.IPty;
-  private readonly detector = new AttentionDetector();
+  private readonly detector: AttentionDetector;
   private readonly rateLimitDetector = new RateLimitDetector('');
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
   private hasReceivedUserInput = false;
 
-  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab') {
+  /** `idleAttentionMs` overrides AttentionDetector's idle window — for tests only (C9). */
+  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab', idleAttentionMs?: number) {
     super();
     this.id = id;
     this.opts = opts;
     this.kind = kind;
+    this.detector = new AttentionDetector(idleAttentionMs);
     this.ringBuffer = new RingBuffer(DEFAULT_RING_CAPACITY);
     this._title = opts.title ?? shellCommand(opts.shell);
 
@@ -152,6 +156,13 @@ export class Session extends EventEmitter {
   /** Update the rate-limit phrase scanned in this session's output. Empty = off. */
   setRateLimitDetectText(text: string): void {
     this.rateLimitDetector.setDetectText(text);
+  }
+
+  /** A pane promoted to be its tab's new primary (H2 reparent) must report kind
+   * 'tab' from then on — otherwise a fresh chrome bootstrap (or any other
+   * SessionManager.list() consumer) filters it out as a pane (N3). */
+  promoteToTab(): void {
+    this.kind = 'tab';
   }
 
   info(): SessionInfo {

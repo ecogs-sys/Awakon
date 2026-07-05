@@ -3,7 +3,7 @@ import type { ILinkProvider, ILink, IBufferLine } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { SessionId } from '@awakon/contracts';
-import { IpcChannel } from '@awakon/contracts';
+import { IpcChannel, isHttpUrl } from '@awakon/contracts';
 import { findMarkdownLinks } from './md-links.js';
 
 /**
@@ -96,7 +96,7 @@ export class TerminalHost {
     // Never let the addon's default window.open() land inside the Electron app —
     // route http(s) links through main's shell.openExternal, same as doc-reader.
     this.term.loadAddon(new WebLinksAddon((_ev, uri) => {
-      if (/^https?:\/\//i.test(uri)) {
+      if (isHttpUrl(uri)) {
         void this.bridge.send(IpcChannel.ChromeOpenExternal, { url: uri });
       }
     }));

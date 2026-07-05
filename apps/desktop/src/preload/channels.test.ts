@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { IpcChannel } from '@awakon/contracts';
 
 vi.mock('electron', () => ({
@@ -8,63 +11,49 @@ vi.mock('electron', () => ({
 
 // Regression for R2: `bridge.send(IpcChannel.LayoutShow, …)` on every tab focus/switch
 // (layout-manager.ts) was rejected because chrome's SEND_CHANNELS omitted it, breaking
-// tab switching. These lists are grepped from `send(IpcChannel.` / `on(IpcChannel.` in
-// each renderer (apps/desktop/src/renderer/chrome, .../terminal, packages/terminal-host)
-// — keep them in sync if a renderer starts using a new channel.
+// tab switching. C1: the two lists below used to be hand-copied and could drift silently
+// (a renderer using a channel absent from both the allowlist and this copy would pass).
+// Instead, scan the actual renderer sources for `.send(IpcChannel.X` / `.on(IpcChannel.X`
+// — the same grep the old comment described, now enforced instead of just documented.
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** Concatenated source of every non-test .ts file directly inside `dir`. */
+function readSources(dir: string): string {
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
+    .map((f) => readFileSync(join(dir, f), 'utf8'))
+    .join('\n');
+}
+
+/** IpcChannel values referenced as `<method>(IpcChannel.Key` anywhere in `source`. */
+function channelsCalledWith(source: string, method: 'send' | 'on'): string[] {
+  const re = new RegExp(`\\.${method}\\(IpcChannel\\.(\\w+)`, 'g');
+  const keys = new Set<string>();
+  for (const m of source.matchAll(re)) keys.add(m[1]!);
+  return [...keys].map((key) => {
+    const value = (IpcChannel as Record<string, string>)[key];
+    if (!value) throw new Error(`IpcChannel.${key} referenced in a renderer but does not exist in contracts`);
+    return value;
+  });
+}
+
+const chromeSource = readSources(join(here, '../renderer/chrome'));
+const terminalSource =
+  readSources(join(here, '../renderer/terminal')) +
+  readSources(join(here, '../../../../packages/terminal-host/src'));
 
 describe('chrome preload allowlists', () => {
   it('SEND_CHANNELS is a superset of every channel the chrome renderer sends', async () => {
     const { SEND_CHANNELS } = await import('./chrome');
-    const usedByRenderer = [
-      IpcChannel.ChromeOpenExternal,
-      IpcChannel.FsReadFile,
-      IpcChannel.LayoutModal,
-      IpcChannel.LayoutViewportSize,
-      IpcChannel.FsPickDirectory,
-      IpcChannel.FsPathExists,
-      IpcChannel.LayoutDefaultCwd,
-      IpcChannel.SettingsGet,
-      IpcChannel.RecentList,
-      IpcChannel.SessionList,
-      IpcChannel.SettingsUpdate,
-      IpcChannel.ChromeAppInfo,
-      IpcChannel.ResumeCancel,
-      IpcChannel.SessionCreate,
-      IpcChannel.RecentAdd,
-      IpcChannel.SessionClose,
-      IpcChannel.LayoutShow,
-      IpcChannel.LayoutReorderTabs,
-      IpcChannel.SessionSetTitle,
-      IpcChannel.SessionRestartView,
-      IpcChannel.LayoutSetSidebarWidth,
-      IpcChannel.LayoutPersistDocs,
-      IpcChannel.LayoutDocsForTab,
-      IpcChannel.ChromeAppMenuPopup,
-      IpcChannel.ChromeWindowControl,
-    ];
-    for (const channel of usedByRenderer) {
+    for (const channel of channelsCalledWith(chromeSource, 'send')) {
       expect(SEND_CHANNELS, `missing ${channel}`).toContain(channel);
     }
   });
 
   it('LISTEN_CHANNELS is a superset of every channel the chrome renderer listens for', async () => {
     const { LISTEN_CHANNELS } = await import('./chrome');
-    const usedByRenderer = [
-      IpcChannel.ActionInvoke,
-      IpcChannel.SessionCreated,
-      IpcChannel.SessionExited,
-      IpcChannel.SessionAttention,
-      IpcChannel.LayoutShow,
-      IpcChannel.SessionTitleChanged,
-      IpcChannel.SessionTabBroken,
-      IpcChannel.ResumeScheduled,
-      IpcChannel.ResumeCancelled,
-      IpcChannel.ResumeFired,
-      IpcChannel.SettingsChanged,
-      IpcChannel.LayoutTabReparented,
-      IpcChannel.DocOpenRequest,
-    ];
-    for (const channel of usedByRenderer) {
+    for (const channel of channelsCalledWith(chromeSource, 'on')) {
       expect(LISTEN_CHANNELS, `missing ${channel}`).toContain(channel);
     }
   });
@@ -73,31 +62,14 @@ describe('chrome preload allowlists', () => {
 describe('terminal preload allowlists', () => {
   it('SEND_CHANNELS is a superset of every channel the terminal renderer (+ terminal-host) sends', async () => {
     const { SEND_CHANNELS } = await import('./terminal');
-    const usedByRenderer = [
-      IpcChannel.SessionCreateForPane,
-      IpcChannel.SessionClosePane,
-      IpcChannel.LayoutPersistSplits,
-      IpcChannel.LayoutSplitsForTab,
-      IpcChannel.ChromeOpenExternal,
-      IpcChannel.SessionReplay,
-      IpcChannel.SessionWrite,
-      IpcChannel.DocOpen,
-      IpcChannel.SessionResize,
-    ];
-    for (const channel of usedByRenderer) {
+    for (const channel of channelsCalledWith(terminalSource, 'send')) {
       expect(SEND_CHANNELS, `missing ${channel}`).toContain(channel);
     }
   });
 
   it('LISTEN_CHANNELS is a superset of every channel the terminal renderer (+ terminal-host) listens for', async () => {
     const { LISTEN_CHANNELS } = await import('./terminal');
-    const usedByRenderer = [
-      IpcChannel.TerminalAction,
-      IpcChannel.LayoutTabReparented,
-      IpcChannel.SessionData,
-      IpcChannel.SessionExited,
-    ];
-    for (const channel of usedByRenderer) {
+    for (const channel of channelsCalledWith(terminalSource, 'on')) {
       expect(LISTEN_CHANNELS, `missing ${channel}`).toContain(channel);
     }
   });

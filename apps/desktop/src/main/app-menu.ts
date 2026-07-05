@@ -7,7 +7,7 @@ function send(action: string, chromeWindow: () => BrowserWindow | null): void {
   win?.webContents.send(IpcChannel.ActionInvoke, { action });
 }
 
-export type MenuName = 'File' | 'Tabs' | 'View' | 'Window' | 'Help';
+type MenuName = 'File' | 'Tabs' | 'View' | 'Window' | 'Help';
 
 /** Templates per top-level menu so the custom titlebar can pop them individually.
  * `buildAppMenu` composes the same templates into the OS application menu. */
@@ -99,15 +99,4 @@ export function buildAppMenu(
     { label: 'Window', submenu: t.Window },
     { label: 'Help',   submenu: t.Help },
   ]);
-}
-
-/** Build a one-off Menu for the named submenu so the custom titlebar can popup() it
- * at a specific (x, y). Rebuilt per call so click callbacks see fresh closures. */
-export function buildSubmenu(
-  name: MenuName,
-  chromeWindow: () => BrowserWindow | null,
-  getActiveTerminalView: () => WebContentsView | null,
-): Menu {
-  const t = buildTemplates(chromeWindow, getActiveTerminalView);
-  return Menu.buildFromTemplate(t[name]);
 }

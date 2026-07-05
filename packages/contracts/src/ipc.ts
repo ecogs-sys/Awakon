@@ -40,7 +40,6 @@ export const IpcChannel = {
   SettingsGet: 'core.settings.get',
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
-  ChromeMenuPopup: 'core.chrome.menu-popup',
   ChromeAppMenuPopup: 'core.chrome.app-menu-popup',
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
@@ -171,14 +170,6 @@ export const FsPathExistsResponseSchema = z.object({
   isDirectory: z.boolean(),
 });
 
-/** Renderer asks main to popup() one of the named submenus from app-menu.ts at the
- * given screen coordinates. Used by the custom in-window titlebar on Windows/Linux. */
-export const ChromeMenuPopupPayloadSchema = z.object({
-  menu: z.enum(['File', 'Tabs', 'View', 'Window', 'Help']),
-  x: z.number().int().nonnegative(),
-  y: z.number().int().nonnegative(),
-});
-
 /** Renderer asks main to popup() the full application menu (all top-level menus,
  * each with its submenu) at the given screen coordinates. Backs the top bar's
  * hamburger (⋯) button — the platform-neutral bar has no menu strip. */
@@ -204,9 +195,17 @@ export const ChromeAppInfoResponseSchema = z.object({
 });
 export type ChromeAppInfoResponse = z.infer<typeof ChromeAppInfoResponseSchema>;
 
+/** Shared http(s)-only predicate (C2) — z.string().url() alone accepts any scheme
+ * (file:/smb:/etc), which is not what "open externally" is meant to allow. Exported
+ * so the renderer-side link filters (doc-reader, terminal-host) can match main's
+ * ChromeOpenExternal boundary check exactly instead of each re-deriving their own regex. */
+export function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
 /** Renderer asks main to open a URL in the OS default browser. About dialog links. */
 export const ChromeOpenExternalPayloadSchema = z.object({
-  url: z.string().url(),
+  url: z.string().url().refine(isHttpUrl, { message: 'only http(s) URLs may be opened externally' }),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({
@@ -284,9 +283,12 @@ export const ResumeFiredEventSchema = z.object({
 
 // --- Doc reader payloads ---
 
-/** Renderer/main reads a .md file's content for the reader. */
+/** Renderer/main reads a .md file's content for the reader. `tabId` scopes the L2
+ * containment check to that tab's cwd (N6) — required so the boundary lives in the
+ * handler itself, which every read path (click-to-open and doc restore) goes through. */
 export const FsReadFilePayloadSchema = z.object({
   path: z.string().min(1),
+  tabId: SessionIdSchema,
 });
 export const FsReadFileResponseSchema = z.union([
   z.object({

@@ -25,6 +25,14 @@ export class AttentionDetector extends EventEmitter {
   private tailBuffer = '';
   private idleTimer: NodeJS.Timeout | null = null;
   private idleEmittedForCurrentQuiet = false;
+  private readonly idleMs: number;
+
+  /** `idleMs` overrides the idle window — for tests only (C9: real-PTY attention-gate
+   * tests would otherwise burn the real 1.5s window, several times per test). */
+  constructor(idleMs: number = IDLE_MS) {
+    super();
+    this.idleMs = idleMs;
+  }
 
   process(chunk: Buffer): void {
     if (chunk.length === 0) return;
@@ -71,7 +79,7 @@ export class AttentionDetector extends EventEmitter {
     // Any new output resets the idle window and re-arms the once-per-quiet emit.
     this.idleEmittedForCurrentQuiet = false;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => this.checkIdle(), IDLE_MS);
+    this.idleTimer = setTimeout(() => this.checkIdle(), this.idleMs);
     // Do not let a pending idle timer keep the Node event loop (or a test run) alive.
     this.idleTimer.unref?.();
   }

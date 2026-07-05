@@ -9,7 +9,7 @@ import type {
   SessionKind,
 } from '@awakon/contracts';
 import { Session } from './session.js';
-import { ResumeScheduler, type ResumeSchedulerOptions } from './resume-scheduler.js';
+import { ResumeScheduler } from './resume-scheduler.js';
 import { parseResetTime } from './reset-time-parser.js';
 
 export interface SessionManagerEvents {
@@ -31,17 +31,14 @@ export interface SessionManagerEvents {
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
   private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '', resumeText: '' };
-  private readonly resumeScheduler: ResumeScheduler;
-
-  /** `resumeSchedulerOptions` overrides the sweep/grace defaults — for tests only
-   * (an integration test that waits out the real 30s grace would be needlessly slow). */
-  constructor(resumeSchedulerOptions?: Partial<Pick<ResumeSchedulerOptions, 'sweepIntervalMs' | 'graceMs'>>) {
-    super();
-    this.resumeScheduler = new ResumeScheduler({
-      onDue: (sessionId) => this.fireResume(sessionId),
-      ...resumeSchedulerOptions,
-    });
-  }
+  private readonly resumeScheduler = new ResumeScheduler({
+    onDue: (sessionId) => this.fireResume(sessionId),
+  });
+  /** sessionId -> epoch ms of the last stage-1 answer. Guards against detector
+   * false->true churn (redraw cycles) re-firing the menu-answer write (N11). */
+  private readonly lastAnsweredAt = new Map<SessionId, number>();
+  /** Real rate-limit hits are hours apart; menu redraw churn is seconds apart. */
+  private static readonly RESPONSE_COOLDOWN_MS = 5 * 60_000;
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
@@ -51,6 +48,7 @@ export class SessionManager extends EventEmitter {
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
     session.on('exit', ({ exitCode, signal }) => {
       this.resumeScheduler.cancel(id);
+      this.lastAnsweredAt.delete(id);
       this.emit('sessionExited', id, exitCode, signal);
       // Keep the session in the map so its ring buffer is still readable for a moment;
       // callers explicitly call close() to remove. (See Plan 1 success criteria — clean shutdown
@@ -67,15 +65,20 @@ export class SessionManager extends EventEmitter {
     session.on('rateLimitDetected', (resetText) => {
       if (!this.autoResume.enabled) return;
       if (session.info().status === 'exited') return;
+      // A resume already pending means stage 1 already answered this hit — a
+      // redraw-triggered re-detection must not answer again (N11).
+      if (this.resumeScheduler.has(id)) return;
+      const now = Date.now();
+      const last = this.lastAnsweredAt.get(id);
+      if (last !== undefined && now - last < SessionManager.RESPONSE_COOLDOWN_MS) return;
+      this.lastAnsweredAt.set(id, now);
       session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
-      // schedule() returns false when one is already pending, which dedups repeated
-      // detections from TUI redraws.
       const resetAt = parseResetTime(resetText, new Date());
       if (resetAt !== null && this.resumeScheduler.schedule(id, resetAt)) {
         this.emit('resumeScheduled', id, resetAt);
       }
       // If parsing fails, stage 1 already answered the menu and Claude Code waits on
-      // its own — no schedule, no badge; that is the correct fallback.
+      // its own — no schedule, no badge; the cooldown above still guards this path.
     });
 
     session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');

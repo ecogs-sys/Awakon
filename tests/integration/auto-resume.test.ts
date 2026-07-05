@@ -44,7 +44,9 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     await new Promise((r) => setTimeout(r, 400)); // flush startup noise
 
     // No parseable reset time in "resets soon" — stage 1 still fires, nothing is scheduled.
-    session.write(`echo awakon-LIMIT resets soon\r`);
+    // "Enter to confirm" anchors this as a real menu (N11) — plain output without it
+    // no longer trips the detector.
+    session.write(`echo "awakon-LIMIT resets soon Enter to confirm"\r`);
 
     await waitFor(() => Buffer.concat(chunks).toString('utf8').includes('awakon-STAGE1-OK'));
   });
@@ -76,7 +78,7 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     // Quoted as a single argument — PowerShell's `echo` (Write-Output) treats each
     // unquoted bareword as a separate pipeline object and prints one per line, which
     // would split the phrase and reset time across chunks and break detection.
-    session.write(`echo "awakon-LIMIT resets ${resetLabel}"\r`);
+    session.write(`echo "awakon-LIMIT resets ${resetLabel} Enter to confirm"\r`);
 
     await waitFor(() => scheduled.length === 1);
     // A sanity bound, not an exact-time assertion: the parsed epoch must be a real
@@ -85,7 +87,14 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     expect(scheduled[0]).toBeLessThan(beforeWrite + 6 * 60_000);
   });
 
-  it('cancelResume prevents the scheduled write from ever happening', async () => {
+  it('cancelResume immediately clears a schedule created from real PTY detection', async () => {
+    // This test's job is only to prove cancelResume reaches a resume that was scheduled
+    // via the real detector + parser path. Whether a cancelled resume's write is actually
+    // suppressed once resetAt + grace passes is a controlled-time question — covered by
+    // packages/core/tests/session-manager-resume.test.ts ("cancelResume before the sweep
+    // prevents the write"), which advances fake timers past the real grace window. Waiting
+    // out the real ~20s sweep / 30s grace here would be slow and, at any wait short of
+    // that, would pass even if cancellation were a no-op (see round-3 review C4).
     manager = new SessionManager();
     manager.applyAutoResumeConfig({
       enabled: true,
@@ -96,31 +105,22 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
 
     const scheduled: string[] = [];
     const cancelled: string[] = [];
-    const fired: string[] = [];
     manager.on('resumeScheduled', (id) => scheduled.push(id));
     manager.on('resumeCancelled', (id) => cancelled.push(id));
-    manager.on('resumeFired', (id) => fired.push(id));
 
-    const chunks: Buffer[] = [];
     const session = manager.create({ shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 });
-    session.on('data', (chunk) => chunks.push(chunk));
     await new Promise((r) => setTimeout(r, 400));
 
-    // 5 minutes out — see the previous test for why "a few seconds out" is unsafe
-    // (parseResetTime's minute granularity). The exact resetAt doesn't matter here:
-    // cancelResume must prevent the write regardless of when it was due.
+    // 5 minutes out — see the earlier test for why "a few seconds out" is unsafe
+    // (parseResetTime's minute granularity).
     const resetLabel = formatResetTime(new Date(Date.now() + 5 * 60_000));
     // Quoted as a single argument — PowerShell's `echo` (Write-Output) treats each
     // unquoted bareword as a separate pipeline object and prints one per line, which
     // would split the phrase and reset time across chunks and break detection.
-    session.write(`echo "awakon-LIMIT resets ${resetLabel}"\r`);
+    session.write(`echo "awakon-LIMIT resets ${resetLabel} Enter to confirm"\r`);
     await waitFor(() => scheduled.includes(session.id));
 
     manager.cancelResume(session.id);
     expect(cancelled).toContain(session.id);
-
-    await new Promise((r) => setTimeout(r, 1_000)); // sweep interval (200ms) with nothing pending
-    expect(fired).not.toContain(session.id);
-    expect(Buffer.concat(chunks).toString('utf8')).not.toContain('awakon-SHOULD-NOT-RUN');
-  }, 20_000);
+  });
 });

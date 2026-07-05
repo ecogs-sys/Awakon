@@ -29,6 +29,10 @@ export interface ViewManagerOptions {
  */
 export class ViewManager {
   private readonly views = new Map<SessionId, WebContentsView>();
+  /** The id each view is *currently* keyed under — rekey() updates this in place so the
+   * render-process-gone listener (registered once, at create time) always resolves the
+   * live id instead of the stale one captured in its closure (N2). */
+  private readonly liveIdOf = new WeakMap<WebContentsView, SessionId>();
   private parent: BrowserWindow | null = null;
   private currentSessionId: SessionId | null = null;
   private sidebarPx = SIDEBAR_OPEN_PX;
@@ -79,10 +83,12 @@ export class ViewManager {
     });
     this.parent.contentView.addChildView(view);
     this.views.set(sessionId, view);
+    this.liveIdOf.set(view, sessionId);
     this.hideOne(view);
 
     view.webContents.on('render-process-gone', () => {
-      this.opts.onCrash?.(sessionId, view);
+      const liveId = this.liveIdOf.get(view);
+      if (liveId) this.opts.onCrash?.(liveId, view);
     });
 
     return view;
@@ -154,6 +160,7 @@ export class ViewManager {
     if (!view) return;
     this.views.delete(oldId);
     this.views.set(newId, view);
+    this.liveIdOf.set(view, newId);
     if (this.currentSessionId === oldId) this.currentSessionId = newId;
   }
 

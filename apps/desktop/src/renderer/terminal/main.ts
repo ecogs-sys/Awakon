@@ -36,15 +36,13 @@ bridge.on(IpcChannel.TerminalAction, (raw) => {
   else if (e.action === 'closePane') splits.closeFocusedPane();
 });
 
-// Tracks this view's current primary/tabId across possibly repeated reparents
-// (each further split + primary-pane-close promotes a new sibling in turn).
-let currentTabId: SessionId = sessionId;
+// Main targets this event at the promoted tab's own webContents only (index.ts's
+// reparentTab), so every LayoutTabReparented this view receives is always about its
+// own tab — no need to track/compare oldTabId here; SplitContainer already owns the
+// current tabId (retarget() updates it in place).
 bridge.on(IpcChannel.LayoutTabReparented, (raw) => {
-  const e = raw as { oldTabId: SessionId; newTabId: SessionId };
-  if (e.oldTabId === currentTabId) {
-    currentTabId = e.newTabId;
-    splits.retarget(e.newTabId);
-  }
+  const e = raw as { newTabId: SessionId };
+  splits.retarget(e.newTabId);
 });
 
 console.info('[terminal] split container mounted; primary session', sessionId);

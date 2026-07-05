@@ -7,15 +7,22 @@ import type { Plugin } from 'vite';
 // satisfy every applicable policy), so the electron-vite dev server's HMR websocket
 // needs the dev-only relaxation applied to the actual served HTML, not bolted on via
 // headers. `apply: 'serve'` means this never runs for `electron-vite build`.
-function devCspPlugin(): Plugin {
+const CSP_MARKER = "connect-src 'self';";
+
+export function devCspPlugin(): Plugin {
   return {
     name: 'awakon-dev-csp',
     apply: 'serve',
     transformIndexHtml(html) {
-      return html.replace(
-        "connect-src 'self';",
-        "connect-src 'self' ws://localhost:* http://localhost:*;",
-      );
+      // N10: an exact-string replace silently no-ops if the CSP meta tag ever drifts —
+      // dev HMR would then break with no build-time signal. Fail loudly instead.
+      if (!html.includes(CSP_MARKER)) {
+        throw new Error(
+          `awakon-dev-csp: expected to find ${JSON.stringify(CSP_MARKER)} in the CSP meta tag — ` +
+          'update this plugin (and the marker) to match the current policy.',
+        );
+      }
+      return html.replace(CSP_MARKER, "connect-src 'self' ws://localhost:* http://localhost:*;");
     },
   };
 }

@@ -82,6 +82,30 @@ describe('SessionManager auto-resume (M6 two-stage)', () => {
     expect(writeSpy).not.toHaveBeenCalled();
   });
 
+  it('N11: a second detection while a resume is already pending does not re-answer', () => {
+    const session = newSession(manager);
+    const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
+
+    session.emit('rateLimitDetected', RESET_TEXT);
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+
+    session.emit('rateLimitDetected', RESET_TEXT);
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('N11: a second detection within the cooldown does not re-answer, even without a parsed reset time', () => {
+    const session = newSession(manager);
+    const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
+
+    // Unparseable text schedules nothing, so the "already pending" guard alone
+    // would not catch a repeat — the cooldown timestamp must.
+    session.emit('rateLimitDetected', 'Stop and wait for limit to reset — no time here');
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+
+    session.emit('rateLimitDetected', 'Stop and wait for limit to reset — no time here');
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+  });
+
   describe('stage 2: scheduling (fake timers)', () => {
     beforeEach(() => {
       // Fake timers must be enabled BEFORE the SessionManager (and its internal
@@ -128,6 +152,24 @@ describe('SessionManager auto-resume (M6 two-stage)', () => {
 
       expect(writeSpy).toHaveBeenCalledWith('continue\r', { synthetic: true });
       expect(fired).toEqual([session.id]);
+    });
+
+    it('N11: re-answers after the cooldown once the prior resume has fired', () => {
+      const fired: string[] = [];
+      manager.on('resumeFired', (id) => fired.push(id));
+      const session = newSession(manager);
+      const writeSpy = vi.spyOn(session, 'write').mockImplementation(() => {});
+
+      session.emit('rateLimitDetected', RESET_TEXT);
+      expect(writeSpy).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000); // clears the pending resume
+      expect(fired).toEqual([session.id]);
+      writeSpy.mockClear();
+
+      vi.setSystemTime(new Date('2026-01-03T10:00:00')); // past the 5-minute cooldown
+      session.emit('rateLimitDetected', RESET_TEXT);
+      expect(writeSpy).toHaveBeenCalledTimes(1);
     });
 
     it('cancelResume before the sweep prevents the write and emits resumeCancelled', () => {

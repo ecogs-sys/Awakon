@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import { AppSettingsSchema, DEFAULT_APP_SETTINGS } from '@awakon/contracts';
+import { AppSettingsSchema, DEFAULT_APP_SETTINGS, UserEditableSettingsSchema } from '@awakon/contracts';
 
 describe('AppSettingsSchema', () => {
   it('accepts the default settings', () => {
@@ -50,5 +50,25 @@ describe('AppSettingsSchema', () => {
       },
     };
     expect(AppSettingsSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('UserEditableSettingsSchema (C7)', () => {
+  it('accepts autoResume + defaultCwd without recentTabs', () => {
+    const parsed = UserEditableSettingsSchema.safeParse({
+      autoResume: DEFAULT_APP_SETTINGS.autoResume,
+      defaultCwd: '/home/me',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('strips a recentTabs field the client sends — the dialog cannot clobber the app-owned list', () => {
+    const parsed = UserEditableSettingsSchema.safeParse({
+      autoResume: DEFAULT_APP_SETTINGS.autoResume,
+      defaultCwd: '',
+      recentTabs: [{ cwd: '/evil', shell: 'bash', title: 'evil', lastUsedAt: 0 }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && 'recentTabs' in parsed.data).toBe(false);
   });
 });

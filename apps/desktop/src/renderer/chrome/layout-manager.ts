@@ -472,9 +472,9 @@ export class LayoutManager {
     const ds = session?.docState;
     if (ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0) {
       void this.bridge.send(IpcChannel.LayoutModal, { open: true });
-      this.docReader.render(ds);
+      this.docReader.render(ds, this.state.focusedId!);
     } else {
-      this.docReader.render(emptyDocState());
+      this.docReader.render(emptyDocState(), this.state.focusedId ?? '');
       void this.bridge.send(IpcChannel.LayoutModal, { open: false });
     }
   }

@@ -216,6 +216,19 @@ describe('SplitContainer persistence', () => {
     expect(calls[calls.length - 1]!.splits).toBeNull();
   });
 
+  it('N1: retarget() re-persists the current tree under the new tabId', async () => {
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+    splits.closeFocusedPane(); // promotes sibling; persists (null) under the OLD tabId
+    bridge.send.mockClear();
+
+    splits.retarget('pane-a' as SessionId);
+
+    const calls = persistCalls(bridge);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({ tabId: 'pane-a', splits: null });
+  });
+
   it('sends LayoutPersistSplits with the new ratio after a divider drag ends', async () => {
     bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
     await splits.splitFocused('horizontal');

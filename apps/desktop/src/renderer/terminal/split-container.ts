@@ -257,6 +257,10 @@ export class SplitContainer {
    * new id (see event.layout.tab-reparented). */
   retarget(newTabId: SessionId): void {
     this.tabId = newTabId;
+    // The tree shape was already corrected (pane removed/promoted) before main sent
+    // the reparent event; that persist landed under the old tabId and was dropped
+    // there (main deleted that entry). Re-send it under the new id (N1).
+    this.persist();
   }
 
   private serializeNode(node: SplitNode): PersistedSplitNode {

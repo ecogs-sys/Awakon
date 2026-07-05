@@ -15,10 +15,19 @@ export const AutoResumeSettingsSchema = z.object({
 });
 export type AutoResumeSettings = z.infer<typeof AutoResumeSettingsSchema>;
 
-/** Top-level persisted application settings. */
-export const AppSettingsSchema = z.object({
+/** The subset of AppSettings the Settings dialog owns and can send back on save.
+ * `recentTabs` is app-owned (mutated only via RecentAdd) — excluding it from this
+ * schema means a stale dialog snapshot can no longer clobber it at the wire level,
+ * not just via a merge the handler has to remember to do (C7). Add future app-owned
+ * fields to AppSettingsSchema only, never here. */
+export const UserEditableSettingsSchema = z.object({
   autoResume:  AutoResumeSettingsSchema,
   defaultCwd:  z.string().default(''),
+});
+export type UserEditableSettings = z.infer<typeof UserEditableSettingsSchema>;
+
+/** Top-level persisted application settings. */
+export const AppSettingsSchema = UserEditableSettingsSchema.extend({
   recentTabs:  z.array(RecentTabSchema).max(10).default([]),
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;

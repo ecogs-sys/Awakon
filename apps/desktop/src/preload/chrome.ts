@@ -25,7 +25,6 @@ export const SEND_CHANNELS = [
   IpcChannel.ChromeOpenExternal,
   IpcChannel.ChromeAppInfo,
   IpcChannel.ChromeAppMenuPopup,
-  IpcChannel.ChromeMenuPopup,
   IpcChannel.ChromeWindowControl,
   IpcChannel.ResumeCancel,
   IpcChannel.LayoutShow,

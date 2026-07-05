@@ -1,18 +1,18 @@
 ﻿import { app, BrowserWindow, Menu, ipcMain, dialog, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, isAbsolute, relative } from 'node:path';
+import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
 import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab, PersistedOpenDoc } from '@awakon/contracts';
-import { AppSettingsSchema, ResumeCancelPayloadSchema, ChromeMenuPopupPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
+import { UserEditableSettingsSchema, ResumeCancelPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
-import { buildAppMenu, buildSubmenu, type MenuName } from './app-menu.js';
+import { buildAppMenu } from './app-menu.js';
 import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
 import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
-import { isAllowedNavigation } from './navigation-guard.js';
+import { isAllowedNavigation, isPathInside } from './navigation-guard.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -175,28 +175,8 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0] & 
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
 
 // IPC: filesystem helpers used by the New Session dialog (Browse + cwd validation).
-registerFsHandlers(ipcMain, () => chromeWindow, dialog);
-
-// IPC: custom titlebar in the chrome renderer asks main to pop one of the named
-// submenus from app-menu.ts at the given screen coordinates. This lets the in-window
-// menu bar share a single source of truth with the OS application menu — no item
-// duplication, accelerators stay correct.
-ipcMain.handle(IpcChannel.ChromeMenuPopup, (_e, raw): { ok: true } | { error: string } => {
-  const parsed = ChromeMenuPopupPayloadSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.message };
-  if (!chromeWindow) return { error: 'no chrome window' };
-  const submenu = buildSubmenu(
-    parsed.data.menu as MenuName,
-    () => chromeWindow,
-    () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
-  );
-  submenu.popup({
-    window: chromeWindow,
-    x: parsed.data.x,
-    y: parsed.data.y,
-  });
-  return { ok: true };
-});
+// FsReadFile (N6) resolves a tab's cwd here to enforce containment at the read boundary.
+registerFsHandlers(ipcMain, () => chromeWindow, dialog, (tabId) => tabMeta.get(tabId)?.cwd);
 
 // IPC: the top bar's hamburger (⋯) pops the whole application menu at a point.
 // The platform-neutral bar drops the menu strip, so this is the single entry to
@@ -243,13 +223,12 @@ ipcMain.handle(IpcChannel.ChromeAppInfo, (): ChromeAppInfoResponse => {
 });
 
 // IPC: open a link in the OS default browser via shell.openExternal (About dialog,
-// doc-reader links, terminal web links). z.string().url() alone also accepts
-// file:/smb:/etc — shell.openExternal('file://...') would open/execute local paths,
-// so the handler itself must be the scheme boundary (M3), not just the schema.
+// doc-reader links, terminal web links). The http(s)-only refinement lives in
+// ChromeOpenExternalPayloadSchema itself (M3/C2) — z.string().url() alone would accept
+// file:/smb:/etc, and shell.openExternal('file://...') would open/execute local paths.
 ipcMain.handle(IpcChannel.ChromeOpenExternal, (_e, raw): { ok: true } | { error: string } => {
   const parsed = ChromeOpenExternalPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
-  if (!/^https?:\/\//i.test(parsed.data.url)) return { error: 'only http(s) URLs may be opened externally' };
   void shell.openExternal(parsed.data.url);
   return { ok: true };
 });
@@ -258,13 +237,13 @@ ipcMain.handle(IpcChannel.ChromeOpenExternal, (_e, raw): { ok: true } | { error:
 ipcMain.handle(IpcChannel.SettingsGet, (): AppSettings => appSettings);
 
 // IPC: chrome renderer saves settings — persist, apply, and echo to renderers.
+// L3/C7: the payload schema (UserEditableSettingsSchema) has no recentTabs field at
+// all, so a dialog echoing a stale snapshot it loaded when opened cannot clobber the
+// app-owned recentTabs list even at the wire level — it's not a merge the handler has
+// to remember to do, the client structurally cannot send that field.
 ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: string } => {
-  const parsed = AppSettingsSchema.safeParse(raw);
+  const parsed = UserEditableSettingsSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
-  // L3: the dialog echoes back whatever recentTabs snapshot it loaded when opened —
-  // closing a tab (RecentAdd) while the dialog is open would otherwise be silently
-  // clobbered on save. recentTabs is only ever mutated via RecentAdd, so keep the
-  // authoritative in-memory list rather than trusting the client's stale copy.
   appSettings = { ...parsed.data, recentTabs: appSettings.recentTabs };
   void settingsStore.save(appSettings);
   sessionManager.applyAutoResumeConfig(appSettings.autoResume);
@@ -287,23 +266,36 @@ ipcMain.handle(IpcChannel.RecentAdd, (_e, raw): RecentTab[] => {
   return appSettings.recentTabs;
 });
 
-// IPC: chrome renderer cancels a pending resume (badge cancel control).
+// IPC: chrome renderer cancels a pending resume (badge cancel control). The badge is
+// keyed by the owning tab id (see forwarding below), but the actual pending resume may
+// belong to a non-primary pane forwarded onto that tab (N5) — cancel whichever session
+// under this tab id actually has one scheduled.
 ipcMain.handle(IpcChannel.ResumeCancel, (_e, raw): { ok: true } | { error: string } => {
   const parsed = ResumeCancelPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
-  sessionManager.cancelResume(parsed.data.sessionId);
+  const tabId = parsed.data.sessionId;
+  sessionManager.cancelResume(tabId);
+  for (const [paneId, owner] of paneOwnership) {
+    if (owner === tabId) sessionManager.cancelResume(paneId);
+  }
   return { ok: true };
 });
 
 // Forward resume lifecycle events to the chrome renderer for the countdown badge.
+// sessionManager emits with the *raw* session id, which may be a non-primary pane —
+// chrome only tracks tab-level sessions, so an unmapped pane id is silently dropped
+// (N5). Map through paneOwnership, mirroring attention's tabIdForSession.
 sessionManager.on('resumeScheduled', (sessionId, resetAt) => {
-  chromeWindow?.webContents.send(IpcChannel.ResumeScheduled, { sessionId, resetAt });
+  const tabId = paneOwnership.get(sessionId) ?? sessionId;
+  chromeWindow?.webContents.send(IpcChannel.ResumeScheduled, { sessionId: tabId, resetAt });
 });
 sessionManager.on('resumeCancelled', (sessionId) => {
-  chromeWindow?.webContents.send(IpcChannel.ResumeCancelled, { sessionId });
+  const tabId = paneOwnership.get(sessionId) ?? sessionId;
+  chromeWindow?.webContents.send(IpcChannel.ResumeCancelled, { sessionId: tabId });
 });
 sessionManager.on('resumeFired', (sessionId) => {
-  chromeWindow?.webContents.send(IpcChannel.ResumeFired, { sessionId });
+  const tabId = paneOwnership.get(sessionId) ?? sessionId;
+  chromeWindow?.webContents.send(IpcChannel.ResumeFired, { sessionId: tabId });
 });
 
 // IPC: renderer asks main to spawn the platform default shell at $HOME.
@@ -322,10 +314,13 @@ ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | 
 
 sessionManager.on('sessionExited', (sessionId) => {
   crashCounters.delete(sessionId);
-  // Spec §7: a tab whose shell exits on its own becomes a read-only 'exited' tab —
-  // the WebContentsView is kept so scrollback stays readable and the user can
-  // Restart or Close it. Teardown happens only via an explicit core.session.close.
-  if (!tabMeta.has(sessionId)) {
+  // Spec §7: a tab (or pane) whose shell exits on its own stays visible, read-only —
+  // the WebContentsView/leaf is kept so scrollback stays readable and the user can
+  // Restart or Close it. Teardown happens only via an explicit close (core.session.close
+  // or core.session.close-pane). A pane still owned by a tab must keep its paneOwnership
+  // entry so a later close-pane on its primary can find and reparent onto it (N4) —
+  // only clean up sessions that belong to neither a tab nor a pane record.
+  if (!tabMeta.has(sessionId) && !paneOwnership.has(sessionId)) {
     paneOwnership.delete(sessionId);
   }
 });
@@ -351,8 +346,17 @@ function reparentTab(oldTabId: string, newTabId: string): void {
   const meta = tabMeta.get(oldTabId);
   if (!meta) return;
   tabMeta.delete(oldTabId);
-  tabMeta.set(newTabId, { ...meta, tabId: newTabId });
+  // meta.splits describes the tree as it stood *before* the closed primary's leaf was
+  // removed — copying it verbatim would resurrect that pane on next restore. Drop it;
+  // the renderer's retarget() always sends a corrected persist right after this (N1).
+  const metaWithoutSplits = { ...meta, tabId: newTabId };
+  delete metaWithoutSplits.splits;
+  tabMeta.set(newTabId, metaWithoutSplits);
   tabOrder = tabOrder.map((id) => (id === oldTabId ? newTabId : id));
+  // The promoted session was created with kind 'pane' — relabel it 'tab' so a fresh
+  // chrome bootstrap (or any other SessionManager.list() consumer) doesn't filter it
+  // out as a pane (N3).
+  sessionManager.get(newTabId)?.promoteToTab();
   paneOwnership.delete(newTabId);
   for (const [paneId, owner] of paneOwnership) {
     if (owner === oldTabId) paneOwnership.set(paneId, newTabId);
@@ -462,9 +466,10 @@ ipcRouter.onDocOpen((sessionId, path) => {
   const resolvedPath = isAbsolute(path) ? path : join(cwd, path);
   // L2: only open docs that live under the tab's cwd. Terminal output is untrusted —
   // a printed absolute path pointing elsewhere on disk (e.g. ~/.ssh/README.md) must
-  // not let a click read arbitrary files, regardless of size/extension checks.
-  const rel = relative(cwd, resolvedPath);
-  if (rel.startsWith('..') || isAbsolute(rel)) return;
+  // not let a click read arbitrary files, regardless of size/extension checks. This is
+  // only an early bail for the click path — FsReadFile (N6) is the actual boundary,
+  // since the doc-restore path bypasses this handler entirely.
+  if (!isPathInside(cwd, resolvedPath)) return;
   const session = sessionManager.get(sessionId) ?? sessionManager.get(tabId);
   const info = session?.info();
   chromeWindow?.webContents.send(IpcChannel.DocOpenRequest, {
@@ -519,6 +524,13 @@ new NotificationBridge({
   focusedSessionId: () => focusedSessionId,
   tabIdForSession: (id) => (paneOwnership.get(id) ?? id),
 });
+
+/** Focus a session and show its view, telling the chrome renderer to follow (C8). */
+function focusAndShow(sessionId: string): void {
+  focusedSessionId = sessionId;
+  viewManager?.show(sessionId);
+  chromeWindow?.webContents.send(IpcChannel.LayoutShow, { sessionId });
+}
 
 async function createChromeWindow(): Promise<void> {
   const isMac = process.platform === 'darwin';
@@ -583,14 +595,13 @@ async function createChromeWindow(): Promise<void> {
     // dock-reopen of a split tab. Close them first so nothing is orphaned; the renderer
     // recreates the same shape from the persisted tree. Trade-off: pane scrollback is
     // lost on dock-reopen — acceptable, and strictly better than leaking.
-    for (const tabId of tabOrder) {
-      closeTabPanes(tabId);
-      await createSessionView(tabId);
-    }
-    const toFocus = focusedSessionId && tabMeta.has(focusedSessionId) ? focusedSessionId : tabOrder[0]!;
-    focusedSessionId = toFocus;
-    viewManager?.show(toFocus);
-    chromeWindow?.webContents.send(IpcChannel.LayoutShow, { sessionId: toFocus });
+    // C8: close every tab's panes (cheap, synchronous) before creating any view, then
+    // create all views concurrently — createSessionView's loadURL/loadFile await was
+    // serializing every tab's page load (~100-300ms each) for no reason; nothing here
+    // depends on another tab's view existing first.
+    for (const tabId of tabOrder) closeTabPanes(tabId);
+    await Promise.all(tabOrder.map((tabId) => createSessionView(tabId)));
+    focusAndShow(focusedSessionId && tabMeta.has(focusedSessionId) ? focusedSessionId : tabOrder[0]!);
   } else {
     // Restore the persisted layout. Returns null when there is nothing to restore (first
     // launch, or the user closed every tab before quitting) — the app then boots into the
@@ -599,11 +610,7 @@ async function createChromeWindow(): Promise<void> {
       loadPersisted: () => sessionStore.load(),
       createTabSession: (opts) => createTabSession(opts),
     });
-    if (restoredFocus) {
-      focusedSessionId = restoredFocus;
-      viewManager?.show(restoredFocus);
-      chromeWindow?.webContents.send(IpcChannel.LayoutShow, { sessionId: restoredFocus });
-    }
+    if (restoredFocus) focusAndShow(restoredFocus);
   }
 
   chromeWindow.on('closed', () => {

@@ -2,33 +2,36 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * Wrap the Linux Electron binary in a shell script that passes --no-sandbox —
- * AppImage-only.
+ * Wrap the Linux Electron binary in a shell script that passes --no-sandbox — needed
+ * for AppImage and `--dir` (unpacked) builds, NOT for deb.
  *
  * The chrome-sandbox SUID check runs during C++ startup before Node.js loads, so
  * app.commandLine.appendSwitch('no-sandbox') is always too late; a wrapper script
- * is the only reliable way to add --no-sandbox to argv. AppImage genuinely needs
- * this: it extracts/mounts at an arbitrary user-writable path at runtime, where the
- * SUID bit electron-builder sets on chrome-sandbox typically does not survive (or
- * the mount is `nosuid`), so the renderer sandbox cannot initialize there.
+ * is the only reliable way to add --no-sandbox to argv. AppImage and unpacked builds
+ * genuinely need this: they run from an arbitrary user-writable path (an AppImage
+ * mount, or wherever `--dir` output was copied) where the SUID bit electron-builder
+ * sets on chrome-sandbox typically does not survive (or the mount is `nosuid`).
  *
- * The deb target does NOT need this: electron-builder's deb postinst script chmods
- * chrome-sandbox to 4755 (root-owned SUID) at a fixed system path, so the sandbox
- * works there without disabling it. Since electron-builder packs every target given
- * to ONE invocation from the SAME appOutDir (afterPack runs once per arch, not per
- * target), unconditionally wrapping the binary here disabled the sandbox for deb
- * installs too when both were built together (H4). This guard only applies the
- * wrapper when AppImage is the sole target of the current pack — which is why R4
- * requires `dist:linux` (package.json) to run deb and AppImage as two SEPARATE
- * `electron-builder` invocations (`--linux deb`, then `--linux AppImage`), never
- * `--linux AppImage deb` in one. Building them together silently reproduces H4:
- * this guard would see 'deb' in context.targets and skip the wrapper for both.
+ * deb does NOT need this: its postinst script chmods chrome-sandbox to 4755
+ * (root-owned SUID) at a fixed system path, so the sandbox works without disabling
+ * it — wrapping it would needlessly turn the sandbox off. Since electron-builder
+ * packs every target given to ONE invocation from the SAME appOutDir (afterPack runs
+ * once per arch, not per target), deb must never be built in the same invocation as
+ * AppImage/`--dir` (H4/N7) — `dist:linux` (package.json) runs them as two separate
+ * `electron-builder` invocations for exactly this reason. Fail loudly instead of
+ * silently under- or over-wrapping if that convention is ever violated.
  */
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'linux') return;
   const targetNames = context.targets.map((t) => t.name);
-  if (!targetNames.includes('appImage')) return;
-  if (targetNames.includes('deb')) return;
+  const needsWrapper = targetNames.includes('appImage') || targetNames.includes('dir');
+  if (targetNames.includes('deb') && needsWrapper) {
+    throw new Error(
+      `AppImage/--dir and deb must be built in separate electron-builder invocations (see dist:linux) — ` +
+      `got both in one pack: ${targetNames.join(', ')}`,
+    );
+  }
+  if (!needsWrapper) return;
 
   const { appOutDir, packager } = context;
   const execName = packager.executableName; // 'awakon'

@@ -15,6 +15,11 @@ const ANSI_RE =
   // eslint-disable-next-line no-control-regex
   /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
 
+/** Menu chrome that only appears around a *live* interactive prompt — never in a
+ * quoted transcript or doc discussing the phrase. Requiring one of these near the
+ * match anchors detection to an actual on-screen menu (see N11). */
+const MENU_CHROME_MARKERS = ['❯', 'Enter to confirm'];
+
 export interface RateLimitDetectorEvents {
   rateLimitDetected: (resetText: string) => void;
 }
@@ -59,11 +64,14 @@ export class RateLimitDetector extends EventEmitter {
       return;
     }
     if (this.present) return;
-    this.present = true;
     const resetText = stripped.slice(
       Math.max(0, idx - LEADING_CONTEXT),
       idx + this.detectText.length + TRAILING_CONTEXT,
     );
+    // Cheap phrase match above is only a first-pass filter — require menu chrome
+    // nearby before treating this as a real prompt (quoted text has neither).
+    if (!MENU_CHROME_MARKERS.some((marker) => resetText.includes(marker))) return;
+    this.present = true;
     this.emit('rateLimitDetected', resetText);
   }
 

@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { PreloadBridge } from '@awakon/terminal-host';
 
-export interface Bridge {
-  send: (channel: string, payload?: unknown) => Promise<unknown>;
-  on: (channel: string, handler: (payload: unknown) => void) => () => void;
-}
+// Same shape as terminal-host's PreloadBridge (which describes what window.awakon must
+// provide) — re-exported under this name so preload call sites don't need to know about
+// terminal-host, and the two can't drift apart (C3).
+export type Bridge = PreloadBridge;
 
 /**
  * Exposes window.awakon scoped to an explicit per-renderer channel allowlist.
