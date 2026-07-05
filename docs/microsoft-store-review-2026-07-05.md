@@ -64,7 +64,7 @@ The same applies to `wsl` / `git-bash` entries in the shell picker (`packages/co
 **Fix (remaining):** probe for `pwsh.exe` on PATH and fall back to `powershell.exe`; show an actionable error when a user-selected shell isn't installed.
 
 ### B4. Submission prerequisites that don't exist yet (Partner Center, not code)
-**Status (2026-07-06): open** — external to the repo; nothing to verify in code.
+**Status (2026-07-06): drafted, Partner Center action still required.** Draft copy for the privacy policy page, the `runFullTrust` capability justification, and the store listing (description, category, screenshot references) is now in [`microsoft-store-listing-drafts.md`](microsoft-store-listing-drafts.md). None of this can be submitted from the repo — it still needs a Partner Center account: reserve the app name, host the privacy policy page and put its URL in the submission form, paste the `runFullTrust` justification, fill in the actual age rating questionnaire, and upload screenshots.
 
 - **Privacy policy URL** — required because the app accesses the internet (auto-updater; the MSIX manifest gets the `internetClient` capability by default **(verify once B1's `appx` target is configured and built — this is electron-builder's default behavior, not yet exercised in this repo)**). The app collects no telemetry (no `fetch`/analytics calls anywhere in `apps/desktop/src` — verified by grep), so the policy can be short, but the URL field is mandatory.
 - **`runFullTrust` restricted capability justification** — an Electron MSIX is a full-trust desktop-bridge app. Expect to justify why the app spawns arbitrary shell processes (`pwsh`, `cmd`, `wsl`, `bash` via node-pty). "Developer terminal/session manager" is an accepted category (Windows Terminal ships this way), but write the justification honestly.
@@ -151,4 +151,4 @@ Struck-through items are completed and verified (tests passing, `pnpm typecheck`
 7. ~~**R3** — accurate `package.json` description.~~ **Done.**
 8. **B1** — replace the placeholder `identityName`/`publisher` in `electron-builder.appx.json`'s `appx` block with real Partner Center values (the target + config are already scaffolded, run via `pnpm --filter @awakon/desktop dist:win:store`); then run the Windows App Certification Kit against the built MSIX before submitting.
 9. **R2** — smoke-test ConPTY spawn and WSL spawn in the installed MSIX (needs B1's real identity first).
-10. **B4** — Partner Center: reserve the name, privacy policy URL, `runFullTrust` justification, accurate listing copy, age rating.
+10. **B4** — Partner Center: reserve the name, host the privacy policy page and add its URL, paste the `runFullTrust` justification, paste the listing copy, fill in the real age rating questionnaire. Drafts for everything but the account actions themselves are in [`microsoft-store-listing-drafts.md`](microsoft-store-listing-drafts.md).
