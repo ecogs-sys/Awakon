@@ -19,14 +19,7 @@
   "nodeGypRebuild": false,
   "npmRebuild": false,
   "win": {
-    "target": ["nsis", "appx"]
-  },
-  "appx": {
-    "identityName": "REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME",
-    "publisher": "CN=REPLACE_WITH_PARTNER_CENTER_PUBLISHER_GUID",
-    "publisherDisplayName": "ecogs",
-    "applicationId": "Awakon",
-    "backgroundColor": "#1c1f25"
+    "target": ["nsis"]
   },
   "mac": {
     "target": ["dmg"],

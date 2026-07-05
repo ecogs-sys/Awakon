@@ -15,7 +15,7 @@ Every finding is traced to file:line evidence in this repo. Items marked **(veri
 ## Blockers — the submission cannot pass as-is
 
 ### B1. No Store-compatible packaging target
-**Status (2026-07-06): scaffolded, not submission-ready** — `apps/desktop/electron-builder.json` now has `win.target: ["nsis", "appx"]` and an `appx` block, but `identityName`/`publisher` are placeholder strings (`REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME` / `REPLACE_WITH_PARTNER_CENTER_PUBLISHER_GUID`). An MSIX build will not succeed until those are swapped for the real values reserved in Partner Center (see B4). No Windows code-signing config exists yet either way.
+**Status (2026-07-06): scaffolded, not submission-ready.** The appx target lives in a separate `apps/desktop/electron-builder.appx.json` (`extends` the base config, overrides `win.target` to `["appx"]`), built via a new `dist:win:store` script — kept out of the base `electron-builder.json` / `dist:win` path so the regular NSIS build (used by `scripts/build.ps1`) isn't coupled to Store packaging. (An earlier version of this fix put `appx` directly in `win.target` alongside `nsis` in the base config, which broke every `dist:win` run — worth noting since it's an easy mistake to reintroduce.) `identityName`/`publisher` are still placeholder strings (`PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-IDENTITY` / `CN=PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-PUBLISHER-GUID` — alphanumeric/dash only, matching AppX's `identityName` character restriction) and must be swapped for the real values reserved in Partner Center (see B4) before a build can be signed/submitted. No Windows code-signing config exists yet either way.
 
 `apps/desktop/electron-builder.json:21-23` builds Windows only as `nsis`. The Store accepts MSIX (electron-builder target `appx`) or a signed EXE/MSI; an unsigned NSIS installer fails both paths:
 
@@ -149,6 +149,6 @@ Struck-through items are completed and verified (tests passing, `pnpm typecheck`
 5. ~~**S3** — flip auto-resume to opt-in.~~ **Done** (off by default).
 6. ~~**R1** — `app.setAppUserModelId` for the NSIS build.~~ **Done.**
 7. ~~**R3** — accurate `package.json` description.~~ **Done.**
-8. **B1** — replace the placeholder `identityName`/`publisher` in `electron-builder.json`'s `appx` block with real Partner Center values (the target + block themselves are already scaffolded); then build the MSIX and run the Windows App Certification Kit against it locally before submitting.
+8. **B1** — replace the placeholder `identityName`/`publisher` in `electron-builder.appx.json`'s `appx` block with real Partner Center values (the target + config are already scaffolded, run via `pnpm --filter @awakon/desktop dist:win:store`); then run the Windows App Certification Kit against the built MSIX before submitting.
 9. **R2** — smoke-test ConPTY spawn and WSL spawn in the installed MSIX (needs B1's real identity first).
 10. **B4** — Partner Center: reserve the name, privacy policy URL, `runFullTrust` justification, accurate listing copy, age rating.

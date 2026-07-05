@@ -1,0 +1,13 @@
+{
+  "extends": "./electron-builder.json",
+  "win": {
+    "target": ["appx"]
+  },
+  "appx": {
+    "identityName": "PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-IDENTITY",
+    "publisher": "CN=PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-PUBLISHER-GUID",
+    "publisherDisplayName": "ecogs",
+    "applicationId": "Awakon",
+    "backgroundColor": "#1c1f25"
+  }
+}
