@@ -27,7 +27,7 @@
     "identity": null
   },
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": ["AppImage"],
     "category": "Development",
     "executableName": "awakon",
     "artifactName": "${productName}-${version}-${arch}.${ext}"

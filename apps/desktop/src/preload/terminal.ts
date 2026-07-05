@@ -5,9 +5,9 @@ import { exposeScopedBridge, type Bridge } from './shared.js';
  * so a terminal renderer cannot reach chrome-only or cross-session handlers (M2) —
  * notably it has no SessionCreate (only SessionCreateForPane, which main scopes to
  * the caller's own tabId) and no FsReadFile/SettingsUpdate. */
-const SEND_CHANNELS = [
+export const SEND_CHANNELS = [
   IpcChannel.SessionCreateForPane,
-  IpcChannel.SessionClose,
+  IpcChannel.SessionClosePane,
   IpcChannel.SessionWrite,
   IpcChannel.SessionResize,
   IpcChannel.SessionReplay,
@@ -18,7 +18,7 @@ const SEND_CHANNELS = [
 ] as const;
 
 /** Events a terminal view subscribes to. */
-const LISTEN_CHANNELS = [
+export const LISTEN_CHANNELS = [
   IpcChannel.SessionData,
   IpcChannel.SessionExited,
   IpcChannel.TerminalAction,

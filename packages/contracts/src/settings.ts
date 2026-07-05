@@ -8,6 +8,10 @@ export const AutoResumeSettingsSchema = z.object({
   detectText: z.string().max(200),
   /** Text typed (followed by Enter) into the tab when the limit resets. */
   responseText: z.string().max(200),
+  /** Stage 2 (M6): text typed (followed by Enter) once the reset time has passed, to
+   * nudge the session in case Claude Code did not already self-resume. `.default` keeps
+   * existing users' persisted settings parsing without a migration. */
+  resumeText: z.string().max(200).default('continue'),
 });
 export type AutoResumeSettings = z.infer<typeof AutoResumeSettingsSchema>;
 
@@ -35,6 +39,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     enabled: false,
     detectText: 'Stop and wait for limit to reset',
     responseText: '1',
+    resumeText: 'continue',
   }),
   defaultCwd: '',
   recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],

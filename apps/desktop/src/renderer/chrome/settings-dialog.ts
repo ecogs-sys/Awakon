@@ -56,6 +56,12 @@ export function showSettingsDialog(
       </section>
 
       <section class="dlg-section">
+        <div class="dlg-label">RESUME TEXT</div>
+        <input id="set-resume" type="text" maxlength="200" class="dlg-input" />
+        <div class="dlg-help">Sent (followed by Enter) once the limit's reset time has passed — a nudge in case the agent didn't already resume on its own.</div>
+      </section>
+
+      <section class="dlg-section">
         <div class="dlg-label">DEFAULT WORKING DIRECTORY</div>
         <div class="aip-path-input">
           <div class="aip-path-input__field" id="set-default-cwd-field"></div>
@@ -76,6 +82,7 @@ export function showSettingsDialog(
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
+    const resumeEl = root.querySelector<HTMLInputElement>('#set-resume')!;
     const pathField = root.querySelector<HTMLDivElement>('#set-default-cwd-field')!;
     const saveEl = root.querySelector<HTMLButtonElement>('#set-save')!;
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
@@ -140,6 +147,7 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
+    resumeEl.value = current.autoResume.resumeText;
     renderEdit({ focus: false, select: cwdValue.length > 0 });
     detectEl.focus();
     detectEl.select();
@@ -172,6 +180,7 @@ export function showSettingsDialog(
       const enabled = enabledEl.checked;
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
+      const resumeText = resumeEl.value;
       // Read from the active input if in edit mode, else from cwdValue (display mode).
       const activeInput = pathField.querySelector<HTMLInputElement>('input');
       const defaultCwd = (activeInput ? activeInput.value : cwdValue).trim();
@@ -180,7 +189,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd, recentTabs: current.recentTabs });
+      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd, recentTabs: current.recentTabs });
     }
 
     const onKey = (ev: KeyboardEvent): void => {

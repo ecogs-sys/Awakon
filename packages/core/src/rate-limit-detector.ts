@@ -5,6 +5,10 @@ import { StringDecoder } from 'node:string_decoder';
 const WINDOW_MAX = 4096;
 /** Characters captured after the matched phrase, so the reset time is included. */
 const TRAILING_CONTEXT = 200;
+/** The 'resets 9:10pm (Pacific/Auckland)' header sits ~250-300 chars before the
+ * option-1 label (status line + ruler lines in between) — verified from a real
+ * IPC log. 600 gives comfortable margin for wider terminals. */
+const LEADING_CONTEXT = 600;
 
 /** CSI sequences, OSC sequences, and other single escapes — stripped before matching. */
 const ANSI_RE =
@@ -56,7 +60,10 @@ export class RateLimitDetector extends EventEmitter {
     }
     if (this.present) return;
     this.present = true;
-    const resetText = stripped.slice(idx, idx + this.detectText.length + TRAILING_CONTEXT);
+    const resetText = stripped.slice(
+      Math.max(0, idx - LEADING_CONTEXT),
+      idx + this.detectText.length + TRAILING_CONTEXT,
+    );
     this.emit('rateLimitDetected', resetText);
   }
 

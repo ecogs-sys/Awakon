@@ -24,7 +24,7 @@ describe('SettingsStore', () => {
   it('round-trips a saved value', async () => {
     const dir = tempDir();
     const next = {
-      autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go' },
+      autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go', resumeText: 'continue' },
       defaultCwd: '',
       recentTabs: [],
     };

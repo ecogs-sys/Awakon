@@ -9,7 +9,8 @@ import type {
   SessionKind,
 } from '@awakon/contracts';
 import { Session } from './session.js';
-import { ResumeScheduler } from './resume-scheduler.js';
+import { ResumeScheduler, type ResumeSchedulerOptions } from './resume-scheduler.js';
+import { parseResetTime } from './reset-time-parser.js';
 
 export interface SessionManagerEvents {
   sessionCreated: (info: SessionInfo) => void;
@@ -29,10 +30,18 @@ export interface SessionManagerEvents {
  */
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
-  private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '' };
-  private readonly resumeScheduler = new ResumeScheduler({
-    onDue: (sessionId) => this.fireResume(sessionId),
-  });
+  private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '', resumeText: '' };
+  private readonly resumeScheduler: ResumeScheduler;
+
+  /** `resumeSchedulerOptions` overrides the sweep/grace defaults — for tests only
+   * (an integration test that waits out the real 30s grace would be needlessly slow). */
+  constructor(resumeSchedulerOptions?: Partial<Pick<ResumeSchedulerOptions, 'sweepIntervalMs' | 'graceMs'>>) {
+    super();
+    this.resumeScheduler = new ResumeScheduler({
+      onDue: (sessionId) => this.fireResume(sessionId),
+      ...resumeSchedulerOptions,
+    });
+  }
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
@@ -51,14 +60,22 @@ export class SessionManager extends EventEmitter {
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
     // The rate-limit prompt is an interactive menu ("1. Stop and wait for limit
     // to reset" / "2. Upgrade your plan") that must be answered while it is on
-    // screen. Selecting option 1 hands the waiting to the agent itself, which
-    // resumes when the limit resets — so we respond the moment the phrase is
-    // detected rather than scheduling anything for a later reset time.
-    session.on('rateLimitDetected', () => {
+    // screen. Two-stage auto-resume (M6): Stage 1 answers the menu now —
+    // responseText ('1') selects "wait for reset", which Claude Code itself
+    // waits on. Stage 2 schedules a "continue" nudge for after the parsed reset
+    // time, in case Claude Code did not already resume on its own.
+    session.on('rateLimitDetected', (resetText) => {
       if (!this.autoResume.enabled) return;
       if (session.info().status === 'exited') return;
       session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
-      this.emit('resumeFired', id);
+      // schedule() returns false when one is already pending, which dedups repeated
+      // detections from TUI redraws.
+      const resetAt = parseResetTime(resetText, new Date());
+      if (resetAt !== null && this.resumeScheduler.schedule(id, resetAt)) {
+        this.emit('resumeScheduled', id, resetAt);
+      }
+      // If parsing fails, stage 1 already answered the menu and Claude Code waits on
+      // its own — no schedule, no badge; that is the correct fallback.
     });
 
     session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');
@@ -125,11 +142,12 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  /** Invoked by the scheduler when a resume is due: type the response into the tab. */
+  /** Invoked by the scheduler when a resume is due: type resumeText ('continue') into
+   * the tab — a nudge in case Claude Code did not already self-resume after stage 1. */
   private fireResume(sessionId: SessionId): void {
     const session = this.sessions.get(sessionId);
     if (!session || session.info().status === 'exited') return;
-    session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
+    session.write(`${this.autoResume.resumeText}\r`, { synthetic: true });
     this.emit('resumeFired', sessionId);
   }
 

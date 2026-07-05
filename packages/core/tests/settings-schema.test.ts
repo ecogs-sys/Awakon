@@ -31,5 +31,24 @@ describe('AppSettingsSchema', () => {
     expect(DEFAULT_APP_SETTINGS.autoResume.enabled).toBe(false);
     expect(DEFAULT_APP_SETTINGS.autoResume.detectText).toBe('Stop and wait for limit to reset');
     expect(DEFAULT_APP_SETTINGS.autoResume.responseText).toBe('1');
+    expect(DEFAULT_APP_SETTINGS.autoResume.resumeText).toBe('continue');
+  });
+
+  it('defaults resumeText to "continue" (M6) so a persisted settings object saved before this field existed still parses', () => {
+    const persistedBeforeM6 = {
+      autoResume: { enabled: true, detectText: "You've hit your limit", responseText: '1' },
+    };
+    const parsed = AppSettingsSchema.safeParse(persistedBeforeM6);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.autoResume.resumeText).toBe('continue');
+  });
+
+  it('rejects a resumeText longer than 200 characters', () => {
+    const bad = {
+      autoResume: {
+        enabled: true, detectText: 'x', responseText: '1', resumeText: 'x'.repeat(201),
+      },
+    };
+    expect(AppSettingsSchema.safeParse(bad).success).toBe(false);
   });
 });

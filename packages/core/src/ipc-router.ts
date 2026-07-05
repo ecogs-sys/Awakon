@@ -50,6 +50,7 @@ export type SessionCreateForPaneCallback = (
 export type LayoutModalCallback = (open: boolean) => void;
 export type ReorderTabsCallback = (order: SessionId[]) => void;
 export type SessionCloseCallback = (sessionId: SessionId) => void;
+export type SessionClosePaneCallback = (sessionId: SessionId) => void;
 export type RestartViewCallback = (sessionId: SessionId) => void;
 export type PersistSplitsCallback = (
   tabId: SessionId,
@@ -82,6 +83,7 @@ export class IpcRouter {
   private layoutModalCallback: LayoutModalCallback | null = null;
   private reorderTabsCallback: ReorderTabsCallback | null = null;
   private sessionCloseCallback: SessionCloseCallback | null = null;
+  private sessionClosePaneCallback: SessionClosePaneCallback | null = null;
   private restartViewCallback: RestartViewCallback | null = null;
   private persistSplitsCallback: PersistSplitsCallback | null = null;
   private splitsForTabCallback: SplitsForTabCallback | null = null;
@@ -127,9 +129,16 @@ export class IpcRouter {
   }
 
   /** When set, core.session.close delegates to this instead of manager.close — lets
-   * main run full tab teardown (view destroy, tabMeta + pane cleanup). */
+   * main run full tab teardown (view destroy, tabMeta + pane cleanup). Sent only by
+   * chrome (the tab strip); always tears down the whole tab, panes included (R3). */
   onSessionClose(cb: SessionCloseCallback): void {
     this.sessionCloseCallback = cb;
+  }
+
+  /** Sent only by a terminal view closing its own focused pane (R3) — never affects
+   * sibling panes or the tab itself. */
+  onSessionClosePane(cb: SessionClosePaneCallback): void {
+    this.sessionClosePaneCallback = cb;
   }
 
   onRestartView(cb: RestartViewCallback): void {
@@ -200,9 +209,13 @@ export class IpcRouter {
       }
     });
 
-    this.ipcMain.handle(IpcChannel.SessionCreateForPane, (_e, raw): SessionInfo | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionCreateForPane, (e, raw): SessionInfo | { error: string } => {
       const parsed = SessionCreateForPanePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      // R6: the pane doesn't exist yet, so scope by the tabId it will belong to instead
+      // of a sessionId — otherwise a compromised terminal renderer could spawn PTYs
+      // attributed to any tab.
+      if (!this.isAuthorizedSender(e.sender, parsed.data.tabId)) return { error: 'not authorized for this session' };
       try {
         // Note: NO view creation — this session lives as a pane inside the calling renderer.
         // kind='pane' so the chrome's SessionCreated handler ignores it (no phantom tab).
@@ -238,6 +251,15 @@ export class IpcRouter {
       if (!parsed.success) return { error: parsed.error.message };
       if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
       if (this.sessionCloseCallback) this.sessionCloseCallback(parsed.data.sessionId);
+      else this.manager.close(parsed.data.sessionId);
+      return { ok: true };
+    });
+
+    this.ipcMain.handle(IpcChannel.SessionClosePane, (e, raw): { ok: true } | { error: string } => {
+      const parsed = SessionClosePayloadSchema.safeParse(raw);
+      if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isAuthorizedSender(e.sender, parsed.data.sessionId)) return { error: 'not authorized for this session' };
+      if (this.sessionClosePaneCallback) this.sessionClosePaneCallback(parsed.data.sessionId);
       else this.manager.close(parsed.data.sessionId);
       return { ok: true };
     });
@@ -310,16 +332,21 @@ export class IpcRouter {
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.LayoutPersistSplits, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.LayoutPersistSplits, (e, raw): { ok: true } | { error: string } => {
       const parsed = LayoutPersistSplitsPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      // R6: without this, a compromised terminal renderer could overwrite another
+      // tab's persisted split tree, corrupting its next restore.
+      if (!this.isAuthorizedSender(e.sender, parsed.data.tabId)) return { error: 'not authorized for this session' };
       this.persistSplitsCallback?.(parsed.data.tabId, parsed.data.splits);
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.LayoutSplitsForTab, (_e, raw): PersistedSplitNode | null | { error: string } => {
+    this.ipcMain.handle(IpcChannel.LayoutSplitsForTab, (e, raw): PersistedSplitNode | null | { error: string } => {
       const parsed = LayoutSplitsForTabPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      // R6: without this, a compromised terminal renderer could read another tab's layout.
+      if (!this.isAuthorizedSender(e.sender, parsed.data.tabId)) return { error: 'not authorized for this session' };
       return this.splitsForTabCallback?.(parsed.data.tabId) ?? null;
     });
 

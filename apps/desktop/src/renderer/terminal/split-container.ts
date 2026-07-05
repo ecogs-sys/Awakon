@@ -156,7 +156,7 @@ export class SplitContainer {
 
     // End the pane's session and tear down its terminal.
     target.host.dispose();
-    void this.bridge.send(IpcChannel.SessionClose, { sessionId: target.sessionId });
+    void this.bridge.send(IpcChannel.SessionClosePane, { sessionId: target.sessionId });
 
     // Replace the parent branch with the sibling subtree, in the DOM and the tree.
     sibling.el.style.flex = '1 1 100%';

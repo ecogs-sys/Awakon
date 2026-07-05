@@ -73,6 +73,19 @@ describe('RateLimitDetector', () => {
     expect(events).toHaveLength(1);
   });
 
+  it('captures the reset-time header that precedes the option-1 label by ~280 chars (M6 step 1)', () => {
+    // Layout verified from a real IPC log: the "resets HH:MMam/pm (Zone)" header sits
+    // well before the option-1 label, separated by status/ruler filler text.
+    const header = "You've hit your session limit · resets 9:10pm (Pacific/Auckland)\n";
+    const filler = '─'.repeat(150) + '\n' + 'some status text '.repeat(6) + '\n';
+    const menu = 'What do you want to do?\n' + CLAUDE_MENU.split('\n').slice(1).join('\n');
+    const d = new RateLimitDetector(DEFAULT_APP_SETTINGS.autoResume.detectText);
+    const events = collect(d);
+    d.process(Buffer.from(header + filler + menu, 'utf8'));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toContain('resets 9:10pm (Pacific/Auckland)');
+  });
+
   it('re-arms after setDetectText so an on-screen phrase can trigger', () => {
     const d = new RateLimitDetector('');
     const events = collect(d);

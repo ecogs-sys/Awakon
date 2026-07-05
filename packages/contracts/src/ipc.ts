@@ -22,6 +22,7 @@ export const IpcChannel = {
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
+  SessionClosePane: 'core.session.close-pane',
   SessionSetTitle: 'core.session.set-title',
   SessionRestartView: 'core.session.restart-view',
   SessionList: 'core.session.list',
@@ -81,6 +82,9 @@ export const SessionResizePayloadSchema = z.object({
   rows: z.number().int().positive(),
 });
 
+/** Shared by both close channels: `SessionClose` (chrome tab-strip — full tab teardown,
+ * panes included) and `SessionClosePane` (terminal — close only the focused pane). Kept
+ * as separate channels (R3) so main never has to infer intent from a shared one. */
 export const SessionClosePayloadSchema = z.object({
   sessionId: SessionIdSchema,
 });

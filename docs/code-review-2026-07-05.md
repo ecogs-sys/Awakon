@@ -85,6 +85,8 @@ Session ids are regenerated every launch (`session-manager.ts:38`, `randomUUID()
 
 This matches the deliberate pivot to the interactive-menu model (`session-manager.ts:52-63` responds immediately on detection and emits only `resumeFired`). **Fix:** delete `ResumeScheduler`, `parseResetTime`, the two events, the `ResumeCancel` channel, the badge/cancel UI, and the `luxon` dep — or wire the scheduler back in if the countdown UX is still wanted.
 
+**Resolved (2026-07-05):** wired in as a two-stage flow (stage 1 answers the menu immediately, stage 2 schedules a `resumeText` nudge for after the parsed reset time) rather than deleted — see the "M6 — Wire the auto-resume scheduler" design in `docs/code-review-round2-2026-07-05.md`.
+
 ### M7. Default-on auto-resume types into the terminal whenever displayed content matches
 `DEFAULT_APP_SETTINGS` ships `autoResume.enabled: true` with `detectText: 'Stop and wait for limit to reset'` (`settings.ts:22-36`). `RateLimitDetector` scans **all** PTY output (`session.ts:93`), so *any* text a program prints — `cat` of a file, a log line, output of a remote command — containing that phrase makes the app type `1␍` into that session (`session-manager.ts:57-63`). Both strings are user-configurable up to 200 chars, so a customized `responseText` could be injected at an attacker-chosen moment by getting the detect phrase displayed. **Fix:** ship disabled by default (opt-in), and consider scoping detection to sessions the user marked as agent sessions.
 

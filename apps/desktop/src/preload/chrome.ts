@@ -2,7 +2,7 @@ import { IpcChannel } from '@awakon/contracts';
 import { exposeScopedBridge, type Bridge } from './shared.js';
 
 /** Channels the chrome window (tab strip, sidebar, dialogs, titlebar) may invoke. */
-const SEND_CHANNELS = [
+export const SEND_CHANNELS = [
   IpcChannel.LayoutModal,
   IpcChannel.LayoutViewportSize,
   IpcChannel.LayoutDefaultCwd,
@@ -28,10 +28,11 @@ const SEND_CHANNELS = [
   IpcChannel.ChromeMenuPopup,
   IpcChannel.ChromeWindowControl,
   IpcChannel.ResumeCancel,
+  IpcChannel.LayoutShow,
 ] as const;
 
 /** Events the chrome window subscribes to. */
-const LISTEN_CHANNELS = [
+export const LISTEN_CHANNELS = [
   IpcChannel.SessionCreated,
   IpcChannel.SessionExited,
   IpcChannel.SessionAttention,

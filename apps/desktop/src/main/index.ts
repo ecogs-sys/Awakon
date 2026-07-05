@@ -12,6 +12,7 @@ import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
 import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
+import { isAllowedNavigation } from './navigation-guard.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -45,9 +46,7 @@ if (ipcLogConfig) {
 app.on('web-contents-created', (_event, contents) => {
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
   contents.on('will-navigate', (navEvent, url) => {
-    try {
-      if (new URL(url).origin !== new URL(contents.getURL()).origin) navEvent.preventDefault();
-    } catch {
+    if (!isAllowedNavigation(url, contents.getURL(), join(__dirname, '../renderer'))) {
       navEvent.preventDefault();
     }
   });
@@ -60,7 +59,7 @@ const settingsStore = new SettingsStore(app.getPath('userData'));
 settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
-let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '' }, defaultCwd: '', recentTabs: [] };
+let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' }, defaultCwd: '', recentTabs: [] };
 const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
@@ -115,7 +114,7 @@ function defaultShell(): Shell {
 /** Chrome and terminal views load distinct preloads with distinct channel
  * allowlists (M2) — never the same generic bridge. */
 function preloadPath(kind: 'chrome' | 'terminal'): string {
-  return join(__dirname, `../preload/${kind}.mjs`);
+  return join(__dirname, `../preload/${kind}.cjs`);
 }
 
 function iconPath(): string {
@@ -366,12 +365,13 @@ function reparentTab(oldTabId: string, newTabId: string): void {
   persistTabs();
 }
 
-/** Routes an explicit user close (core.session.close) to the right teardown:
+/** Routes a terminal's pane close (core.session.close-pane) to the right teardown
+ *  (R3 — distinct from core.session.close, which is chrome's whole-tab close):
  *  - a non-primary pane just ends its own session, the tab is untouched;
  *  - a tab's primary pane with surviving siblings triggers a reparent, not teardown;
  *  - a tab's primary pane with no other panes (or an unknown id) gets the full
  *    tab teardown. */
-function handleSessionClose(sessionId: string): void {
+function handleSessionClosePane(sessionId: string): void {
   if (tabMeta.has(sessionId)) {
     const siblingPaneId = Array.from(paneOwnership.entries())
       .find(([, owner]) => owner === sessionId)?.[0];
@@ -496,8 +496,11 @@ ipcRouter.onDocsForTab((tabId) => {
   return { docs: meta?.docs ?? [], activeDocIndex: meta?.activeDocIndex ?? null };
 });
 
-// Explicit user close → routed to pane-close, reparent, or full tab teardown.
-ipcRouter.onSessionClose((sessionId) => handleSessionClose(sessionId));
+// Chrome's tab-strip close: always full teardown, panes included (R3).
+ipcRouter.onSessionClose((sessionId) => closeTab(sessionId));
+
+// A terminal's own pane close → routed to pane-close, reparent, or full tab teardown.
+ipcRouter.onSessionClosePane((sessionId) => handleSessionClosePane(sessionId));
 
 // Restart a broken tab's renderer (PTY is still alive — recreate just the view).
 ipcRouter.onRestartView((sessionId) => {
@@ -570,15 +573,19 @@ async function createChromeWindow(): Promise<void> {
     // after the window closed without quitting — window-all-closed doesn't quit on
     // darwin and closing the window never tears down sessions). Re-bootstrapping here
     // would spawn a duplicate PTY per persisted tab and double the saved layout on the
-    // next persist. Instead, reattach fresh views to the surviving sessions.
+    // next persist. Instead, reattach fresh views to the surviving primary sessions.
+    //
+    // R5: persisted split leaves carry no session ids (split-container.ts serializeNode
+    // only stores {kind:'leaf'}), so the fresh renderer's restoreFromSaved() always
+    // rebuilds the split tree via splitFocused -> SessionCreateForPane, creating brand
+    // new pane PTYs regardless of what we rebind here. Rebinding the old pane sessions
+    // (as before) left them alive but unused — a PTY + paneOwnership leak on every
+    // dock-reopen of a split tab. Close them first so nothing is orphaned; the renderer
+    // recreates the same shape from the persisted tree. Trade-off: pane scrollback is
+    // lost on dock-reopen — acceptable, and strictly better than leaking.
     for (const tabId of tabOrder) {
+      closeTabPanes(tabId);
       await createSessionView(tabId);
-      const wc = viewManager?.get(tabId)?.webContents;
-      if (wc) {
-        for (const [paneId, owner] of paneOwnership) {
-          if (owner === tabId) ipcRouter.bindSessionView(paneId, wc);
-        }
-      }
     }
     const toFocus = focusedSessionId && tabMeta.has(focusedSessionId) ? focusedSessionId : tabOrder[0]!;
     focusedSessionId = toFocus;

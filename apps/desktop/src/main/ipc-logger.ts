@@ -1,5 +1,6 @@
 import { closeSync, mkdirSync, openSync, readdirSync, unlinkSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
+import { IpcChannel } from '@awakon/contracts';
 
 export interface IpcLogConfig {
   dir: string;
@@ -182,12 +183,11 @@ interface LoggerLike {
 const isAppChannel = (channel: string): boolean =>
   channel.startsWith('core.') || channel.startsWith('event.');
 
-/** L4: core.session.write carries everything typed into any terminal, including
- * passwords, base64-encoded. Log its length, never its content. */
-const SESSION_WRITE_CHANNEL = 'core.session.write';
-
 function redactPayload(channel: string, payload: unknown): unknown {
-  if (channel !== SESSION_WRITE_CHANNEL) return payload;
+  // L4: core.session.write carries everything typed into any terminal, including
+  // passwords, base64-encoded. Log its length, never its content. Imported from
+  // @awakon/contracts (R9) so a channel rename can't silently disable this redaction.
+  if (channel !== IpcChannel.SessionWrite) return payload;
   if (typeof payload !== 'object' || payload === null || !('data' in payload)) return payload;
   const { data, ...rest } = payload as { data: unknown };
   return { ...rest, dataLength: typeof data === 'string' ? data.length : undefined, redacted: true };
