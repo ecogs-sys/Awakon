@@ -6,6 +6,7 @@ export const SEND_CHANNELS = [
   IpcChannel.LayoutModal,
   IpcChannel.LayoutViewportSize,
   IpcChannel.LayoutDefaultCwd,
+  IpcChannel.LayoutDefaultShell,
   IpcChannel.LayoutSetSidebarWidth,
   IpcChannel.LayoutReorderTabs,
   IpcChannel.LayoutPersistDocs,

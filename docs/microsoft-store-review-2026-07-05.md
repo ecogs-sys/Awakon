@@ -5,6 +5,8 @@
 Every finding is traced to file:line evidence in this repo. Items marked **(verify)** have a step that could not be confirmed statically. This review builds on the general code review in [`code-review-2026-07-05.md`](code-review-2026-07-05.md); findings from there are cross-referenced rather than repeated in full.
 
 > **Status update (2026-07-06, after round-2/round-3 fixes `51df7fc` + `93b5e1b`):** each finding below now carries a **Status** line verified against the current code. Resolved: S1, S3, S4 (all five flags), R4. Partially addressed: B3. Still open: B1, B2, B4, S2, R1, R2, R3.
+>
+> **Status update (2026-07-06, second pass):** B2, B3, R1, and R3 are now resolved (code + tests, see below). B1 is scaffolded but not submission-ready — the `appx` block holds placeholder Partner Center values that must be replaced before a build can be signed/submitted. Still open: S2 (Electron major upgrade — deferred, high blast radius, needs its own testing pass), B4 (Partner Center account work), R2 (needs a smoke test in a packaged MSIX, which needs B1's real identity values first).
 
 **Context on what Microsoft actually checks:** a Store submission goes through (1) an automated malware/security scan of every binary, (2) packaging validation (MSIX manifest, identity, capabilities), and (3) certification testing against the Microsoft Store Policies — including installing the app on a clean Windows machine and exercising its primary features. Desktop apps can be submitted as **MSIX** (recommended, Store handles signing and updates) or as a signed **EXE/MSI** (Win32 flow). Awakon is currently set up for neither.
 
@@ -13,7 +15,7 @@ Every finding is traced to file:line evidence in this repo. Items marked **(veri
 ## Blockers — the submission cannot pass as-is
 
 ### B1. No Store-compatible packaging target
-**Status (2026-07-06): open** — `win.target` is still `["nsis"]` only; no `appx` block, no signing config.
+**Status (2026-07-06): scaffolded, not submission-ready** — `apps/desktop/electron-builder.json` now has `win.target: ["nsis", "appx"]` and an `appx` block, but `identityName`/`publisher` are placeholder strings (`REPLACE_WITH_PARTNER_CENTER_IDENTITY_NAME` / `REPLACE_WITH_PARTNER_CENTER_PUBLISHER_GUID`). An MSIX build will not succeed until those are swapped for the real values reserved in Partner Center (see B4). No Windows code-signing config exists yet either way.
 
 `apps/desktop/electron-builder.json:21-23` builds Windows only as `nsis`. The Store accepts MSIX (electron-builder target `appx`) or a signed EXE/MSI; an unsigned NSIS installer fails both paths:
 
@@ -36,7 +38,7 @@ Every finding is traced to file:line evidence in this repo. Items marked **(veri
 ```
 
 ### B2. Auto-updater runs in Store builds and tries to self-update from GitHub
-**Status (2026-07-06): open** — `auto-update.ts:11` still gates only on `!app.isPackaged`; no `process.windowsStore` check.
+**Status (2026-07-06): resolved.** `apps/desktop/src/main/auto-update.ts` now also returns early when `process.windowsStore` is set, in addition to the `!app.isPackaged` dev/test gate (covered by `auto-update.test.ts`).
 
 `apps/desktop/src/main/auto-update.ts:10-21` — the only gate is `if (!app.isPackaged) return;`. A Store MSIX build **is** packaged, so on every launch the app contacts GitHub Releases (`electron-builder.json:35-41`), auto-downloads (`autoDownload = true`, line 13) and arms install-on-quit (`autoInstallOnAppQuit = true`, line 14).
 
@@ -51,7 +53,7 @@ if (!app.isPackaged || process.windowsStore) return;
 (`process.windowsStore` is set by Electron when running inside an AppX/MSIX container.)
 
 ### B3. Primary feature fails on a clean Windows machine — default shell is `pwsh.exe`
-**Status (2026-07-06): partially addressed.** A `powershell` (Windows PowerShell 5.1) option was added to `ShellSchema` (`packages/contracts/src/session.ts:14`) and the shell pickers, so a user *can* select a shell that exists on a stock image. But `defaultShell()` (`apps/desktop/src/main/index.ts:108-112`) still returns `pwsh` unconditionally on win32, there is still no PATH probe / fallback to `powershell.exe`, and a failed spawn still surfaces as nothing friendlier than a `console.warn` (`session-bootstrap.ts:57-70`). The clean-machine first-run failure described below is still live.
+**Status (2026-07-06): resolved.** `apps/desktop/src/main/platform-defaults.ts` (`probeDefaultShell`) now scans `PATH` for `pwsh.exe` and falls back to `powershell.exe` when it's absent — exactly the case on a stock Windows 10/11 image. Main's `defaultShell()` (`index.ts`) uses the probed value, and a new `LayoutDefaultShell` IPC channel feeds the same value to the renderer's New Session dialog (`layout-manager.ts`'s `platformDefaultShell()`), so the dialog no longer prefills `pwsh` on a machine that doesn't have it. Separately, a failed user-initiated spawn (New Session dialog, "open recent", "duplicate tab" — the `core.session.create` path) now shows a native `dialog.showErrorBox` naming the shell and the underlying error (`session-create-error.ts`), instead of only a devtools `console.error`. Covered by `platform-defaults.test.ts`, `session-create-error.test.ts`, and `layout-manager-default-shell.test.ts`.
 
 `apps/desktop/src/main/index.ts:108-112` picks `pwsh` as the Windows default, which `packages/core/src/session.ts:27` resolves to `pwsh.exe`. PowerShell 7 is **not** preinstalled on Windows 10/11 — only Windows PowerShell 5.1 (`powershell.exe`) is. Certification testers run the app on a stock Windows image: they'll launch Awakon, hit "New session", and the PTY spawn fails (the session throws or dies instantly). The app's core function being broken on first run is a failure of Store Policy 10.1 (the app must be fully functional and testable).
 
@@ -62,7 +64,7 @@ The same applies to `wsl` / `git-bash` entries in the shell picker (`packages/co
 ### B4. Submission prerequisites that don't exist yet (Partner Center, not code)
 **Status (2026-07-06): open** — external to the repo; nothing to verify in code.
 
-- **Privacy policy URL** — required because the app accesses the internet (auto-updater; the MSIX manifest gets the `internetClient` capability by default). The app collects no telemetry (no `fetch`/analytics calls anywhere in `apps/desktop/src` — verified by grep), so the policy can be short, but the URL field is mandatory.
+- **Privacy policy URL** — required because the app accesses the internet (auto-updater; the MSIX manifest gets the `internetClient` capability by default **(verify once B1's `appx` target is configured and built — this is electron-builder's default behavior, not yet exercised in this repo)**). The app collects no telemetry (no `fetch`/analytics calls anywhere in `apps/desktop/src` — verified by grep), so the policy can be short, but the URL field is mandatory.
 - **`runFullTrust` restricted capability justification** — an Electron MSIX is a full-trust desktop-bridge app. Expect to justify why the app spawns arbitrary shell processes (`pwsh`, `cmd`, `wsl`, `bash` via node-pty). "Developer terminal/session manager" is an accepted category (Windows Terminal ships this way), but write the justification honestly.
 - **Age rating questionnaire, screenshots, store listing.**
 
@@ -106,7 +108,7 @@ Original finding (general review M7): default settings shipped `autoResume.enabl
 ## Medium — MSIX runtime behavior to fix or verify
 
 ### R1. No `app.setAppUserModelId`, and notifications must match package identity **(verify)**
-**Status (2026-07-06): open** — still no `setAppUserModelId` call anywhere in the repo.
+**Status (2026-07-06): resolved for the NSIS build.** `apps/desktop/src/main/index.ts` now calls `app.setAppUserModelId('com.ecogs.awakon')`, guarded by `shouldSetAppUserModelId()` (`platform-defaults.ts`) so it only fires on win32 outside a Store/MSIX container — under MSIX the AUMID still comes from the package manifest automatically. The **(verify)** flag itself (real notification attribution inside a packaged MSIX) remains open until B1 produces a signed MSIX to test.
 
 Grep across `apps/` and `packages/` finds no `setAppUserModelId` call. The app shows OS notifications (`apps/desktop/src/main/notification-bridge.ts:30` via Electron `Notification`). Under MSIX the AppUserModelID comes from the package manifest and Electron picks it up automatically, so notifications *should* attribute correctly in the Store build — but this needs a real test in the packaged MSIX, because in the current NSIS build (no explicit AUMID) Windows notification attribution/settings grouping is already unreliable. If you keep shipping NSIS alongside the Store build, call `app.setAppUserModelId('com.ecogs.awakon')` for the non-Store build only.
 
@@ -116,9 +118,7 @@ Grep across `apps/` and `packages/` finds no `setAppUserModelId` call. The app s
 Settings, session layout, and IPC logs write under `app.getPath('userData')` (`index.ts:44-45`) — safe, MSIX redirects AppData writes transparently. Things to smoke-test in the packaged build: node-pty's unpacked native binaries load from the read-only install dir (`electron-builder.json:12-14` asarUnpack — reads are fine, but confirm ConPTY spawn works from `WindowsApps`), and spawning `wsl.exe` from inside the app container.
 
 ### R3. Store listing metadata must match what the app is
-**Status (2026-07-06): open** — `package.json:11` still says "AI-powered notepad for developers".
-
-`apps/desktop/package.json:11` describes the app as "AI-powered notepad for developers"; the product is a terminal-session manager with a markdown reader and agent auto-resume. Policy 10.1.1 requires the description to accurately represent the app. Write the listing around what testers will actually see.
+**Status (2026-07-06): resolved (package.json).** `apps/desktop/package.json`'s `description` now reads "Terminal session manager with a markdown reader and agent auto-resume". The actual Partner Center store-listing copy (title, screenshots, longer description) is still a B4 prerequisite — this only fixes the field in the repo that a build/manifest pipeline would read from.
 
 ### R4. DevTools and Reload in the production menu
 **Status (2026-07-06): resolved.** Reload and Toggle DevTools are now dev-only, gated on `!app.isPackaged` (`apps/desktop/src/main/app-menu.ts:53-57`).
@@ -130,9 +130,9 @@ Original finding (general review L5): `toggleDevTools` and `reload` shipped unco
 ## Not an issue for the Store (checked, fine)
 
 - **Third-party licensing** — `THIRD_PARTY_NOTICES.md` is present and current (all MIT/permissive); `LICENSE` is MIT. Store has no objection to OSS licensing as long as you have redistribution rights, which MIT grants.
-- **No telemetry / data collection** — no network calls besides the updater (grep across `apps/desktop/src` for `fetch(`/`https://` finds only static GitHub link constants in `about-dialog.ts:10`). Privacy declaration will be trivially clean once B2 removes the updater from Store builds.
+- **No telemetry / data collection** — no network calls besides the updater (grep across `apps/desktop/src` for `fetch(`/`https://` finds only static GitHub link constants in `about-dialog.ts:10`). Privacy declaration is trivially clean now that B2 removes the updater from Store builds.
 - **Packaged file set is clean** — `electron-builder.json:8-11` ships only `out/**` + `package.json`; dev tooling (`tools/ipc-log-viewer.html`, `temp/`, docs) is not in the package.
-- **Icons** — `build/icons/` has 16–1024px PNGs; electron-builder can generate the MSIX tile assets from these. Visually check the generated 44×44/150×150 tiles for padding once the appx target exists.
+- **Icons** — `build/icons/` has 16–1024px PNGs; electron-builder can generate the MSIX tile assets from these. Visually check the generated 44×44/150×150 tiles for padding once B1's placeholder identity values are replaced and a real MSIX is built.
 - **Single-instance, frameless window, custom titlebar** — all fine for Store apps.
 - **The Linux `--no-sandbox` wrapper** (`afterPack.cjs:25`) exits early for non-Linux platforms and does not touch Windows builds. (General review H4 has since been fixed for Linux too — the wrapper now covers AppImage/`--dir` builds and fails loudly if deb is packed in the same invocation, N7.)
 
@@ -140,13 +140,15 @@ Original finding (general review L5): `toggleDevTools` and `reload` shipped unco
 
 ## Recommended order of work
 
-Struck-through items were completed in the round-2/round-3 fix commits (verified 2026-07-06).
+Struck-through items are completed and verified (tests passing, `pnpm typecheck` clean) as of 2026-07-06.
 
-1. **B2** — gate the updater on `process.windowsStore` (one line, do it first so every test build behaves correctly).
-2. **B3 (remaining half)** — `powershell.exe` fallback for the default shell + friendly missing-shell error (the `powershell` shell option itself already exists).
+1. ~~**B2** — gate the updater on `process.windowsStore`.~~ **Done.**
+2. ~~**B3** — `powershell.exe` fallback for the default shell + friendly missing-shell error.~~ **Done.**
 3. ~~**S1 + S4** — the Electron hardening batch from the general review (deny-all window-open handler, scheme allowlist, sandbox on, channel allowlist, CSP).~~ **Done.**
-4. **S2** — Electron upgrade to a supported major.
+4. **S2** — Electron upgrade to a supported major. Deliberately deferred: current is `33.4.11`, latest is `43.0.0` — a 10-major jump with real breaking-API risk that needs its own dedicated testing pass, not bundled with the fixes above.
 5. ~~**S3** — flip auto-resume to opt-in.~~ **Done** (off by default).
-6. **B1** — add and configure the `appx` target once Partner Center identity values exist; build the MSIX and run the Windows App Certification Kit against it locally before submitting.
-7. **R1/R2** — smoke-test notifications, ConPTY spawn, and WSL spawn in the installed MSIX.
-8. **B4/R3** — Partner Center: reserve the name, privacy policy URL, `runFullTrust` justification, accurate listing copy, age rating.
+6. ~~**R1** — `app.setAppUserModelId` for the NSIS build.~~ **Done.**
+7. ~~**R3** — accurate `package.json` description.~~ **Done.**
+8. **B1** — replace the placeholder `identityName`/`publisher` in `electron-builder.json`'s `appx` block with real Partner Center values (the target + block themselves are already scaffolded); then build the MSIX and run the Windows App Certification Kit against it locally before submitting.
+9. **R2** — smoke-test ConPTY spawn and WSL spawn in the installed MSIX (needs B1's real identity first).
+10. **B4** — Partner Center: reserve the name, privacy policy URL, `runFullTrust` justification, accurate listing copy, age rating.

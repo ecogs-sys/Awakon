@@ -13,6 +13,8 @@ import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
 import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
 import { isAllowedNavigation, isPathInside } from './navigation-guard.js';
+import { probeDefaultShell, shouldSetAppUserModelId } from './platform-defaults.js';
+import { formatSessionCreateError } from './session-create-error.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -21,6 +23,12 @@ const isDev = !app.isPackaged && process.env['NODE_ENV'] !== 'production';
 if (!app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
+}
+
+// R1: notifications/taskbar grouping need an explicit AUMID on the non-Store (NSIS)
+// build. A Store MSIX build gets its AUMID from the package manifest automatically.
+if (shouldSetAppUserModelId(process.platform, process.windowsStore)) {
+  app.setAppUserModelId('com.ecogs.awakon');
 }
 
 // IPC logging (opt-in via --log-ipc <dir> or AWAKON_LOG_IPC). Installed BEFORE the
@@ -105,10 +113,11 @@ sessionStore.onError((err) => {
 let chromeWindow: BrowserWindow | null = null;
 let viewManager: ViewManager | null = null;
 
+// Probed once at startup (a directory scan over PATH, cheap but no need to repeat it
+// on every session-create call).
+const probedDefaultShell = probeDefaultShell(process.platform, process.env['PATH']);
 function defaultShell(): Shell {
-  if (process.platform === 'win32') return 'pwsh';
-  if (process.platform === 'darwin') return 'zsh';
-  return 'bash';
+  return probedDefaultShell;
 }
 
 /** Chrome and terminal views load distinct preloads with distinct channel
@@ -173,6 +182,11 @@ async function createTabSession(opts: Parameters<SessionManager['create']>[0] & 
 
 // IPC: renderer asks for the platform home directory (the chrome cannot read it).
 ipcMain.handle(IpcChannel.LayoutDefaultCwd, (): string => homedir());
+
+// IPC: renderer asks for the platform default shell (B3) — the New Session dialog's
+// prefill must reflect main's PATH probe (pwsh vs. powershell), not a UA-based guess
+// that assumes PowerShell 7 is installed.
+ipcMain.handle(IpcChannel.LayoutDefaultShell, (): Shell => defaultShell());
 
 // IPC: filesystem helpers used by the New Session dialog (Browse + cwd validation).
 // FsReadFile (N6) resolves a tab's cwd here to enforce containment at the read boundary.
@@ -414,7 +428,19 @@ ipcRouter.onSetSidebarWidth((widthPx) => {
   viewManager?.setSidebarWidth(widthPx);
 });
 
-ipcRouter.onSessionCreate((opts) => createTabSession(opts));
+// B3: unlike bootstrapSessions' restore path (which already degrades gracefully with
+// a $HOME retry + console.warn), this is always a live user action — New Session
+// dialog, "open recent", or "duplicate tab" — so a spawn failure must reach the user,
+// not just devtools.
+ipcRouter.onSessionCreate(async (opts) => {
+  try {
+    return await createTabSession(opts);
+  } catch (err) {
+    const { title, message } = formatSessionCreateError(opts.shell, err);
+    dialog.showErrorBox(title, message);
+    throw err;
+  }
+});
 
 // Pane creation: spawn a pane session and record which tab owns it (no view).
 // The pane's data is routed to the owning tab's WebContents.

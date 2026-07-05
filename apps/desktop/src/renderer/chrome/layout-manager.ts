@@ -36,6 +36,9 @@ export class LayoutManager {
   /** User-configured default working directory (settings.defaultCwd). Cached here so
    *  platformDefaultCwd() can remain synchronous. Kept live by the SettingsChanged subscription. */
   private defaultCwdSetting = '';
+  /** Main's PATH-probed default shell (B3) — the chrome cannot check PATH itself.
+   *  Null until fetched; platformDefaultShell() falls back to a platform guess until then. */
+  private detectedDefaultShell: Shell | null = null;
   private readonly emptyStateHostEl: HTMLElement;
   private readonly emptyStateView: EmptyStateView;
   private readonly viewHostEl: HTMLElement;
@@ -178,13 +181,15 @@ export class LayoutManager {
       this.render();
     });
 
-    // Fetch the real home directory, settings, and recent tabs in parallel.
-    const [homeCwdResult, settingsResult, recentsResult] = await Promise.allSettled([
+    // Fetch the real home directory, default shell, settings, and recent tabs in parallel.
+    const [homeCwdResult, defaultShellResult, settingsResult, recentsResult] = await Promise.allSettled([
       this.bridge.send(IpcChannel.LayoutDefaultCwd) as Promise<string>,
+      this.bridge.send(IpcChannel.LayoutDefaultShell) as Promise<Shell>,
       this.bridge.send(IpcChannel.SettingsGet) as Promise<AppSettings>,
       this.bridge.send(IpcChannel.RecentList) as Promise<RecentTab[]>,
     ]);
     if (homeCwdResult.status === 'fulfilled') this.homeCwd = homeCwdResult.value;
+    if (defaultShellResult.status === 'fulfilled') this.detectedDefaultShell = defaultShellResult.value;
     if (settingsResult.status === 'fulfilled') this.defaultCwdSetting = settingsResult.value.defaultCwd ?? '';
     if (recentsResult.status === 'fulfilled') this.state.recentTabs = recentsResult.value;
 
@@ -291,6 +296,9 @@ export class LayoutManager {
   }
 
   private platformDefaultShell(): Shell {
+    if (this.detectedDefaultShell) return this.detectedDefaultShell;
+    // Fallback before LayoutDefaultShell resolves (or if it failed): a platform guess
+    // only, since the chrome cannot itself check whether pwsh.exe is on PATH.
     const ua = navigator.userAgent;
     if (ua.includes('Windows')) return 'pwsh';
     if (ua.includes('Mac OS')) return 'zsh';

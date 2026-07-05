@@ -35,6 +35,7 @@ export const IpcChannel = {
   LayoutPersistSplits: 'core.layout.persist-splits',
   LayoutSplitsForTab: 'core.layout.splits-for-tab',
   LayoutDefaultCwd: 'core.layout.default-cwd',
+  LayoutDefaultShell: 'core.layout.default-shell',
   FsPickDirectory: 'core.fs.pick-directory',
   FsPathExists: 'core.fs.path-exists',
   SettingsGet: 'core.settings.get',

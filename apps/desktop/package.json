@@ -7,8 +7,8 @@
     "name": "ecogs",
     "email": "ecogs.ltd@gmail.com"
   },
-  "homepage": "https://github.com/ecogs/Awakon",
-  "description": "AI-powered notepad for developers",
+  "homepage": "https://github.com/ecogs-sys/Awakon",
+  "description": "Terminal session manager with a markdown reader and agent auto-resume",
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {

@@ -9,6 +9,11 @@ import { app } from 'electron';
  */
 export async function setupAutoUpdate(): Promise<void> {
   if (!app.isPackaged) return; // skip in dev / Playwright
+  // A Store (MSIX) build is packaged too, but Store policy prohibits self-updating
+  // from outside the Store, and it can't work anyway — MSIX installs to the
+  // read-only WindowsApps directory. Electron sets process.windowsStore when
+  // running inside an AppX/MSIX container.
+  if (process.windowsStore) return;
   const { autoUpdater } = await import('electron-updater');
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
