@@ -190,7 +190,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd, recentTabs: current.recentTabs });
+      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd, recentTabs: current.recentTabs, version: current.version });
     }
 
     const onKey = (ev: KeyboardEvent): void => {

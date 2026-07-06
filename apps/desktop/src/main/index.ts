@@ -4,7 +4,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
 import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab, PersistedOpenDoc } from '@awakon/contracts';
-import { UserEditableSettingsSchema, ResumeCancelPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema } from '@awakon/contracts';
+import { UserEditableSettingsSchema, ResumeCancelPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema, SETTINGS_SCHEMA_VERSION } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
@@ -86,7 +86,7 @@ const settingsStore = new SettingsStore(app.getPath('userData'));
 settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
-let appSettings: AppSettings = { autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' }, defaultCwd: '', recentTabs: [] };
+let appSettings: AppSettings = { version: SETTINGS_SCHEMA_VERSION, autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' }, defaultCwd: '', recentTabs: [] };
 const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
@@ -307,7 +307,7 @@ ipcMain.handle(IpcChannel.SettingsUpdate, (e, raw): { ok: true } | { error: stri
   const parsed = UserEditableSettingsSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
   if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
-  appSettings = { ...parsed.data, recentTabs: appSettings.recentTabs };
+  appSettings = { ...parsed.data, recentTabs: appSettings.recentTabs, version: appSettings.version };
   void settingsStore.save(appSettings);
   sessionManager.applyAutoResumeConfig(appSettings.autoResume);
   chromeWindow?.webContents.send(IpcChannel.SettingsChanged, appSettings);

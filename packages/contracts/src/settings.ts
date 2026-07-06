@@ -26,9 +26,17 @@ export const UserEditableSettingsSchema = z.object({
 });
 export type UserEditableSettings = z.infer<typeof UserEditableSettingsSchema>;
 
+/** Current settings.json schema version. Bump this — and add a migration step in
+ * SettingsStore's MIGRATIONS map — whenever a change to this schema would otherwise
+ * fail to parse an existing user's persisted file (A2-I3): without a version to key
+ * off of, a schema break silently wipes every persisted setting back to defaults
+ * instead of migrating the old shape forward. */
+export const SETTINGS_SCHEMA_VERSION = 1;
+
 /** Top-level persisted application settings. */
 export const AppSettingsSchema = UserEditableSettingsSchema.extend({
   recentTabs:  z.array(RecentTabSchema).max(10).default([]),
+  version:     z.number().int().default(SETTINGS_SCHEMA_VERSION),
 });
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
@@ -52,4 +60,5 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
   }),
   defaultCwd: '',
   recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],
+  version: SETTINGS_SCHEMA_VERSION,
 });
