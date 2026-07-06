@@ -58,6 +58,25 @@ app.on('web-contents-created', (_event, contents) => {
       navEvent.preventDefault();
     }
   });
+  // will-navigate only fires for main-frame navigations — will-frame-navigate covers
+  // subframes too, closing the gap a compromised/embedded frame could otherwise use to
+  // navigate without tripping the check above (this app has no legitimate subframes).
+  contents.on('will-frame-navigate', (details) => {
+    if (!isAllowedNavigation(details.url, contents.getURL(), join(__dirname, '../renderer'))) {
+      details.preventDefault();
+    }
+  });
+  // This app never uses <webview>; deny attaching one outright rather than trusting a
+  // renderer not to try.
+  contents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+  // Nothing in this app (chrome or terminal) needs camera/mic/geolocation/notifications/
+  // etc. — deny every permission request instead of falling back to Electron's default
+  // (which grants some permissions unprompted for file:// origins).
+  contents.session.setPermissionRequestHandler((_wc, _permission, callback) => {
+    callback(false);
+  });
 });
 
 const sessionManager = new SessionManager();
