@@ -186,6 +186,39 @@ describe('SplitContainer.restore()', () => {
   });
 });
 
+describe('SplitContainer.splitFocused() concurrency (A6-I3)', () => {
+  it('abandons the split and cleans up the new pane if the focused pane leaves the tree during creation', async () => {
+    // First split settles synchronously; focused is now the new "pane-a" leaf.
+    bridge.send.mockResolvedValueOnce({ id: 'pane-a' });
+    await splits.splitFocused('horizontal');
+
+    // Second split targets the now-focused pane-a leaf; control its resolution so we
+    // can simulate something else changing the tree while it's in flight.
+    let resolveCreate!: (v: { id: string }) => void;
+    bridge.send.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveCreate = resolve; }),
+    );
+    const splitPromise = splits.splitFocused('vertical');
+
+    // While the create-pane call is in flight, the user closes the focused pane
+    // (e.g. Ctrl+Shift+W) before it resolves — collapsing the tree back to one leaf.
+    splits.closeFocusedPane();
+    expect(splits.serialize()).toBeUndefined();
+
+    // Now the stale create-pane call resolves with the orphaned sibling.
+    resolveCreate({ id: 'pane-b' });
+    await splitPromise;
+
+    // The abandoned split must not corrupt the tree with an orphaned root branch.
+    expect(splits.serialize()).toBeUndefined();
+    // The orphaned pane-b session must be cleaned up, not leaked.
+    const closePaneCalls = bridge.send.mock.calls.filter(
+      (c: unknown[]) => c[0] === 'core.session.close-pane',
+    );
+    expect(closePaneCalls.some((c: unknown[]) => (c[1] as { sessionId: string }).sessionId === 'pane-b')).toBe(true);
+  });
+});
+
 function persistCalls(b: FakeBridge): Array<{ tabId: string; splits: unknown }> {
   return b.send.mock.calls
     .filter((c: unknown[]) => c[0] === 'core.layout.persist-splits')

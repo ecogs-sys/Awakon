@@ -79,6 +79,19 @@ export class SplitContainer {
     }
     const newSessionId = newSessionInfo.id as SessionId;
 
+    // A6-I3: `oldFocused` may have left the tree while the create-pane request was in
+    // flight (e.g. its pane was closed by closeFocusedPane() from elsewhere). Proceeding
+    // anyway would replaceChild against a detached element (a no-op, since parentElement
+    // is now null) and replaceInTree would fail to find `oldFocused` and fall back to
+    // installing `branch` as a brand-new root that was never attached to the DOM,
+    // corrupting the tree. Abandon the split and clean up the now-orphaned pane instead.
+    const stillInTree = oldFocused === this.root || this.findParent(this.root, oldFocused) !== null;
+    if (!stillInTree) {
+      console.warn('[split] focused pane left the tree while creating its sibling; abandoning split');
+      void this.bridge.send(IpcChannel.SessionClosePane, { sessionId: newSessionId });
+      return;
+    }
+
     const branchEl = document.createElement('div');
     branchEl.style.display = 'flex';
     branchEl.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column';
