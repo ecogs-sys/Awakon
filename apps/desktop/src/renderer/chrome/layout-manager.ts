@@ -213,8 +213,12 @@ export class LayoutManager {
     }
     if (!this.state.focusedId && this.state.tabOrder[0]) this.focus(this.state.tabOrder[0]);
 
-    // Tick sidebar time-in-state once per second.
-    this.tickHandle = setInterval(() => this.render(), 1_000);
+    // Tick sidebar time-in-state labels once per second, in place — a full render()
+    // (tab strip + sidebar + empty state, each rebuilding all its DOM from scratch) on
+    // every tick was wasted work every single second regardless of whether anything
+    // besides the clock changed (A5-I5). Actual state changes still call render()
+    // directly from their own handlers below.
+    this.tickHandle = setInterval(() => this.sidebar.tick(), 1_000);
 
     this.render();
   }

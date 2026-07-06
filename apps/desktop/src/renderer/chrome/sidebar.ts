@@ -190,6 +190,29 @@ export class Sidebar {
     }
   }
 
+  /** Update only the per-second-changing "time in state" labels in place, without
+   * rebuilding row DOM or touching click/context-menu listeners (A5-I5). Called every
+   * second by the layout manager's tick — a full render() only runs on actual state
+   * changes (new/closed/focused session, attention, etc.), not on the clock alone. */
+  tick(): void {
+    const now = Date.now();
+    const ageLabelById = new Map(
+      this.lastRows.map((r) => [r.info.id, `· ${formatAge(Math.max(0, Math.floor((now - r.statusSinceMs) / 1000)))}`]),
+    );
+    this.tickTimeLabels(this.listEl, '.sr-pill-time', ageLabelById);
+    if (this.railListEl) this.tickTimeLabels(this.railListEl, '.aip-rail__flyout-pill-time', ageLabelById);
+  }
+
+  private tickTimeLabels(container: HTMLElement, selector: string, labelById: Map<SessionId, string>): void {
+    for (const el of Array.from(container.children)) {
+      const id = (el as HTMLElement).dataset['sessionId'];
+      const label = id ? labelById.get(id) : undefined;
+      if (label === undefined) continue;
+      const timeEl = el.querySelector(selector);
+      if (timeEl) timeEl.textContent = label;
+    }
+  }
+
   /** 'running' | 'awaiting' | 'limited' | 'idle' for the pill (matches handoff palette). */
   private pillStatusClass(row: SidebarRowVm): VisualStatus {
     return visualStatusFor(row);

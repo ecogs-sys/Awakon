@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { StringDecoder } from 'node:string_decoder';
+import { stripAnsi } from './strip-ansi.js';
 
 /** Max characters of decoded output kept for phrase matching. */
 const WINDOW_MAX = 4096;
@@ -9,11 +10,6 @@ const TRAILING_CONTEXT = 200;
  * option-1 label (status line + ruler lines in between) — verified from a real
  * IPC log. 600 gives comfortable margin for wider terminals. */
 const LEADING_CONTEXT = 600;
-
-/** CSI sequences, OSC sequences, and other single escapes — stripped before matching. */
-const ANSI_RE =
-  // eslint-disable-next-line no-control-regex
-  /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
 
 /** A structural menu signature — both parts must be present, not just one (N11 /
  * Critical #2). The bare `❯` selector glyph alone is *not* sufficient: it is also the
@@ -66,7 +62,7 @@ export class RateLimitDetector extends EventEmitter {
       this.present = false;
       return;
     }
-    const stripped = this.window.replace(ANSI_RE, '');
+    const stripped = stripAnsi(this.window);
     const idx = stripped.indexOf(this.detectText);
     if (idx === -1) {
       this.present = false;
