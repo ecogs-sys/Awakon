@@ -745,10 +745,14 @@ app.on('activate', () => {
 app.on('before-quit', async (event) => {
   if (sessionManager.list().length === 0) return;
   event.preventDefault();
-  await sessionManager.closeAll();
-  // app.exit() does not emit 'quit', so flush the IPC log here before exiting.
-  void ipcLogger?.close();
-  app.exit(0);
+  try {
+    await sessionManager.closeAll();
+  } finally {
+    // A rejection from closeAll() must not leave the app un-quittable — always reach
+    // exit. app.exit() does not emit 'quit', so flush the IPC log here before exiting.
+    void ipcLogger?.close();
+    app.exit(0);
+  }
 });
 
 app.on('window-all-closed', () => {
