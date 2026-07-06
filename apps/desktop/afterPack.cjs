@@ -12,15 +12,23 @@ exports.testHooks = { flipFusesImpl: flipFuses };
 
 /** Where electron-builder places the actual Electron executable inside appOutDir, per
  * platform — the Linux wrap-for-sandbox logic below renames/replaces this file, so
- * fuses must be flipped on it BEFORE that happens. */
-function electronBinaryPath(appOutDir, electronPlatformName, executableName) {
+ * fuses must be flipped on it BEFORE that happens.
+ *
+ * `packager.executableName` is a LinuxPackager-only property (set in its constructor)
+ * — WinPackager/MacPackager never set it, so using it for those platforms silently
+ * produces `undefined.exe`. Windows/mac name their binary/bundle after
+ * `packager.appInfo.productFilename` instead (winPackager.js: `${appInfo.productFilename}.exe`;
+ * macPackager.js: `${appInfo.productFilename}.app`, with the same name for the binary
+ * inside Contents/MacOS). */
+function electronBinaryPath(appOutDir, electronPlatformName, packager) {
   if (electronPlatformName === 'darwin' || electronPlatformName === 'mas') {
-    return path.join(appOutDir, `${executableName}.app`, 'Contents', 'MacOS', executableName);
+    const name = packager.appInfo.productFilename;
+    return path.join(appOutDir, `${name}.app`, 'Contents', 'MacOS', name);
   }
   if (electronPlatformName === 'win32') {
-    return path.join(appOutDir, `${executableName}.exe`);
+    return path.join(appOutDir, `${packager.appInfo.productFilename}.exe`);
   }
-  return path.join(appOutDir, executableName);
+  return path.join(appOutDir, packager.executableName);
 }
 
 /**
@@ -30,7 +38,7 @@ function electronBinaryPath(appOutDir, electronPlatformName, executableName) {
  * at an unpacked/tampered app directory instead of its own asar.
  */
 async function applyElectronFuses(context) {
-  const binaryPath = electronBinaryPath(context.appOutDir, context.electronPlatformName, context.packager.executableName);
+  const binaryPath = electronBinaryPath(context.appOutDir, context.electronPlatformName, context.packager);
   await exports.testHooks.flipFusesImpl(binaryPath, {
     version: FuseVersion.V1,
     [FuseV1Options.RunAsNode]: false,

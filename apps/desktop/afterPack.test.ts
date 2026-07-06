@@ -19,7 +19,10 @@ function contextFor(appOutDir: string, targetNames: string[]) {
     electronPlatformName: 'linux',
     targets: targetNames.map(target),
     appOutDir,
-    packager: { executableName: 'awakon' },
+    // executableName is LinuxPackager-only (used by the sandbox-wrap logic below);
+    // appInfo.productFilename is what Win/MacPackager name the exe/.app after —
+    // deliberately different casing here so a test using the wrong one is caught.
+    packager: { executableName: 'awakon', appInfo: { productFilename: 'Awakon' } },
   };
 }
 
@@ -91,15 +94,15 @@ describe('afterPack — Electron fuses (A7-I1)', () => {
     });
   });
 
-  it('flips fuses on the .exe for a win32 pack', async () => {
+  it('flips fuses on the .exe (named from appInfo.productFilename, not executableName) for a win32 pack', async () => {
     await afterPack({ ...contextFor(appOutDir, ['deb']), electronPlatformName: 'win32' });
-    expect(flipFusesSpy).toHaveBeenCalledWith(join(appOutDir, 'awakon.exe'), expect.anything());
+    expect(flipFusesSpy).toHaveBeenCalledWith(join(appOutDir, 'Awakon.exe'), expect.anything());
   });
 
-  it('flips fuses on the .app bundle\'s Contents/MacOS binary for a darwin pack', async () => {
+  it('flips fuses on the .app bundle\'s Contents/MacOS binary (named from appInfo.productFilename) for a darwin pack', async () => {
     await afterPack({ ...contextFor(appOutDir, ['deb']), electronPlatformName: 'darwin' });
     expect(flipFusesSpy).toHaveBeenCalledWith(
-      join(appOutDir, 'awakon.app', 'Contents', 'MacOS', 'awakon'),
+      join(appOutDir, 'Awakon.app', 'Contents', 'MacOS', 'Awakon'),
       expect.anything(),
     );
   });
