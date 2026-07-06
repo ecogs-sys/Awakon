@@ -1,3 +1,5 @@
+import DOMPurify from 'dompurify';
+
 type MermaidApi = {
   initialize: (config: Record<string, unknown>) => void;
   render: (id: string, source: string) => Promise<{ svg: string }>;
@@ -35,9 +37,13 @@ export async function renderMermaidBlocks(container: HTMLElement): Promise<void>
     const id = `aip-mermaid-${++idSeq}`;
     try {
       const { svg } = await mermaid.render(id, source);
+      // `securityLevel: 'strict'` is mermaid's own diagram-source sanitization, not a
+      // guarantee about the SVG markup it emits — DOMPurify is the actual barrier before
+      // this untrusted-source-derived string is injected via innerHTML (A5-I3).
+      const safeSvg = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
       const wrapper = document.createElement('div');
       wrapper.className = 'aip-mermaid-rendered';
-      wrapper.innerHTML = svg;
+      wrapper.innerHTML = safeSvg;
       block.replaceWith(wrapper);
     } catch (err) {
       const banner = document.createElement('div');
