@@ -45,6 +45,15 @@ export class LayoutManager {
   private readonly docReader: DocReader;
   /** Top bar, attached after construction so render() can reflect the focused session. */
   private titleBar: TitleBar | null = null;
+  /** True while a chrome dialog (Settings/About/New Session/Rename) is open. Combined
+   * with the reader's own visibility (see currentModalState) so that closing one overlay
+   * while another is still open does not tell main to un-suspend the terminal view out
+   * from under the overlay that's still showing (Critical #3). LayoutModal used to be
+   * sent as a bare open/close bracket per-overlay, which desynced the instant two
+   * overlays' lifetimes overlapped — e.g. opening Settings while the reader is open,
+   * then closing Settings, incorrectly resumed the terminal view over the still-visible
+   * reader. */
+  private dialogOpen = false;
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -160,6 +169,9 @@ export class LayoutManager {
       this.state.sessions.set(e.newTabId, { ...session, info: { ...session.info, id: e.newTabId } });
       this.state.tabOrder = this.state.tabOrder.map((id) => (id === e.oldTabId ? e.newTabId : id));
       if (this.state.focusedId === e.oldTabId) this.state.focusedId = e.newTabId;
+      // Critical #3: re-point the reader at the session's new id (docReader.render is
+      // keyed by tab id) instead of leaving it wired to the id that just stopped existing.
+      this.syncReader();
       this.render();
     });
     this.bridge.on(IpcChannel.DocOpenRequest, (raw) => {
@@ -225,13 +237,15 @@ export class LayoutManager {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay before any async work so the modal is never obscured.
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     let result: AppSettings | null;
     try {
       const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
       result = await showSettingsDialog(mount, current);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!result) return;
     await this.bridge.send(IpcChannel.SettingsUpdate, result);
@@ -240,12 +254,14 @@ export class LayoutManager {
   async openAbout(): Promise<void> {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     try {
       const info = (await this.bridge.send(IpcChannel.ChromeAppInfo)) as ChromeAppInfoResponse;
       await showAboutDialog(mount, info);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
   }
 
@@ -263,7 +279,8 @@ export class LayoutManager {
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay so the modal is visible, restore it afterwards.
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     let result: { shell: Shell; cwd: string } | null;
     try {
       result = await showNewSessionDialog(mount, {
@@ -271,7 +288,8 @@ export class LayoutManager {
         defaultCwd: this.platformDefaultCwd(),
       });
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!result) return;
     const info = (await this.bridge.send(IpcChannel.SessionCreate, {
@@ -339,6 +357,10 @@ export class LayoutManager {
       this.state.focusedId = this.state.tabOrder[this.state.tabOrder.length - 1] ?? null;
       if (this.state.focusedId) void this.bridge.send(IpcChannel.LayoutShow, { sessionId: this.state.focusedId });
     }
+    // Critical #3: the closed tab's docState (and its reader, if open) went away with it.
+    // Without this, closing a tab with the reader open left the dead tab's reader
+    // rendered and the terminal view suspended indefinitely (LayoutModal stuck open).
+    this.syncReader();
     this.render();
   }
 
@@ -363,12 +385,14 @@ export class LayoutManager {
     if (!session) return;
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     let newTitle: string | null;
     try {
       newTitle = await showRenameDialog(mount, session.info.title);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!newTitle) return;
     // Main echoes SessionTitleChanged, which updates local state + persists.
@@ -474,17 +498,27 @@ export class LayoutManager {
     return this.state.focusedId ? this.state.sessions.get(this.state.focusedId) : undefined;
   }
 
+  /** Whether the reader is currently showing a doc for the focused tab. */
+  private isReaderVisible(): boolean {
+    const ds = this.focusedDocState()?.docState;
+    return !!(ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0);
+  }
+
+  /** The combined suspend-request state main should see: suspended while the reader
+   * OR a chrome dialog is open, so one closing doesn't resume the terminal view out
+   * from under the other still being open (Critical #3). */
+  private sendModalState(): void {
+    void this.bridge.send(IpcChannel.LayoutModal, { open: this.isReaderVisible() || this.dialogOpen });
+  }
+
   /** Show or hide the reader to match the focused tab's doc state. */
   private syncReader(): void {
-    const session = this.focusedDocState();
-    const ds = session?.docState;
-    if (ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0) {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: true });
-      this.docReader.render(ds, this.state.focusedId!);
+    if (this.isReaderVisible()) {
+      this.docReader.render(this.focusedDocState()!.docState, this.state.focusedId!);
     } else {
       this.docReader.render(emptyDocState(), this.state.focusedId ?? '');
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
     }
+    this.sendModalState();
   }
 
   private dismissReader(): void {

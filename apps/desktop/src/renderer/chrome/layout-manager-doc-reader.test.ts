@@ -159,4 +159,44 @@ describe('LayoutManager — doc reader orchestration', () => {
     const t1Tab = tabStripEl.querySelector('.tab[data-session-id="t1"]');
     expect(t1Tab?.querySelector('.doc-marker')).not.toBeNull();
   });
+
+  it('closes the reader and resumes the terminal view when the tab it belongs to is closed (Critical #3)', async () => {
+    const bridge = makeBridge();
+    const { lm, viewHostEl } = makeLayout(bridge);
+    await lm.start();
+
+    bridge._fire(IpcChannel.SessionCreated, { info: sessionInfo('t1') });
+    bridge._fire(IpcChannel.DocOpenRequest, docOpenPayload('t1'));
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+
+    bridge.send.mockClear();
+    await lm.closeTab('t1');
+
+    expect(viewHostEl.querySelector('.aip-reader')).toBeNull();
+    const lastModalCall = bridge.send.mock.calls
+      .filter((c: unknown[]) => c[0] === IpcChannel.LayoutModal)
+      .at(-1);
+    expect(lastModalCall?.[1]).toEqual({ open: false });
+  });
+
+  it('keeps the terminal view suspended when a dialog closes while the reader is still open (Critical #3)', async () => {
+    const bridge = makeBridge();
+    const { lm, viewHostEl } = makeLayout(bridge);
+    await lm.start();
+
+    bridge._fire(IpcChannel.SessionCreated, { info: sessionInfo('t1') });
+    bridge._fire(IpcChannel.DocOpenRequest, docOpenPayload('t1'));
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+
+    bridge.send.mockClear();
+    // Opening and closing Settings while the reader is open must not resume the
+    // terminal view out from under the still-visible reader.
+    await lm.openSettings();
+
+    const lastModalCall = bridge.send.mock.calls
+      .filter((c: unknown[]) => c[0] === IpcChannel.LayoutModal)
+      .at(-1);
+    expect(lastModalCall?.[1]).toEqual({ open: true });
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+  });
 });
