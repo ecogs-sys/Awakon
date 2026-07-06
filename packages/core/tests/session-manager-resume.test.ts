@@ -172,6 +172,27 @@ describe('SessionManager auto-resume (M6 two-stage)', () => {
       expect(writeSpy).toHaveBeenCalledTimes(1);
     });
 
+    it('A4-I5: drops the fire-time write and emits resumeCancelled if the user typed for real after scheduling', () => {
+      const fired: string[] = [];
+      const cancelled: string[] = [];
+      manager.on('resumeFired', (id) => fired.push(id));
+      manager.on('resumeCancelled', (id) => cancelled.push(id));
+      const session = newSession(manager);
+      const writeSpy = vi.spyOn(session, 'write');
+
+      session.emit('rateLimitDetected', RESET_TEXT); // schedules the resume
+      writeSpy.mockClear();
+
+      vi.advanceTimersByTime(1000); // ensure a strictly-later timestamp than scheduling
+      session.write('ls\r'); // the user is actively typing into this session for real
+
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000); // cross resetAt + grace
+
+      expect(writeSpy).not.toHaveBeenCalledWith('continue\r', { synthetic: true });
+      expect(fired).toEqual([]);
+      expect(cancelled).toEqual([session.id]);
+    });
+
     it('cancelResume before the sweep prevents the write and emits resumeCancelled', () => {
       const fired: string[] = [];
       const cancelled: string[] = [];

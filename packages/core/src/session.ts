@@ -54,6 +54,11 @@ export class Session extends EventEmitter {
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
   private hasReceivedUserInput = false;
+  /** Epoch ms of the last real (non-synthetic, non-focus-report) user write. Lets
+   * SessionManager drop a scheduled auto-resume if the user has actually engaged with
+   * the session since it was scheduled (A4-I5) — firing a synthetic "continue" over
+   * someone's live typing would be surprising and possibly disruptive. */
+  private lastUserInputAt = 0;
 
   /** `idleAttentionMs` overrides AttentionDetector's idle window — for tests only (C9). */
   constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab', idleAttentionMs?: number) {
@@ -126,8 +131,14 @@ export class Session extends EventEmitter {
     // unlock the gate for every session.
     if (str.length > 0 && !isXtermFocusReport(str) && !opts?.synthetic) {
       this.hasReceivedUserInput = true;
+      this.lastUserInputAt = Date.now();
     }
     this.pty.write(str);
+  }
+
+  /** Epoch ms of the last real user write, or 0 if there has never been one. */
+  getLastUserInputAt(): number {
+    return this.lastUserInputAt;
   }
 
   resize(cols: number, rows: number): void {
