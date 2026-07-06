@@ -61,7 +61,7 @@ export class LayoutManager {
     this.sidebar = deps.sidebar;
     this.bodyEl = deps.bodyEl;
     this.emptyStateHostEl = deps.emptyStateHostEl;
-    this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl);
+    this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl, deps.platform);
     this.viewHostEl = deps.viewHostEl;
     this.docReader = new DocReader(this.viewHostEl, this.bridge, {
       onDismiss:    () => this.dismissReader(),

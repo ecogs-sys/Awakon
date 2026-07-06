@@ -2,6 +2,7 @@
 import type { SessionId, Shell, PersistedSplitNode } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
 import { showContextMenu, buildTerminalContextMenu } from './context-menu.js';
+import { ACCELERATOR_PLATFORM } from './platform.js';
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -237,6 +238,7 @@ export class SplitContainer {
         items: buildTerminalContextMenu({
           hasSelection: host.hasSelection(),
           inSplit,
+          platform: ACCELERATOR_PLATFORM,
           onCopy: () => {
             void navigator.clipboard.writeText(host.getSelection());
           },

@@ -1,13 +1,10 @@
 import type { RecentTab, Shell } from '@awakon/contracts';
+import { Bindings, formatAccelerator } from '@awakon/keymap';
 import { awakonMarkMarkup } from './icon.js';
 
 export interface EmptyStateCallbacks {
   onNew:        () => void;
   onPickRecent: (r: RecentTab) => void;
-}
-
-export function platformMod(): string {
-  return navigator.userAgent.includes('Mac OS') ? '⌘' : 'Ctrl+';
 }
 
 export function shellChip(shell: Shell | string): string {
@@ -39,7 +36,13 @@ function appGlyph(): string {
 }
 
 export class EmptyStateView {
-  constructor(private readonly root: HTMLElement) {}
+  /** 'win32' | 'darwin' | 'linux' — formats the "New session" card's shortcut hint via
+   * the shared keymap formatAccelerator (A5-I6: this used to be a local UA sniff). */
+  private readonly platform: string;
+
+  constructor(private readonly root: HTMLElement, platform: string = 'linux') {
+    this.platform = platform;
+  }
 
   render(recents: RecentTab[], callbacks: EmptyStateCallbacks): void {
     this.root.innerHTML = '';
@@ -108,7 +111,7 @@ export class EmptyStateView {
     foot.className = 'aip-empty__card-foot';
     const kbdEl = document.createElement('span');
     kbdEl.className = 'aip-empty__card-kbd';
-    kbdEl.textContent = `${platformMod()}T`;
+    kbdEl.textContent = formatAccelerator(Bindings.newTab.accelerator, this.platform);
     const arrow = document.createElement('span');
     arrow.className = 'aip-empty__card-arrow';
     arrow.textContent = '→';

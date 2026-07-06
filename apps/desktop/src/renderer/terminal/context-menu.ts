@@ -4,7 +4,7 @@
 // with Find and Clear items removed per the 2026-05-26 spec.
 
 import { h, setChildren } from './dom.js';
-import { kbd } from './platform.js';
+import { Bindings, formatAccelerator } from '@awakon/keymap';
 
 export interface ContextMenuItem {
   label: string;
@@ -24,6 +24,11 @@ export interface TerminalMenuOptions {
   hasSelection: boolean;
   /** True when this pane is part of a split — gates Close pane. */
   inSplit: boolean;
+  /** 'darwin' or anything else — formats the split/close-pane shortcut hints via the
+   * shared keymap formatAccelerator so they can never drift from the real bindings
+   * (A6-I2: this menu used to hardcode "Mod+D"/"Mod+Shift+D"/"Mod+W", which didn't
+   * match the actual CmdOrCtrl+\ / CmdOrCtrl+Shift+\ / CmdOrCtrl+Shift+W bindings). */
+  platform: NodeJS.Platform | string;
   onCopy:        () => void;
   onPaste:       () => void;
   onSelectAll:   () => void;
@@ -33,15 +38,18 @@ export interface TerminalMenuOptions {
 }
 
 export function buildTerminalContextMenu(opts: TerminalMenuOptions): ContextMenuSection {
+  const fmt = (accelerator: string): string => formatAccelerator(accelerator, opts.platform);
   return [
-    { label: 'Copy',        shortcut: 'Mod+C', icon: '⎘', disabled: !opts.hasSelection, onClick: opts.onCopy },
-    { label: 'Paste',       shortcut: 'Mod+V', icon: '⎙', onClick: opts.onPaste },
-    { label: 'Select all',  shortcut: 'Mod+A',            onClick: opts.onSelectAll },
+    // Copy/Paste/Select all have no keyboard wiring in the terminal renderer — showing
+    // a shortcut hint here would advertise a binding that doesn't actually work.
+    { label: 'Copy',        icon: '⎘', disabled: !opts.hasSelection, onClick: opts.onCopy },
+    { label: 'Paste',       icon: '⎙', onClick: opts.onPaste },
+    { label: 'Select all',             onClick: opts.onSelectAll },
     null,
-    { label: 'Split right', shortcut: 'Mod+D',            onClick: opts.onSplitRight },
-    { label: 'Split below', shortcut: 'Mod+Shift+D',      onClick: opts.onSplitBelow },
+    { label: 'Split right', shortcut: fmt(Bindings.splitHorizontal.accelerator), onClick: opts.onSplitRight },
+    { label: 'Split below', shortcut: fmt(Bindings.splitVertical.accelerator),   onClick: opts.onSplitBelow },
     null,
-    { label: 'Close pane',  shortcut: 'Mod+W', icon: '×', danger: true, onClick: opts.onClosePane,
+    { label: 'Close pane',  shortcut: fmt(Bindings.closePane.accelerator), icon: '×', danger: true, onClick: opts.onClosePane,
       disabled: !opts.inSplit },
   ];
 }
@@ -107,7 +115,7 @@ export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): H
     }, [
       h('span', { class: 'aip-ctx-menu__icon', text: it.icon ?? '' }),
       h('span', { class: 'aip-ctx-menu__label', text: it.label }),
-      it.shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: kbd(it.shortcut) }) : null,
+      it.shortcut ? h('span', { class: 'aip-ctx-menu__kbd', text: it.shortcut }) : null,
     ]);
     itemNodes.push(node);
     return node;

@@ -43,7 +43,7 @@ const manager = new LayoutManager({
     onTabClose: (id) => void manager.closeTab(id),
     onNewTab: () => void manager.newTab(),
     onTabReorder: (id, before) => manager.reorderTab(id, before),
-  }),
+  }, platform),
   sidebar: new Sidebar({
     listEl: sidebarListEl,
     overviewEl: sidebarOverviewEl,
