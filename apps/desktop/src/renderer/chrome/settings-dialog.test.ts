@@ -168,4 +168,13 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     const result = await p;
     expect(result?.recentTabs).toEqual([tab]);
   });
+
+  it('removes its scrim click listener on cleanup instead of leaking it (A5-I2)', async () => {
+    const mount = mountEl();
+    const removeSpy = vi.spyOn(mount, 'removeEventListener');
+    const p = showSettingsDialog(mount, BASE);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await p;
+    expect(removeSpy).toHaveBeenCalledWith('click', expect.any(Function));
+  });
 });

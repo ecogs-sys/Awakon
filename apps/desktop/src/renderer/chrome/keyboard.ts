@@ -61,6 +61,11 @@ export function wireKeyboard(manager: LayoutManager): void {
   );
 
   document.addEventListener('keydown', (ev) => {
+    // A5-I1: a chrome dialog (Settings/About/New Session/Rename) owns its own Escape/
+    // Enter handling via its own document keydown listener — the global bindings here
+    // must not also fire while one is open (e.g. Ctrl+T re-triggering newTab and
+    // wiping the open New Session dialog's DOM out from under it).
+    if (manager.isDialogOpen()) return;
     for (const { id, acc } of parsed) {
       if (eventMatches(ev, acc)) {
         ev.preventDefault();

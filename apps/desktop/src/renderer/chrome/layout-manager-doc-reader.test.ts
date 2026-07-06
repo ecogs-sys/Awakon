@@ -18,6 +18,8 @@ import { IpcChannel } from '@awakon/contracts';
 import type { SessionInfo } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import type { Sidebar } from './sidebar.js';
+import { showNewSessionDialog } from './new-session-dialog.js';
+import { showSettingsDialog } from './settings-dialog.js';
 
 function sessionInfo(id: string): SessionInfo {
   return {
@@ -198,5 +200,47 @@ describe('LayoutManager — doc reader orchestration', () => {
       .at(-1);
     expect(lastModalCall?.[1]).toEqual({ open: true });
     expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+  });
+});
+
+describe('LayoutManager dialog idempotency (A5-I1)', () => {
+  it('ignores a second openNewTabDialog() call while the first is still open', async () => {
+    const bridge = makeBridge();
+    const { lm } = makeLayout(bridge);
+    await lm.start();
+
+    let resolveDialog!: (v: null) => void;
+    vi.mocked(showNewSessionDialog).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDialog = resolve; }),
+    );
+
+    const first = lm.openNewTabDialog();
+    // Second call arrives while the first dialog is still pending (e.g. Ctrl+T pressed
+    // again, or the empty-state card clicked while the dialog is already up).
+    await lm.openNewTabDialog();
+    expect(showNewSessionDialog).toHaveBeenCalledTimes(1);
+    expect(lm.isDialogOpen()).toBe(true);
+
+    resolveDialog(null);
+    await first;
+    expect(lm.isDialogOpen()).toBe(false);
+  });
+
+  it('ignores openSettings() while a different dialog is already open', async () => {
+    const bridge = makeBridge();
+    const { lm } = makeLayout(bridge);
+    await lm.start();
+
+    let resolveDialog!: (v: null) => void;
+    vi.mocked(showNewSessionDialog).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDialog = resolve; }),
+    );
+
+    const first = lm.openNewTabDialog();
+    await lm.openSettings();
+    expect(showSettingsDialog).not.toHaveBeenCalled();
+
+    resolveDialog(null);
+    await first;
   });
 });

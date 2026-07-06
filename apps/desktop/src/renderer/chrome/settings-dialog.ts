@@ -173,6 +173,7 @@ export function showSettingsDialog(
       mount.classList.remove('open');
       mount.innerHTML = '';
       document.removeEventListener('keydown', onKey);
+      mount.removeEventListener('click', onMountClick); // A5-I2
       resolve(result);
     };
 
@@ -201,10 +202,12 @@ export function showSettingsDialog(
     };
     document.addEventListener('keydown', onKey);
 
+    const onMountClick = (ev: MouseEvent): void => {
+      if (ev.target === mount) cleanup(null);
+    };
+    mount.addEventListener('click', onMountClick);
+
     saveEl.addEventListener('click', submit);
     cancelEl.addEventListener('click', () => cleanup(null));
-    mount.addEventListener('click', (ev) => {
-      if (ev.target === mount) cleanup(null);
-    });
   });
 }

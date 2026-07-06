@@ -238,6 +238,10 @@ export class LayoutManager {
   }
 
   async openSettings(): Promise<void> {
+    // A5-I1: refuse to open a second dialog on top of one already open — the mount
+    // element is shared, so stacking would wipe the first dialog's DOM out from under
+    // it via mount.innerHTML='', leaking its pending promise and keydown listener.
+    if (this.dialogOpen) return;
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay before any async work so the modal is never obscured.
@@ -256,6 +260,7 @@ export class LayoutManager {
   }
 
   async openAbout(): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     this.dialogOpen = true;
@@ -280,6 +285,7 @@ export class LayoutManager {
   }
 
   async openNewTabDialog(): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay so the modal is visible, restore it afterwards.
@@ -385,6 +391,7 @@ export class LayoutManager {
   }
 
   async renameTab(sessionId: SessionId): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const session = this.state.sessions.get(sessionId);
     if (!session) return;
     const mount = document.getElementById('dialog-mount');
@@ -500,6 +507,15 @@ export class LayoutManager {
 
   private focusedDocState(): SessionState | undefined {
     return this.state.focusedId ? this.state.sessions.get(this.state.focusedId) : undefined;
+  }
+
+  /** True while a chrome dialog (Settings/About/New Session/Rename) is open — lets
+   * the global keyboard handler suppress shortcuts that would open another one
+   * (A5-I1: pressing Ctrl+T while the New Session dialog was already open wiped its
+   * DOM out from under it via mount.innerHTML='', leaking its pending promise and its
+   * document keydown listener). */
+  isDialogOpen(): boolean {
+    return this.dialogOpen;
   }
 
   /** Whether the reader is currently showing a doc for the focused tab. */
