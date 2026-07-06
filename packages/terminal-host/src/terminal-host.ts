@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { SessionId } from '@awakon/contracts';
 import { IpcChannel, isHttpUrl } from '@awakon/contracts';
 import { findMarkdownLinks } from './md-links.js';
+import { sanitizePasteText } from './sanitize-paste.js';
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
@@ -129,7 +130,7 @@ export class TerminalHost {
   }
 
   paste(text: string): void {
-    this.term.paste(text);
+    this.term.paste(sanitizePasteText(text));
   }
 
   selectAll(): void {
