@@ -156,7 +156,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(result?.defaultCwd).toBe('/existing');
   });
 
-  it('Save preserves recentTabs from current — does not wipe the list', async () => {
+  it('Save never echoes recentTabs — the dialog\'s return type structurally cannot carry it (A5-M2)', async () => {
     const mount = mountEl();
     const tab = { title: 'proj', cwd: '/tmp', shell: 'bash' as const, closedAt: 1 };
     const current: AppSettings = {
@@ -169,7 +169,8 @@ describe('showSettingsDialog — Default Working Directory section', () => {
 
     mount.querySelector<HTMLButtonElement>('#set-save')!.click();
     const result = await p;
-    expect(result?.recentTabs).toEqual([tab]);
+    expect(result).not.toHaveProperty('recentTabs');
+    expect(result).not.toHaveProperty('version');
   });
 
   it('removes its scrim click listener on cleanup instead of leaking it (A5-I2)', async () => {

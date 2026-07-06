@@ -366,31 +366,13 @@ sessionManager.on('resumeFired', (sessionId) => {
   chromeWindow?.webContents.send(IpcChannel.ResumeFired, { sessionId: tabId });
 });
 
-// IPC: renderer asks main to spawn the platform default shell at $HOME.
-ipcMain.handle(IpcChannel.SessionCreateDefault, async (): Promise<SessionInfo | { error: string }> => {
-  try {
-    return await createTabSession({
-      shell: defaultShell(),
-      cwd: homedir(),
-      cols: 80,
-      rows: 24,
-    });
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) };
-  }
-});
-
 sessionManager.on('sessionExited', (sessionId) => {
   crashCounters.delete(sessionId);
   // Spec §7: a tab (or pane) whose shell exits on its own stays visible, read-only —
   // the WebContentsView/leaf is kept so scrollback stays readable and the user can
   // Restart or Close it. Teardown happens only via an explicit close (core.session.close
   // or core.session.close-pane). A pane still owned by a tab must keep its paneOwnership
-  // entry so a later close-pane on its primary can find and reparent onto it (N4) —
-  // only clean up sessions that belong to neither a tab nor a pane record.
-  if (!tabMeta.has(sessionId) && !paneOwnership.has(sessionId)) {
-    paneOwnership.delete(sessionId);
-  }
+  // entry so a later close-pane on its primary can find and reparent onto it (N4).
 });
 
 /** Full teardown of a tab: destroy its view, its panes, persist, then kill the PTY.

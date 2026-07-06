@@ -18,10 +18,6 @@ test('split menu action creates a new pane session', async () => {
   // One tab session now, no panes yet.
   await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(1);
 
-  // Give the terminal view's renderer time to mount its SplitContainer and register
-  // the TerminalAction listener before the menu action is dispatched to it.
-  await chrome.waitForTimeout(2_500);
-
   // Trigger the split via the application menu (electronApp.evaluate runs in main).
   const triggerSplit = (): Promise<void> =>
     electronApp.evaluate(({ Menu }) => {
@@ -30,11 +26,20 @@ test('split menu action creates a new pane session', async () => {
       const split = tabs?.submenu?.items.find((m) => m.label === 'Split Horizontally');
       split?.click();
     });
-  await triggerSplit();
+
+  // The terminal view's renderer needs a moment to mount its SplitContainer and
+  // register the TerminalAction listener before the menu action has anywhere to land.
+  // Rather than a blind fixed wait (A7-M1), retry the trigger until the session count
+  // actually reflects the split: main.ts's webContents.send() has no queue, so a click
+  // sent before the listener registers is simply never received — retrying is safe, it
+  // cannot cause a double split once one has already landed (the loop stops there).
+  await expect(async () => {
+    await triggerSplit();
+    expect(await sessionCount(chrome)).toBe(2);
+  }).toPass({ timeout: 8_000, intervals: [250] });
 
   // The split spawns one pane session — total becomes 2 — and the tab count is unchanged
   // (panes are not tabs).
-  await expect.poll(() => sessionCount(chrome), { timeout: 8_000 }).toBe(2);
   await expect(chrome.locator('#tab-strip .tab')).toHaveCount(1);
 
   await electronApp.close();

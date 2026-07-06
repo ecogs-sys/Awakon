@@ -1,4 +1,4 @@
-﻿import type { AppSettings } from '@awakon/contracts';
+﻿import type { AppSettings, UserEditableSettings } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
 
 interface Bridge {
@@ -7,13 +7,17 @@ interface Bridge {
 
 /**
  * Show the settings modal pre-filled from `current`. Resolves with the new
- * AppSettings on Save, or null on Cancel/Escape. Mirrors new-session-dialog.ts:
- * re-uses the single #dialog-mount element so opening twice never stacks modals.
+ * UserEditableSettings on Save, or null on Cancel/Escape. `recentTabs`/`version` are
+ * app-owned fields the dialog never edits (C7) — the return type only carries what
+ * this dialog can actually change, instead of forcing every caller to smuggle the
+ * current app-owned values through just to satisfy a wider type (A5-M2).
+ * Mirrors new-session-dialog.ts: re-uses the single #dialog-mount element so opening
+ * twice never stacks modals.
  */
 export function showSettingsDialog(
   mount: HTMLElement,
   current: AppSettings,
-): Promise<AppSettings | null> {
+): Promise<UserEditableSettings | null> {
   return new Promise((resolve) => {
     mount.innerHTML = '';
     mount.classList.add('open');
@@ -169,7 +173,7 @@ export function showSettingsDialog(
       })();
     });
 
-    const cleanup = (result: AppSettings | null): void => {
+    const cleanup = (result: UserEditableSettings | null): void => {
       mount.classList.remove('open');
       mount.innerHTML = '';
       document.removeEventListener('keydown', onKey);
@@ -190,7 +194,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd, recentTabs: current.recentTabs, version: current.version });
+      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd });
     }
 
     const onKey = (ev: KeyboardEvent): void => {

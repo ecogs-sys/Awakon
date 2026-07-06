@@ -17,7 +17,6 @@ import { RecentTabSchema } from './recent.js';
 export const IpcChannel = {
   // Requests (renderer -> main)
   SessionCreate: 'core.session.create',
-  SessionCreateDefault: 'core.session.create-default',
   SessionCreateForPane: 'core.session.create-for-pane',
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
@@ -340,6 +339,3 @@ export const LayoutDocsForTabResponseSchema = z.object({
   docs: z.array(PersistedOpenDocSchema),
   activeDocIndex: z.number().int().nullable(),
 });
-
-// Re-export for caller convenience.
-export { SessionCreateOptionsSchema, SessionInfoSchema, SessionIdSchema, AttentionEventSchema };

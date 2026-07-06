@@ -1,4 +1,4 @@
-﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, UserEditableSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
 import { emptyDocState, openDoc, closeDocAt, setReview, moveActive, toPersistedDocs, fromPersistedDocs, type ReviewState } from './doc-state.js';
 import { DocReader } from './doc-reader.js';
 import { IpcChannel } from '@awakon/contracts';
@@ -247,7 +247,7 @@ export class LayoutManager {
     // Suspend the terminal overlay before any async work so the modal is never obscured.
     this.dialogOpen = true;
     this.sendModalState();
-    let result: AppSettings | null;
+    let result: UserEditableSettings | null;
     try {
       const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
       result = await showSettingsDialog(mount, current);
