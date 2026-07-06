@@ -1,5 +1,44 @@
 const path = require('path');
 const fs = require('fs');
+const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses');
+
+/** Overridable in tests so they don't need a real Electron binary (flipFuses reads/
+ * writes an actual fuse sentinel embedded in the packaged executable). A plain object
+ * property, not a top-level export, because Node's ESM interop exposes a .cjs
+ * module's top-level exports as read-only namespace bindings — tests importing this
+ * file via dynamic import() cannot reassign `exports.flipFusesImpl` directly, only
+ * mutate a property on an object that binding points to. */
+exports.testHooks = { flipFusesImpl: flipFuses };
+
+/** Where electron-builder places the actual Electron executable inside appOutDir, per
+ * platform — the Linux wrap-for-sandbox logic below renames/replaces this file, so
+ * fuses must be flipped on it BEFORE that happens. */
+function electronBinaryPath(appOutDir, electronPlatformName, executableName) {
+  if (electronPlatformName === 'darwin' || electronPlatformName === 'mas') {
+    return path.join(appOutDir, `${executableName}.app`, 'Contents', 'MacOS', executableName);
+  }
+  if (electronPlatformName === 'win32') {
+    return path.join(appOutDir, `${executableName}.exe`);
+  }
+  return path.join(appOutDir, executableName);
+}
+
+/**
+ * Harden the packaged Electron binary against the well-known post-packaging escape
+ * hatches (A7-I1): without these fuses flipped, ELECTRON_RUN_AS_NODE, --inspect, and
+ * NODE_OPTIONS all still work against the shipped binary, and the app can be pointed
+ * at an unpacked/tampered app directory instead of its own asar.
+ */
+async function applyElectronFuses(context) {
+  const binaryPath = electronBinaryPath(context.appOutDir, context.electronPlatformName, context.packager.executableName);
+  await exports.testHooks.flipFusesImpl(binaryPath, {
+    version: FuseVersion.V1,
+    [FuseV1Options.RunAsNode]: false,
+    [FuseV1Options.EnableNodeCliInspectArguments]: false,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+    [FuseV1Options.OnlyLoadAppFromAsar]: true,
+  });
+}
 
 /**
  * Wrap the Linux Electron binary in a shell script that passes --no-sandbox — needed
@@ -22,6 +61,8 @@ const fs = require('fs');
  * silently under- or over-wrapping if that convention is ever violated.
  */
 exports.default = async function afterPack(context) {
+  await applyElectronFuses(context);
+
   if (context.electronPlatformName !== 'linux') return;
   const targetNames = context.targets.map((t) => t.name);
   const needsWrapper = targetNames.includes('appImage') || targetNames.includes('dir');

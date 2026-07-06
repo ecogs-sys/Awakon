@@ -15,11 +15,24 @@ export async function setupAutoUpdate(): Promise<void> {
   // running inside an AppX/MSIX container.
   if (process.windowsStore) return;
   const { autoUpdater } = await import('electron-updater');
-  autoUpdater.autoDownload = true;
+  // A1-I1: pin the channel and forbid prerelease consumption explicitly — without
+  // this, electron-updater falls back to whatever channel matches the current
+  // version's pre-release tag, which would silently start serving a beta/rc build to
+  // production users if one were ever published to the same GitHub repo.
+  autoUpdater.channel = 'latest';
+  autoUpdater.allowPrerelease = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  // Gated download: checking for an update and downloading it are separate steps
+  // (autoDownload = false) so there is an explicit decision point between "an update
+  // exists" and "start pulling it over the network" rather than an implicit
+  // background download the instant checkForUpdates() resolves.
+  autoUpdater.autoDownload = false;
 
   autoUpdater.on('error', (err) => console.warn('[auto-update] error:', err));
-  autoUpdater.on('update-available', (info) => console.info('[auto-update] available:', info.version));
+  autoUpdater.on('update-available', (info) => {
+    console.info('[auto-update] available:', info.version);
+    void autoUpdater.downloadUpdate();
+  });
   autoUpdater.on('update-downloaded', () => console.info('[auto-update] downloaded; will install on quit'));
 
   void autoUpdater.checkForUpdates();
