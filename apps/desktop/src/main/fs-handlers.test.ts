@@ -19,6 +19,10 @@ function makeFakeIpc(): { ipc: IpcLike; handlers: Map<string, RegisteredHandler>
 /** No-cwd resolver for handlers unrelated to FsReadFile's containment check. */
 const noCwd = () => undefined;
 
+/** FsPickDirectory/FsPathExists carry no sender authorization check — always allow in
+ * tests that aren't specifically exercising FsReadFile's chrome-only guard. */
+const alwaysAllow = () => true;
+
 describe('FsPathExists handler', () => {
   let tempDir: string;
   let tempFile: string;
@@ -35,35 +39,35 @@ describe('FsPathExists handler', () => {
 
   it('returns exists+isDirectory for a real directory', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.path-exists')!({}, { path: tempDir });
     expect(result).toEqual({ exists: true, isDirectory: true });
   });
 
   it('returns exists but not directory for a real file', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.path-exists')!({}, { path: tempFile });
     expect(result).toEqual({ exists: true, isDirectory: false });
   });
 
   it('returns exists=false for a missing path', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.path-exists')!({}, { path: join(tempDir, 'nope') });
     expect(result).toEqual({ exists: false, isDirectory: false });
   });
 
   it('returns exists=false for an empty string payload', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.path-exists')!({}, { path: '' });
     expect(result).toEqual({ exists: false, isDirectory: false });
   });
 
   it('returns exists=false for a malformed payload', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.path-exists')!({}, { wrong: 'shape' });
     expect(result).toEqual({ exists: false, isDirectory: false });
   });
@@ -75,7 +79,7 @@ describe('FsPickDirectory handler', () => {
     const dialog: DialogLike = { showOpenDialog };
     const fakeWindow = {} as Electron.BrowserWindow;
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => fakeWindow, dialog, noCwd);
+    registerFsHandlers(ipc, () => fakeWindow, dialog, noCwd, alwaysAllow);
 
     const result = await handlers.get('core.fs.pick-directory')!({}, { startPath: '/start' });
 
@@ -90,7 +94,7 @@ describe('FsPickDirectory handler', () => {
     const showOpenDialog = vi.fn().mockResolvedValue({ canceled: false, filePaths: ['/picked'] });
     const dialog: DialogLike = { showOpenDialog };
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd);
+    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd, alwaysAllow);
 
     await handlers.get('core.fs.pick-directory')!({}, {});
 
@@ -104,7 +108,7 @@ describe('FsPickDirectory handler', () => {
       showOpenDialog: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
     };
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd);
+    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.pick-directory')!({}, {});
     expect(result).toEqual({ cancelled: true });
   });
@@ -112,7 +116,7 @@ describe('FsPickDirectory handler', () => {
   it('returns { cancelled: true } when no window is available', async () => {
     const dialog: DialogLike = { showOpenDialog: vi.fn() };
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, dialog, noCwd);
+    registerFsHandlers(ipc, () => null, dialog, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.pick-directory')!({}, {});
     expect(result).toEqual({ cancelled: true });
     expect(dialog.showOpenDialog).not.toHaveBeenCalled();
@@ -121,7 +125,7 @@ describe('FsPickDirectory handler', () => {
   it('returns { cancelled: true } when the payload is malformed', async () => {
     const dialog: DialogLike = { showOpenDialog: vi.fn() };
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd);
+    registerFsHandlers(ipc, () => ({} as Electron.BrowserWindow), dialog, noCwd, alwaysAllow);
     const result = await handlers.get('core.fs.pick-directory')!({}, { startPath: 5 });
     expect(result).toEqual({ cancelled: true });
     expect(dialog.showOpenDialog).not.toHaveBeenCalled();
@@ -142,7 +146,7 @@ describe('FsReadFile handler', () => {
     const md = join(tempDir, 'doc.md');
     await writeFile(md, '# Title');
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: md, tabId: 'tab-1' }) as { content: string; sizeBytes: number };
     expect(result.content).toBe('# Title');
     expect(result.sizeBytes).toBe(7);
@@ -150,7 +154,7 @@ describe('FsReadFile handler', () => {
 
   it('returns notFound for a missing file inside the tab cwd', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: join(tempDir, 'nope.md'), tabId: 'tab-1' });
     expect(result).toEqual({ notFound: true });
   });
@@ -159,7 +163,7 @@ describe('FsReadFile handler', () => {
     const txt = join(tempDir, 'notes.txt');
     await writeFile(txt, 'hi');
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: txt, tabId: 'tab-1' }) as { error: string };
     expect(result.error).toMatch(/\.md/);
   });
@@ -168,7 +172,7 @@ describe('FsReadFile handler', () => {
     const big = join(tempDir, 'big.md');
     await writeFile(big, 'x'.repeat(1_048_577));
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: big, tabId: 'tab-1' }) as { tooLarge: true; sizeBytes: number };
     expect(result.tooLarge).toBe(true);
     expect(result.sizeBytes).toBeGreaterThan(1_048_576);
@@ -176,7 +180,7 @@ describe('FsReadFile handler', () => {
 
   it('returns an error for a malformed payload', async () => {
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { wrong: 1 }) as { error: string };
     expect(typeof result.error).toBe('string');
   });
@@ -189,7 +193,7 @@ describe('FsReadFile handler', () => {
       const secret = join(outside, 'secret.md');
       await writeFile(secret, 'nope');
       const { ipc, handlers } = makeFakeIpc();
-      registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+      registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
       const result = await handlers.get('core.fs.read-file')!({}, { path: secret, tabId: 'tab-1' }) as { error: string };
       expect(result.error).toMatch(/outside/i);
     } finally {
@@ -201,7 +205,7 @@ describe('FsReadFile handler', () => {
     const md = join(tempDir, 'doc.md');
     await writeFile(md, '# Title');
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => undefined);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => undefined, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: md, tabId: 'unknown-tab' }) as { error: string };
     expect(result.error).toMatch(/outside/i);
   });
@@ -210,8 +214,19 @@ describe('FsReadFile handler', () => {
     const md = join(tempDir, 'doc.md');
     await writeFile(md, '# Title');
     const { ipc, handlers } = makeFakeIpc();
-    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir);
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, alwaysAllow);
     const result = await handlers.get('core.fs.read-file')!({}, { path: 'doc.md', tabId: 'tab-1' }) as { content: string };
     expect(result.content).toBe('# Title');
+  });
+
+  // --- Critical #1: sender authorization ---
+
+  it('rejects FsReadFile when the sender is not authorized', async () => {
+    const md = join(tempDir, 'doc.md');
+    await writeFile(md, '# Title');
+    const { ipc, handlers } = makeFakeIpc();
+    registerFsHandlers(ipc, () => null, {} as DialogLike, () => tempDir, () => false);
+    const result = await handlers.get('core.fs.read-file')!({}, { path: md, tabId: 'tab-1' }) as { error: string };
+    expect(result.error).toMatch(/not authorized/);
   });
 });

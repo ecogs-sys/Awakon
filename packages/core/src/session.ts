@@ -70,7 +70,7 @@ export class Session extends EventEmitter {
       cols: opts.cols,
       rows: opts.rows,
       cwd: opts.cwd,
-      env: { ...process.env, ...(opts.env ?? {}) },
+      env: { ...process.env },
     });
     this._status = 'running';
 

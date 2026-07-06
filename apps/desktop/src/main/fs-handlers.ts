@@ -11,7 +11,7 @@ import { isPathInside } from './navigation-guard.js';
 
 /** Subset of `ipcMain` we depend on — narrows the surface for tests. */
 export interface IpcLike {
-  handle: (channel: string, handler: (event: unknown, payload: unknown) => Promise<unknown> | unknown) => void;
+  handle: (channel: string, handler: (event: { sender: unknown }, payload: unknown) => Promise<unknown> | unknown) => void;
 }
 
 /** Subset of Electron's `dialog` we depend on. */
@@ -35,6 +35,7 @@ export function registerFsHandlers(
   getWindow: () => BrowserWindow | null,
   dialog: DialogLike,
   getTabCwd: (tabId: string) => string | undefined,
+  isAuthorizedSender: (sender: unknown) => boolean,
 ): void {
   ipc.handle(IpcChannel.FsPickDirectory, async (_e, raw) => {
     const parsed = FsPickDirectoryPayloadSchema.safeParse(raw);
@@ -62,9 +63,10 @@ export function registerFsHandlers(
 
   const MAX_DOC_BYTES = 1_048_576; // 1 MB
 
-  ipc.handle(IpcChannel.FsReadFile, async (_e, raw) => {
+  ipc.handle(IpcChannel.FsReadFile, async (e, raw) => {
     const parsed = FsReadFilePayloadSchema.safeParse(raw);
     if (!parsed.success) return { error: parsed.error.message };
+    if (!isAuthorizedSender(e.sender)) return { error: 'not authorized for this session' };
     const { path, tabId } = parsed.data;
     if (!path.toLowerCase().endsWith('.md')) {
       return { error: 'only .md files can be read by the reader' };

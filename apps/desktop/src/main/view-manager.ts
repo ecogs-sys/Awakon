@@ -72,6 +72,16 @@ export class ViewManager {
     return this.views.get(sessionId);
   }
 
+  /** Whether `wc` is the webContents of a view this ViewManager currently owns — used to
+   * authorize IPC channels legitimately callable from any terminal view (not just chrome),
+   * e.g. ChromeOpenExternal for a link clicked in terminal output. */
+  ownsWebContents(wc: Electron.WebContents): boolean {
+    for (const view of this.views.values()) {
+      if (view.webContents === wc) return true;
+    }
+    return false;
+  }
+
   create(sessionId: SessionId): WebContentsView {
     if (!this.parent) throw new Error('ViewManager.create called before attach');
     const view = new WebContentsView({

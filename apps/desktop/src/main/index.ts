@@ -126,6 +126,22 @@ function preloadPath(kind: 'chrome' | 'terminal'): string {
   return join(__dirname, `../preload/${kind}.cjs`);
 }
 
+/** Chrome-only IPC guard for the handlers registered directly in this file (settings,
+ * recents, the Chrome* control channels, resume cancel, doc reads). None of these are
+ * scoped by a sessionId IpcRouter's isAuthorizedSender could key off of, and no terminal
+ * view has any legitimate reason to invoke them — a compromised terminal renderer must
+ * not be able to reach them just because ipcMain.handle has no sender check by default. */
+function isChromeSender(sender: Electron.WebContents): boolean {
+  return sender === chromeWindow?.webContents;
+}
+
+/** ChromeOpenExternal is legitimately called from a terminal view too (a link clicked in
+ * a pane's output), not just chrome — scope it to "one of our own renderers" instead of
+ * chrome-only. */
+function isChromeOrTerminalSender(sender: Electron.WebContents): boolean {
+  return isChromeSender(sender) || (viewManager?.ownsWebContents(sender) ?? false);
+}
+
 function iconPath(): string {
   // In dev, __dirname is apps/desktop/out/main; back two levels reaches apps/desktop/build/icon.png.
   // When packaged, electron-builder copies the icon to resources/icon.png via extraResources.
@@ -190,14 +206,21 @@ ipcMain.handle(IpcChannel.LayoutDefaultShell, (): Shell => defaultShell());
 
 // IPC: filesystem helpers used by the New Session dialog (Browse + cwd validation).
 // FsReadFile (N6) resolves a tab's cwd here to enforce containment at the read boundary.
-registerFsHandlers(ipcMain, () => chromeWindow, dialog, (tabId) => tabMeta.get(tabId)?.cwd);
+registerFsHandlers(
+  ipcMain,
+  () => chromeWindow,
+  dialog,
+  (tabId) => tabMeta.get(tabId)?.cwd,
+  (sender) => isChromeSender(sender as Electron.WebContents),
+);
 
 // IPC: the top bar's hamburger (⋯) pops the whole application menu at a point.
 // The platform-neutral bar drops the menu strip, so this is the single entry to
 // File/Tabs/View/Window/Help on Windows/Linux. Same templates as the OS menu.
-ipcMain.handle(IpcChannel.ChromeAppMenuPopup, (_e, raw): { ok: true } | { error: string } => {
+ipcMain.handle(IpcChannel.ChromeAppMenuPopup, (e, raw): { ok: true } | { error: string } => {
   const parsed = ChromeAppMenuPopupPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   if (!chromeWindow) return { error: 'no chrome window' };
   const menu = buildAppMenu(
     () => chromeWindow,
@@ -208,9 +231,10 @@ ipcMain.handle(IpcChannel.ChromeAppMenuPopup, (_e, raw): { ok: true } | { error:
 });
 
 // IPC: custom titlebar's min/max/close buttons drive the BrowserWindow.
-ipcMain.handle(IpcChannel.ChromeWindowControl, (_e, raw): { ok: true } | { error: string } => {
+ipcMain.handle(IpcChannel.ChromeWindowControl, (e, raw): { ok: true } | { error: string } => {
   const parsed = ChromeWindowControlPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   if (!chromeWindow) return { error: 'no chrome window' };
   if (parsed.data.action === 'minimize') chromeWindow.minimize();
   else if (parsed.data.action === 'maximize') {
@@ -221,7 +245,8 @@ ipcMain.handle(IpcChannel.ChromeWindowControl, (_e, raw): { ok: true } | { error
 });
 
 // IPC: About dialog asks for runtime info — versions + OS string.
-ipcMain.handle(IpcChannel.ChromeAppInfo, (): ChromeAppInfoResponse => {
+ipcMain.handle(IpcChannel.ChromeAppInfo, (e): ChromeAppInfoResponse | { error: string } => {
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   const platformLabel = process.platform === 'win32' ? 'Windows'
                      : process.platform === 'darwin' ? 'macOS'
                      : process.platform === 'linux' ? 'Linux'
@@ -240,24 +265,29 @@ ipcMain.handle(IpcChannel.ChromeAppInfo, (): ChromeAppInfoResponse => {
 // doc-reader links, terminal web links). The http(s)-only refinement lives in
 // ChromeOpenExternalPayloadSchema itself (M3/C2) — z.string().url() alone would accept
 // file:/smb:/etc, and shell.openExternal('file://...') would open/execute local paths.
-ipcMain.handle(IpcChannel.ChromeOpenExternal, (_e, raw): { ok: true } | { error: string } => {
+ipcMain.handle(IpcChannel.ChromeOpenExternal, (e, raw): { ok: true } | { error: string } => {
   const parsed = ChromeOpenExternalPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeOrTerminalSender(e.sender)) return { error: 'not authorized for this session' };
   void shell.openExternal(parsed.data.url);
   return { ok: true };
 });
 
 // IPC: chrome renderer reads the current settings.
-ipcMain.handle(IpcChannel.SettingsGet, (): AppSettings => appSettings);
+ipcMain.handle(IpcChannel.SettingsGet, (e): AppSettings | { error: string } => {
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
+  return appSettings;
+});
 
 // IPC: chrome renderer saves settings — persist, apply, and echo to renderers.
 // L3/C7: the payload schema (UserEditableSettingsSchema) has no recentTabs field at
 // all, so a dialog echoing a stale snapshot it loaded when opened cannot clobber the
 // app-owned recentTabs list even at the wire level — it's not a merge the handler has
 // to remember to do, the client structurally cannot send that field.
-ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: string } => {
+ipcMain.handle(IpcChannel.SettingsUpdate, (e, raw): { ok: true } | { error: string } => {
   const parsed = UserEditableSettingsSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   appSettings = { ...parsed.data, recentTabs: appSettings.recentTabs };
   void settingsStore.save(appSettings);
   sessionManager.applyAutoResumeConfig(appSettings.autoResume);
@@ -266,13 +296,17 @@ ipcMain.handle(IpcChannel.SettingsUpdate, (_e, raw): { ok: true } | { error: str
 });
 
 // IPC: chrome renderer reads the recent tabs list.
-ipcMain.handle(IpcChannel.RecentList, (): RecentTab[] => appSettings.recentTabs ?? []);
+ipcMain.handle(IpcChannel.RecentList, (e): RecentTab[] | { error: string } => {
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
+  return appSettings.recentTabs ?? [];
+});
 
 // IPC: chrome renderer adds a closed tab to the recent list.
 // Deduplicates by cwd (same directory = same project) and caps at 10.
-ipcMain.handle(IpcChannel.RecentAdd, (_e, raw): RecentTab[] => {
+ipcMain.handle(IpcChannel.RecentAdd, (e, raw): RecentTab[] | { error: string } => {
   const parsed = RecentAddPayloadSchema.safeParse(raw);
   if (!parsed.success) return appSettings.recentTabs ?? [];
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   const { entry } = parsed.data;
   const existing = (appSettings.recentTabs ?? []).filter((r: RecentTab) => r.cwd !== entry.cwd);
   appSettings = { ...appSettings, recentTabs: [entry, ...existing].slice(0, 10) };
@@ -284,9 +318,10 @@ ipcMain.handle(IpcChannel.RecentAdd, (_e, raw): RecentTab[] => {
 // keyed by the owning tab id (see forwarding below), but the actual pending resume may
 // belong to a non-primary pane forwarded onto that tab (N5) — cancel whichever session
 // under this tab id actually has one scheduled.
-ipcMain.handle(IpcChannel.ResumeCancel, (_e, raw): { ok: true } | { error: string } => {
+ipcMain.handle(IpcChannel.ResumeCancel, (e, raw): { ok: true } | { error: string } => {
   const parsed = ResumeCancelPayloadSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
   const tabId = parsed.data.sessionId;
   sessionManager.cancelResume(tabId);
   for (const [paneId, owner] of paneOwnership) {

@@ -228,24 +228,47 @@ describe('IpcRouter — doc.open', () => {
 });
 
 describe('IpcRouter — persist-docs / docs-for-tab', () => {
-  it('forwards persist-docs to the callback', () => {
+  it('forwards persist-docs to the callback when sent by chrome', () => {
     const { router, handlers } = makeRouter();
+    const chromeWc = { id: 1 };
+    router.setChromeWebContents(chromeWc as never);
     const cb = vi.fn();
     router.onPersistDocs(cb);
-    handlers.get(IpcChannel.LayoutPersistDocs)!({}, { tabId: 't1', docs: [], activeDocIndex: null });
+    handlers.get(IpcChannel.LayoutPersistDocs)!({ sender: chromeWc }, { tabId: 't1', docs: [], activeDocIndex: null });
     expect(cb).toHaveBeenCalledWith('t1', [], null);
   });
 
-  it('returns the docs-for-tab callback result', () => {
+  it('rejects persist-docs from a non-chrome sender', () => {
     const { router, handlers } = makeRouter();
+    const chromeWc = { id: 1 };
+    const otherWc = { id: 2 };
+    router.setChromeWebContents(chromeWc as never);
+    const cb = vi.fn();
+    router.onPersistDocs(cb);
+    const res = handlers.get(IpcChannel.LayoutPersistDocs)!(
+      { sender: otherWc },
+      { tabId: 't1', docs: [], activeDocIndex: null },
+    ) as { error: string };
+    expect(res.error).toMatch(/not authorized/);
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  it('returns the docs-for-tab callback result when sent by chrome', () => {
+    const { router, handlers } = makeRouter();
+    const chromeWc = { id: 1 };
+    router.setChromeWebContents(chromeWc as never);
     router.onDocsForTab(() => ({ docs: [], activeDocIndex: 0 }));
-    const res = handlers.get(IpcChannel.LayoutDocsForTab)!({}, { tabId: 't1' });
+    const res = handlers.get(IpcChannel.LayoutDocsForTab)!({ sender: chromeWc }, { tabId: 't1' });
     expect(res).toEqual({ docs: [], activeDocIndex: 0 });
   });
 
-  it('returns an empty default when no docs-for-tab callback is set', () => {
-    const { handlers } = makeRouter();
-    const res = handlers.get(IpcChannel.LayoutDocsForTab)!({}, { tabId: 't1' });
-    expect(res).toEqual({ docs: [], activeDocIndex: null });
+  it('rejects docs-for-tab from a non-chrome sender', () => {
+    const { router, handlers } = makeRouter();
+    const chromeWc = { id: 1 };
+    const otherWc = { id: 2 };
+    router.setChromeWebContents(chromeWc as never);
+    router.onDocsForTab(() => ({ docs: [], activeDocIndex: 0 }));
+    const res = handlers.get(IpcChannel.LayoutDocsForTab)!({ sender: otherWc }, { tabId: 't1' }) as { error: string };
+    expect(res.error).toMatch(/not authorized/);
   });
 });

@@ -195,10 +195,18 @@ export class IpcRouter {
     return this.sessionViews.get(sessionId) === sender;
   }
 
+  /** Chrome-only channels (tab lifecycle, reader persistence): a terminal renderer has
+   * no legitimate reason to call these, and none of them are scoped by a sessionId the
+   * generic isAuthorizedSender check could key off of. */
+  private isChromeSender(sender: WebContents): boolean {
+    return sender === this.chromeWebContents;
+  }
+
   private bindRequests(): void {
-    this.ipcMain.handle(IpcChannel.SessionCreate, async (_e, raw): Promise<SessionInfo | { error: string }> => {
+    this.ipcMain.handle(IpcChannel.SessionCreate, async (e, raw): Promise<SessionInfo | { error: string }> => {
       const parsed = SessionCreateOptionsSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isChromeSender(e.sender)) return { error: 'not authorized for this session' };
       try {
         if (this.sessionCreateCallback) {
           return await this.sessionCreateCallback(parsed.data);
@@ -264,16 +272,18 @@ export class IpcRouter {
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.SessionRestartView, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionRestartView, (e, raw): { ok: true } | { error: string } => {
       const parsed = SessionRestartViewPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isChromeSender(e.sender)) return { error: 'not authorized for this session' };
       this.restartViewCallback?.(parsed.data.sessionId);
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.SessionSetTitle, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.SessionSetTitle, (e, raw): { ok: true } | { error: string } => {
       const parsed = SessionSetTitlePayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isChromeSender(e.sender)) return { error: 'not authorized for this session' };
       // setTitle emits titleChanged -> broadcast as SessionTitleChanged; main also
       // listens to persist the new title into tabMeta.
       this.manager.get(parsed.data.sessionId)?.setTitle(parsed.data.title);
@@ -358,18 +368,20 @@ export class IpcRouter {
       return { ok: true };
     });
 
-    this.ipcMain.handle(IpcChannel.LayoutPersistDocs, (_e, raw): { ok: true } | { error: string } => {
+    this.ipcMain.handle(IpcChannel.LayoutPersistDocs, (e, raw): { ok: true } | { error: string } => {
       const parsed = LayoutPersistDocsPayloadSchema.safeParse(raw);
       if (!parsed.success) return { error: parsed.error.message };
+      if (!this.isChromeSender(e.sender)) return { error: 'not authorized for this session' };
       this.persistDocsCallback?.(parsed.data.tabId, parsed.data.docs, parsed.data.activeDocIndex);
       return { ok: true };
     });
 
     this.ipcMain.handle(
       IpcChannel.LayoutDocsForTab,
-      (_e, raw): { docs: PersistedOpenDoc[]; activeDocIndex: number | null } | { error: string } => {
+      (e, raw): { docs: PersistedOpenDoc[]; activeDocIndex: number | null } | { error: string } => {
         const parsed = LayoutDocsForTabPayloadSchema.safeParse(raw);
         if (!parsed.success) return { error: parsed.error.message };
+        if (!this.isChromeSender(e.sender)) return { error: 'not authorized for this session' };
         return this.docsForTabCallback?.(parsed.data.tabId) ?? { docs: [], activeDocIndex: null };
       },
     );

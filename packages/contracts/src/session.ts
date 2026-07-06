@@ -23,7 +23,6 @@ export const SessionCreateOptionsSchema = z.object({
   shell: ShellSchema,
   cwd: z.string().min(1),
   title: z.string().min(1).optional(),
-  env: z.record(z.string(), z.string()).optional(),
   cols: z.number().int().positive().default(80),
   rows: z.number().int().positive().default(24),
 });
