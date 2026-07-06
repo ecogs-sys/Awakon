@@ -19,10 +19,10 @@ function collect(detector: RateLimitDetector): string[] {
 }
 
 describe('RateLimitDetector', () => {
-  it('emits once when the phrase appears, with trailing context', () => {
+  it('emits once when the phrase appears in a real option line, with trailing context', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    d.process(Buffer.from(`${PHRASE} · resets 9:30pm (Pacific/Auckland)\nEnter to confirm\n`, 'utf8'));
+    d.process(Buffer.from(`❯ 1. ${PHRASE} · resets 9:30pm (Pacific/Auckland)\nEnter to confirm\n`, 'utf8'));
     expect(events).toHaveLength(1);
     expect(events[0]).toContain('resets 9:30pm');
   });
@@ -30,7 +30,7 @@ describe('RateLimitDetector', () => {
   it('detects a phrase split across two chunks', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    d.process(Buffer.from("You've hit ", 'utf8'));
+    d.process(Buffer.from('❯ 1. You\'ve hit ', 'utf8'));
     d.process(Buffer.from('your limit · resets 3pm\nEnter to confirm\n', 'utf8'));
     expect(events).toHaveLength(1);
   });
@@ -38,14 +38,14 @@ describe('RateLimitDetector', () => {
   it('detects the phrase when ANSI colour codes are interspersed', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    d.process(Buffer.from(`\x1b[31m${PHRASE}\x1b[0m · resets 8am\nEnter to confirm\n`, 'utf8'));
+    d.process(Buffer.from(`❯ 1. \x1b[31m${PHRASE}\x1b[0m · resets 8am\nEnter to confirm\n`, 'utf8'));
     expect(events).toHaveLength(1);
   });
 
   it('does not re-emit while the phrase stays on screen', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    d.process(Buffer.from(`${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
+    d.process(Buffer.from(`❯ 1. ${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
     d.process(Buffer.from(`${PHRASE} still here\nEnter to confirm\n`, 'utf8'));
     expect(events).toHaveLength(1);
   });
@@ -53,25 +53,37 @@ describe('RateLimitDetector', () => {
   it('re-emits after the phrase scrolls out of the window and reappears', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    d.process(Buffer.from(`${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
+    d.process(Buffer.from(`❯ 1. ${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
     d.process(Buffer.from('x'.repeat(5000), 'utf8')); // evicts the phrase
-    d.process(Buffer.from(`${PHRASE} · resets 9am\nEnter to confirm\n`, 'utf8'));
+    // Leading "\n" so the option line starts at a true line boundary in the sliding
+    // window, matching how a freshly redrawn menu actually begins on screen.
+    d.process(Buffer.from(`\n❯ 1. ${PHRASE} · resets 9am\nEnter to confirm\n`, 'utf8'));
     expect(events).toHaveLength(2);
   });
 
-  it('does not emit when the phrase appears without menu chrome nearby (N11)', () => {
+  it('does not emit when the phrase appears without any menu structure nearby (N11)', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
-    // e.g. a doc or transcript quoting the phrase, with no ❯/"Enter to confirm" nearby.
+    // e.g. a doc or transcript quoting the phrase, with no option line or confirm footer.
     d.process(Buffer.from(`Some review text mentions: "${PHRASE}" as an example.\n`, 'utf8'));
     expect(events).toHaveLength(0);
   });
 
-  it('emits when the phrase is preceded by the ❯ selector glyph', () => {
+  it('does not emit for a bare ❯ prompt glyph near quoted text without a real menu (Critical #2 regression)', () => {
+    // The exact false-positive class this anchor used to accept: a starship/pure/p10k-style
+    // shell prompt (or Claude Code's own idle prompt) sitting near quoted text that happens
+    // to mention the phrase — no numbered option line, no confirm footer, so no live menu.
+    const d = new RateLimitDetector(PHRASE);
+    const events = collect(d);
+    d.process(Buffer.from(`cat notes.md\n"${PHRASE}" is discussed in the doc above.\n❯ `, 'utf8'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('does not emit for a numbered option line with no confirm footer', () => {
     const d = new RateLimitDetector(PHRASE);
     const events = collect(d);
     d.process(Buffer.from(`❯ 1. ${PHRASE}\n  2. Upgrade your plan\n`, 'utf8'));
-    expect(events).toHaveLength(1);
+    expect(events).toHaveLength(0);
   });
 
   it('emits nothing when detectText is empty', () => {
@@ -104,7 +116,7 @@ describe('RateLimitDetector', () => {
   it('re-arms after setDetectText so an on-screen phrase can trigger', () => {
     const d = new RateLimitDetector('');
     const events = collect(d);
-    d.process(Buffer.from(`${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
+    d.process(Buffer.from(`❯ 1. ${PHRASE} · resets 8am\nEnter to confirm\n`, 'utf8'));
     expect(events).toHaveLength(0);
     d.setDetectText(PHRASE);
     d.process(Buffer.from('more output\n', 'utf8'));

@@ -20,8 +20,9 @@ describe('Session rate-limit detection', () => {
     session.on('rateLimitDetected', (resetText) => seen.push(resetText));
 
     await new Promise((r) => setTimeout(r, 400)); // flush startup noise
-    // Include menu chrome (N11 anchoring) so this round-trip is recognized as a real prompt.
-    session.write('echo awakon-LIMIT-MARKER resets 9:30pm Enter to confirm\r');
+    // Include a structural menu signature (numbered option line + confirm footer,
+    // Critical #2 anchoring) so this round-trip is recognized as a real prompt.
+    session.write('echo "  1. awakon-LIMIT-MARKER resets 9:30pm" && echo "Enter to confirm"\r');
 
     await new Promise((r) => setTimeout(r, 1500));
     expect(seen.some((t) => t.includes('awakon-LIMIT-MARKER'))).toBe(true);

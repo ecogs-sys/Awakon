@@ -44,9 +44,10 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     await new Promise((r) => setTimeout(r, 400)); // flush startup noise
 
     // No parseable reset time in "resets soon" — stage 1 still fires, nothing is scheduled.
-    // "Enter to confirm" anchors this as a real menu (N11) — plain output without it
-    // no longer trips the detector.
-    session.write(`echo "awakon-LIMIT resets soon Enter to confirm"\r`);
+    // A numbered option line + "Enter to confirm" footer anchors this as a real menu
+    // (Critical #2) — plain output containing only the phrase, with neither, no longer
+    // trips the detector.
+    session.write(`echo "  1. awakon-LIMIT resets soon" && echo "Enter to confirm"\r`);
 
     await waitFor(() => Buffer.concat(chunks).toString('utf8').includes('awakon-STAGE1-OK'));
   });
@@ -77,8 +78,10 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     const resetLabel = formatResetTime(new Date(Date.now() + 5 * 60_000));
     // Quoted as a single argument — PowerShell's `echo` (Write-Output) treats each
     // unquoted bareword as a separate pipeline object and prints one per line, which
-    // would split the phrase and reset time across chunks and break detection.
-    session.write(`echo "awakon-LIMIT resets ${resetLabel} Enter to confirm"\r`);
+    // would split the phrase and reset time across chunks and break detection. The
+    // leading "  1. " and the separate "Enter to confirm" line give the detector the
+    // structural menu signature (Critical #2) a real Claude Code menu would show.
+    session.write(`echo "  1. awakon-LIMIT resets ${resetLabel}" && echo "Enter to confirm"\r`);
 
     await waitFor(() => scheduled.length === 1);
     // A sanity bound, not an exact-time assertion: the parsed epoch must be a real
@@ -116,8 +119,10 @@ describe('auto-resume + real PTY (M6 two-stage)', () => {
     const resetLabel = formatResetTime(new Date(Date.now() + 5 * 60_000));
     // Quoted as a single argument — PowerShell's `echo` (Write-Output) treats each
     // unquoted bareword as a separate pipeline object and prints one per line, which
-    // would split the phrase and reset time across chunks and break detection.
-    session.write(`echo "awakon-LIMIT resets ${resetLabel} Enter to confirm"\r`);
+    // would split the phrase and reset time across chunks and break detection. The
+    // leading "  1. " and the separate "Enter to confirm" line give the detector the
+    // structural menu signature (Critical #2) a real Claude Code menu would show.
+    session.write(`echo "  1. awakon-LIMIT resets ${resetLabel}" && echo "Enter to confirm"\r`);
     await waitFor(() => scheduled.includes(session.id));
 
     manager.cancelResume(session.id);

@@ -15,10 +15,19 @@ const ANSI_RE =
   // eslint-disable-next-line no-control-regex
   /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
 
-/** Menu chrome that only appears around a *live* interactive prompt — never in a
- * quoted transcript or doc discussing the phrase. Requiring one of these near the
- * match anchors detection to an actual on-screen menu (see N11). */
-const MENU_CHROME_MARKERS = ['❯', 'Enter to confirm'];
+/** A structural menu signature — both parts must be present, not just one (N11 /
+ * Critical #2). The bare `❯` selector glyph alone is *not* sufficient: it is also the
+ * prompt glyph of Claude Code itself and of starship/pure/p10k shell themes, so any
+ * ordinary prompt sitting near a quoted mention of the phrase (a doc, `cat`'d file,
+ * pasted transcript) would satisfy an OR-based check even though no menu is on screen.
+ * Requiring an actual numbered option line ("1. ...") *and* the confirm footer
+ * together is specific enough that only the live interactive menu produces both. */
+const OPTION_LINE_RE = /^[ \t]*(?:❯[ \t]*)?\d+\.[ \t]+\S/m;
+const CONFIRM_FOOTER_RE = /Enter to confirm/;
+
+function hasMenuSignature(resetText: string): boolean {
+  return OPTION_LINE_RE.test(resetText) && CONFIRM_FOOTER_RE.test(resetText);
+}
 
 export interface RateLimitDetectorEvents {
   rateLimitDetected: (resetText: string) => void;
@@ -68,9 +77,10 @@ export class RateLimitDetector extends EventEmitter {
       Math.max(0, idx - LEADING_CONTEXT),
       idx + this.detectText.length + TRAILING_CONTEXT,
     );
-    // Cheap phrase match above is only a first-pass filter — require menu chrome
-    // nearby before treating this as a real prompt (quoted text has neither).
-    if (!MENU_CHROME_MARKERS.some((marker) => resetText.includes(marker))) return;
+    // Cheap phrase match above is only a first-pass filter — require the structural
+    // menu signature nearby before treating this as a real prompt (quoted text has
+    // neither an option line nor a confirm footer).
+    if (!hasMenuSignature(resetText)) return;
     this.present = true;
     this.emit('rateLimitDetected', resetText);
   }
