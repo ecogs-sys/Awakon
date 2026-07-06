@@ -57,6 +57,27 @@ describe('chrome preload allowlists', () => {
       expect(LISTEN_CHANNELS, `missing ${channel}`).toContain(channel);
     }
   });
+
+  // A2-I2: the two tests above only ever check the superset direction — a channel
+  // added to an allowlist that the chrome renderer never actually calls (e.g. a
+  // terminal-only channel like FsReadFile mistakenly also granted to the OTHER side)
+  // would pass silently forever. Assert the reverse too: every allowlisted channel is
+  // actually used somewhere in this renderer's own source.
+  it('SEND_CHANNELS contains no channel the chrome renderer does not actually send', async () => {
+    const { SEND_CHANNELS } = await import('./chrome');
+    const used = channelsCalledWith(chromeSource, 'send');
+    for (const channel of SEND_CHANNELS) {
+      expect(used, `${channel} is allowlisted but never sent by the chrome renderer`).toContain(channel);
+    }
+  });
+
+  it('LISTEN_CHANNELS contains no channel the chrome renderer does not actually listen for', async () => {
+    const { LISTEN_CHANNELS } = await import('./chrome');
+    const used = channelsCalledWith(chromeSource, 'on');
+    for (const channel of LISTEN_CHANNELS) {
+      expect(used, `${channel} is allowlisted but never listened for by the chrome renderer`).toContain(channel);
+    }
+  });
 });
 
 describe('terminal preload allowlists', () => {
@@ -72,5 +93,33 @@ describe('terminal preload allowlists', () => {
     for (const channel of channelsCalledWith(terminalSource, 'on')) {
       expect(LISTEN_CHANNELS, `missing ${channel}`).toContain(channel);
     }
+  });
+
+  // A2-I2: exclusion direction — a scoped-bridge test that would have caught
+  // FsReadFile (or SettingsUpdate, SessionCreate, etc.) being added to the terminal's
+  // SEND_CHANNELS by mistake, since the terminal renderer never actually calls it.
+  it('SEND_CHANNELS contains no channel the terminal renderer/terminal-host does not actually send', async () => {
+    const { SEND_CHANNELS } = await import('./terminal');
+    const used = channelsCalledWith(terminalSource, 'send');
+    for (const channel of SEND_CHANNELS) {
+      expect(used, `${channel} is allowlisted but never sent by the terminal renderer`).toContain(channel);
+    }
+  });
+
+  it('LISTEN_CHANNELS contains no channel the terminal renderer/terminal-host does not actually listen for', async () => {
+    const { LISTEN_CHANNELS } = await import('./terminal');
+    const used = channelsCalledWith(terminalSource, 'on');
+    for (const channel of LISTEN_CHANNELS) {
+      expect(used, `${channel} is allowlisted but never listened for by the terminal renderer`).toContain(channel);
+    }
+  });
+
+  // Direct regression for the exact scenario the review called out: FsReadFile must
+  // never be reachable from the terminal renderer's scoped bridge.
+  it('never allowlists chrome-only channels (FsReadFile, SettingsUpdate, SessionCreate) on the terminal side', async () => {
+    const { SEND_CHANNELS } = await import('./terminal');
+    expect(SEND_CHANNELS).not.toContain(IpcChannel.FsReadFile);
+    expect(SEND_CHANNELS).not.toContain(IpcChannel.SettingsUpdate);
+    expect(SEND_CHANNELS).not.toContain(IpcChannel.SessionCreate);
   });
 });
