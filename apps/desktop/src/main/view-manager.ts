@@ -157,9 +157,14 @@ export class ViewManager {
     if (view) this.hideOne(view);
   }
 
-  /** Restore the previously-visible view after a modal closes. */
+  /** Restore the previously-visible view after a modal closes. Refocuses it like show()
+   * does, so typed keys land in the terminal again regardless of how the modal was
+   * dismissed (Esc, Enter-submit, scrim click) — see Issue 2's modal-focus fix. */
   resume(): void {
     this.layout();
+    if (!this.currentSessionId) return;
+    const view = this.views.get(this.currentSessionId);
+    view?.webContents.focus();
   }
 
   /** Rekey a view from an old session id to a new one, in place — used when a tab's

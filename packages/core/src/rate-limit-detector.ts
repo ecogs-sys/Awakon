@@ -4,8 +4,12 @@ import { stripAnsi } from './strip-ansi.js';
 
 /** Max characters of decoded output kept for phrase matching. */
 const WINDOW_MAX = 4096;
-/** Characters captured after the matched phrase, so the reset time is included. */
-const TRAILING_CONTEXT = 200;
+/** Characters captured after the matched phrase. detectText may anchor at the frame's
+ * header (a user-configured phrase like "You've hit your session limit") rather than at
+ * the option-1 label, and the option line + confirm footer sit ~250-300 chars after the
+ * header (status line + ruler lines in between) — verified from a real IPC log. 600 is
+ * symmetric with LEADING_CONTEXT and gives comfortable margin for wider terminals. */
+const TRAILING_CONTEXT = 600;
 /** The 'resets 9:10pm (Pacific/Auckland)' header sits ~250-300 chars before the
  * option-1 label (status line + ruler lines in between) — verified from a real
  * IPC log. 600 gives comfortable margin for wider terminals. */

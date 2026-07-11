@@ -65,3 +65,24 @@ describe('ViewManager crash-listener rekeying (N2)', () => {
     expect(crashes).toEqual(['c']);
   });
 });
+
+describe('ViewManager modal suspend/resume focus (Issue 2)', () => {
+  it('refocuses the restored view webContents on resume(), like show() does', () => {
+    const manager = newManager(() => {});
+    const view = manager.create('tab-1');
+    manager.show('tab-1');
+    (view.webContents.focus as ReturnType<typeof vi.fn>).mockClear();
+
+    manager.suspend();
+    manager.resume();
+
+    expect(view.webContents.focus).toHaveBeenCalled();
+  });
+
+  it('does nothing on resume() when no session was ever shown', () => {
+    const manager = newManager(() => {});
+    manager.create('tab-1');
+
+    expect(() => manager.resume()).not.toThrow();
+  });
+});

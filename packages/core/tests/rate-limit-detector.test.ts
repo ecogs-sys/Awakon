@@ -113,6 +113,20 @@ describe('RateLimitDetector', () => {
     expect(events[0]).toContain('resets 9:10pm (Pacific/Auckland)');
   });
 
+  it('fires when detectText anchors at the header instead of the option-1 label (Issue 3)', () => {
+    // Real user config: detectText is the header phrase, not the shipped default
+    // option-1 label. The option line + confirm footer sit ~250-300 chars after the
+    // header (status + ruler filler in between), which must still be within reach.
+    const detectText = "You've hit your session limit";
+    const header = `${detectText} · resets 12:05pm (Pacific/Auckland)\n`;
+    const filler = `${'─'.repeat(150)}\n${'some status text '.repeat(6)}\n`;
+    const menu = CLAUDE_MENU;
+    const d = new RateLimitDetector(detectText);
+    const events = collect(d);
+    d.process(Buffer.from(header + filler + menu, 'utf8'));
+    expect(events).toHaveLength(1);
+  });
+
   it('re-arms after setDetectText so an on-screen phrase can trigger', () => {
     const d = new RateLimitDetector('');
     const events = collect(d);

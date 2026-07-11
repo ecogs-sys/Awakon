@@ -13,6 +13,7 @@ import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
 import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
 import { isAllowedNavigation, isPathInside } from './navigation-guard.js';
+import { isAllowedPermission } from './permission-guard.js';
 import { probeDefaultShell, shouldSetAppUserModelId } from './platform-defaults.js';
 import { formatSessionCreateError } from './session-create-error.js';
 
@@ -71,12 +72,15 @@ app.on('web-contents-created', (_event, contents) => {
   contents.on('will-attach-webview', (event) => {
     event.preventDefault();
   });
-  // Nothing in this app (chrome or terminal) needs camera/mic/geolocation/notifications/
-  // etc. — deny every permission request instead of falling back to Electron's default
-  // (which grants some permissions unprompted for file:// origins).
-  contents.session.setPermissionRequestHandler((_wc, _permission, callback) => {
-    callback(false);
+  // The terminal's Copy/Paste context menu needs the async clipboard API, which Chromium
+  // gates behind clipboard-read/clipboard-sanitized-write. Nothing else in this app
+  // (camera/mic/geolocation/notifications/etc.) needs any permission — deny everything
+  // else instead of falling back to Electron's default (which grants some permissions
+  // unprompted for file:// origins).
+  contents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(isAllowedPermission(permission));
   });
+  contents.session.setPermissionCheckHandler((_wc, permission) => isAllowedPermission(permission));
 });
 
 const sessionManager = new SessionManager();
@@ -489,10 +493,18 @@ ipcRouter.onSessionCreateForPane((opts, tabId) => {
 });
 
 // While a chrome-level modal (NewSessionDialog, rename) is open, move the terminal
-// WebContentsView offscreen so the native overlay does not cover the modal.
+// WebContentsView offscreen so the native overlay does not cover the modal. suspend()
+// only relayouts the (now-invisible) terminal view — it never moves window-level
+// keyboard focus, so without the explicit focus() below, keys typed into the modal's
+// DOM-focused input never reach the chrome webContents and the dialog is keyboard-dead
+// (Issue 2). resume() gives the terminal view focus back on close.
 ipcRouter.onLayoutModal((open) => {
-  if (open) viewManager?.suspend();
-  else viewManager?.resume();
+  if (open) {
+    viewManager?.suspend();
+    chromeWindow?.webContents.focus();
+  } else {
+    viewManager?.resume();
+  }
 });
 
 // Persist drag-reordered tab order (ignoring ids that are no longer tabs).
