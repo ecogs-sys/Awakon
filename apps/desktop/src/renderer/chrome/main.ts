@@ -5,7 +5,7 @@ import { TabStrip } from './tab-strip.js';
 import { Sidebar } from './sidebar.js';
 import { TitleBar } from './titlebar.js';
 import { LayoutManager } from './layout-manager.js';
-import { wireKeyboard, routeMenuAction } from './keyboard.js';
+import { wireKeyboard, routeMenuAction, type KeyboardCallbacks } from './keyboard.js';
 import { CommandPalette, type PaletteCommand } from './command-palette.js';
 import { shellChip } from './empty-state.js';
 import { Bindings, formatAccelerator } from '@awakon/keymap';
@@ -142,15 +142,24 @@ reportViewport(); // initial size
 // Expose for keyboard handler (T14).
 (window as unknown as { __awakonLayout: LayoutManager }).__awakonLayout = manager;
 
+// Shared by both shortcut paths: the menu accelerator's ActionInvoke pipe (fires when
+// a terminal view has focus, and always on macOS) and the chrome document-keydown
+// handler (the only path that runs on Windows/Linux while the chrome itself has
+// keyboard focus — empty state, palette open, sidebar/titlebar interactions). The two
+// paths can never double-fire for one keypress: keydown preventDefaults the key, which
+// suppresses the Win/Linux accelerator, and on macOS the menu consumes the key
+// equivalent before the renderer sees it.
+const keyboardCallbacks: KeyboardCallbacks = {
+  commandPalette: () => palette.toggle(),
+  terminalAction: (action) => void bridge.send(IpcChannel.ChromeTerminalAction, { action }),
+};
+
 bridge.on(IpcChannel.ActionInvoke, (raw) => {
   const { action } = raw as { action: string };
-  // The palette is opened here (not in keyboard.ts) so the global Ctrl/⌘+K menu
-  // accelerator toggles it regardless of which view currently has focus.
-  if (action === 'commandPalette') { palette.toggle(); return; }
-  routeMenuAction(manager, action);
+  routeMenuAction(manager, keyboardCallbacks, action);
 });
 
-wireKeyboard(manager);
+wireKeyboard(manager, keyboardCallbacks);
 
 console.info('[chrome] mounted');
 

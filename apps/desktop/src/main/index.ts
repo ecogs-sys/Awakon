@@ -4,7 +4,7 @@ import { dirname, join, isAbsolute } from 'node:path';
 import { homedir, release as osRelease } from 'node:os';
 import { IpcChannel, IpcRouter, SessionManager, SessionStore, SettingsStore } from '@awakon/core';
 import type { Shell, SessionInfo, AppSettings, PersistedTab, PersistedSplitNode, ChromeAppInfoResponse, RecentTab, PersistedOpenDoc } from '@awakon/contracts';
-import { UserEditableSettingsSchema, ResumeCancelPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema, SETTINGS_SCHEMA_VERSION } from '@awakon/contracts';
+import { UserEditableSettingsSchema, ResumeCancelPayloadSchema, ChromeAppMenuPopupPayloadSchema, ChromeWindowControlPayloadSchema, ChromeOpenExternalPayloadSchema, RecentAddPayloadSchema, TerminalActionPayloadSchema, TerminalBindingInvokePayloadSchema, SETTINGS_SCHEMA_VERSION } from '@awakon/contracts';
 import { ViewManager } from './view-manager.js';
 import { NotificationBridge } from './notification-bridge.js';
 import { buildAppMenu } from './app-menu.js';
@@ -250,6 +250,40 @@ ipcMain.handle(IpcChannel.ChromeAppMenuPopup, (e, raw): { ok: true } | { error: 
     () => focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null,
   );
   menu.popup({ window: chromeWindow, x: parsed.data.x, y: parsed.data.y });
+  return { ok: true };
+});
+
+// IPC: chrome keydown forwards pane actions (split / close pane) to the focused tab's
+// terminal view. Needed because on Windows/Linux the app-menu accelerators do not fire
+// while the chrome webContents has keyboard focus, so the chrome keydown handler is the
+// only shortcut path there; the menu's own click path (app-menu.ts sendTerminal) covers
+// the accelerator-dispatched cases. Same target resolution as the menu popup above.
+ipcMain.handle(IpcChannel.ChromeTerminalAction, (e, raw): { ok: true } | { error: string } => {
+  const parsed = TerminalActionPayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
+  const view = focusedSessionId ? (viewManager?.get(focusedSessionId) ?? null) : null;
+  view?.webContents.send(IpcChannel.TerminalAction, { action: parsed.data.action });
+  return { ok: true };
+});
+
+// IPC: a reserved app shortcut pressed while a terminal view had keyboard focus.
+// xterm's custom key handler (terminal-host reserved-keys.ts) intercepts the keydown
+// before it becomes PTY bytes and forwards the binding id here — the only path that
+// works there, since xterm's own preventDefault suppresses the Win/Linux app-menu
+// accelerators. Pane actions go straight back to the sender's own splits; everything
+// else rides the same ActionInvoke pipe as the menu accelerators into chrome's
+// routeMenuAction.
+ipcMain.handle(IpcChannel.TerminalBindingInvoke, (e, raw): { ok: true } | { error: string } => {
+  const parsed = TerminalBindingInvokePayloadSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.message };
+  if (!(viewManager?.ownsWebContents(e.sender) ?? false)) return { error: 'not authorized for this session' };
+  const action = parsed.data.action;
+  if (action === 'splitHorizontal' || action === 'splitVertical' || action === 'closePane') {
+    e.sender.send(IpcChannel.TerminalAction, { action });
+  } else {
+    chromeWindow?.webContents.send(IpcChannel.ActionInvoke, { action });
+  }
   return { ok: true };
 });
 

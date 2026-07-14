@@ -44,6 +44,8 @@ export const IpcChannel = {
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
   ChromeOpenExternal: 'core.chrome.open-external',
+  ChromeTerminalAction: 'core.chrome.terminal-action',
+  TerminalBindingInvoke: 'core.terminal.binding-invoke',
   RecentList: 'core.recent.list',
   RecentAdd:  'core.recent.add',
   FsReadFile: 'core.fs.read-file',
@@ -258,8 +260,29 @@ export const ActionInvokePayloadSchema = z.object({
   action: z.string().min(1),
 });
 
+/** Payload for both the main→terminal `TerminalAction` event and the chrome→main
+ * `ChromeTerminalAction` request (chrome keydown forwarding a pane action to the
+ * focused tab's terminal view — the app-menu accelerator doesn't fire on Win/Linux
+ * while the chrome webContents has keyboard focus, so the keydown path needs it). */
 export const TerminalActionPayloadSchema = z.object({
   action: z.enum(['splitHorizontal', 'splitVertical', 'closePane']),
+});
+
+/** Payload for the terminal→main `TerminalBindingInvoke` request: a reserved app
+ * shortcut pressed while an xterm terminal had keyboard focus. The terminal-side
+ * interceptor (terminal-host reserved-keys.ts) catches the keydown before xterm
+ * encodes it into PTY bytes and forwards the binding id; main routes pane actions
+ * back to the sender's own view and everything else into chrome's ActionInvoke pipe.
+ * The enum is the keymap Bindings table minus its TERMINAL_PASS_THROUGH set —
+ * `closeTab` is deliberately absent (Ctrl+W stays a shell key) — and that alignment
+ * is asserted by terminal-host's reserved-keys.test.ts. */
+export const TerminalBindingInvokePayloadSchema = z.object({
+  action: z.enum([
+    'newTab', 'nextTab', 'prevTab',
+    'jumpTab1', 'jumpTab2', 'jumpTab3', 'jumpTab4', 'jumpTab5',
+    'jumpTab6', 'jumpTab7', 'jumpTab8', 'jumpTab9',
+    'toggleSidebar', 'splitHorizontal', 'splitVertical', 'closePane', 'commandPalette',
+  ]),
 });
 
 // --- Settings + resume payloads ---

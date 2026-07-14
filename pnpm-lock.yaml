@@ -169,6 +169,9 @@ importers:
       '@awakon/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@awakon/keymap':
+        specifier: workspace:*
+        version: link:../keymap
       '@xterm/addon-fit':
         specifier: ^0.10.0
         version: 0.10.0(@xterm/xterm@5.5.0)

@@ -11,6 +11,7 @@ export const SEND_CHANNELS = [
   IpcChannel.SessionWrite,
   IpcChannel.SessionResize,
   IpcChannel.SessionReplay,
+  IpcChannel.TerminalBindingInvoke,
   IpcChannel.DocOpen,
   IpcChannel.ChromeOpenExternal,
   IpcChannel.LayoutPersistSplits,

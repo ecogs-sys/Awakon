@@ -6,6 +6,7 @@ import type { SessionId } from '@awakon/contracts';
 import { IpcChannel, isHttpUrl } from '@awakon/contracts';
 import { findMarkdownLinks } from './md-links.js';
 import { sanitizePasteText } from './sanitize-paste.js';
+import { createReservedKeyHandler } from './reserved-keys.js';
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
@@ -102,6 +103,16 @@ export class TerminalHost {
       }
     }));
     this.term.registerLinkProvider(this.markdownLinkProvider());
+
+    // Reserved app shortcuts (Ctrl+K palette, tab management, splits) must never reach
+    // the PTY — intercept them ahead of xterm's key encoding and forward the binding id
+    // to main, which routes it to the right target. See reserved-keys.ts for the
+    // pass-through policy (Ctrl+W stays a shell key).
+    this.term.attachCustomKeyEventHandler(
+      createReservedKeyHandler((action) => {
+        void this.bridge.send(IpcChannel.TerminalBindingInvoke, { action });
+      }),
+    );
 
     this.term.open(opts.container);
     this.fit.fit();
