@@ -102,6 +102,19 @@ describe('showAboutDialog — actions', () => {
     );
   });
 
+  it('clicking Acknowledgements opens the shipped notices file, not a URL', () => {
+    const mount = mountEl();
+    const bridge = (window as unknown as { awakon: FakeBridge }).awakon;
+    void showAboutDialog(mount, INFO);
+
+    const ackLink = [...mount.querySelectorAll<HTMLButtonElement>('.aip-about__link')]
+      .find((l) => l.textContent === 'Acknowledgements')!;
+    ackLink.click();
+
+    expect(bridge.send).toHaveBeenCalledWith('core.chrome.open-acknowledgements');
+    expect(bridge.send).not.toHaveBeenCalledWith('core.chrome.open-external', expect.anything());
+  });
+
   it('Copy info writes a multi-line summary to the clipboard', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {

@@ -16,6 +16,8 @@
     "format": "prettier --write .",
     "icons": "node scripts/generate-icons.mjs",
     "lint": "eslint . --ext .ts,.tsx",
+    "notices": "node scripts/generate-third-party-notices.mjs",
+    "notices:check": "node scripts/check-licenses.mjs",
     "test": "pnpm -r --if-present --filter=!@awakon/e2e --filter=!@awakon/integration test",
     "test:e2e": "pnpm --filter @awakon/e2e test",
     "test:integration": "pnpm --filter @awakon/integration test",

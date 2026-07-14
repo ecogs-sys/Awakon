@@ -24,6 +24,7 @@ export const SEND_CHANNELS = [
   IpcChannel.FsPathExists,
   IpcChannel.FsReadFile,
   IpcChannel.ChromeOpenExternal,
+  IpcChannel.ChromeOpenAcknowledgements,
   IpcChannel.ChromeAppInfo,
   IpcChannel.ChromeAppMenuPopup,
   IpcChannel.ChromeWindowControl,

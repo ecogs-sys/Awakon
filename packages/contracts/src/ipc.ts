@@ -44,6 +44,7 @@ export const IpcChannel = {
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
   ChromeOpenExternal: 'core.chrome.open-external',
+  ChromeOpenAcknowledgements: 'core.chrome.open-acknowledgements',
   ChromeTerminalAction: 'core.chrome.terminal-action',
   TerminalBindingInvoke: 'core.terminal.binding-invoke',
   RecentList: 'core.recent.list',

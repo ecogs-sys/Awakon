@@ -24,6 +24,10 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # License gate: fail fast if any production dependency carries a license
+      # outside the permissive allowlist (see docs/license-compliance-review-2026-07-14.md).
+      - name: Check dependency licenses
+        run: node scripts/check-licenses.mjs
       - run: pnpm -r --filter './packages/*' build
       - run: pnpm test
       # Integration tests spawn real shells via node-pty. macOS-arm64 runners hit

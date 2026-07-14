@@ -330,6 +330,21 @@ ipcMain.handle(IpcChannel.ChromeOpenExternal, (e, raw): { ok: true } | { error: 
   return { ok: true };
 });
 
+// IPC: About dialog opens the shipped third-party license notices. Takes no payload —
+// main fully determines the path (extraResources copy when packaged, repo root in dev),
+// so the renderer cannot steer this at any local file. shell.openPath returns a
+// non-empty error string when no app is associated with .md; fall back to revealing
+// the file in the OS file manager rather than failing silently.
+ipcMain.handle(IpcChannel.ChromeOpenAcknowledgements, async (e): Promise<{ ok: true } | { error: string }> => {
+  if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
+  const noticesPath = app.isPackaged
+    ? join(process.resourcesPath, 'THIRD_PARTY_NOTICES.md')
+    : join(__dirname, '../../../../THIRD_PARTY_NOTICES.md');
+  const openError = await shell.openPath(noticesPath);
+  if (openError) shell.showItemInFolder(noticesPath);
+  return { ok: true };
+});
+
 // IPC: chrome renderer reads the current settings.
 ipcMain.handle(IpcChannel.SettingsGet, (e): AppSettings | { error: string } => {
   if (!isChromeSender(e.sender)) return { error: 'not authorized for this session' };
