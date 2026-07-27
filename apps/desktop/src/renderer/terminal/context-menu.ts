@@ -88,6 +88,10 @@ export function showContextMenu({ items, x, y, onClose }: ContextMenuOptions): H
 
   function activate(it: ContextMenuItem): void {
     if (it.disabled) return;
+    // Order is load-bearing: close() runs onClose BEFORE the item's onClick. Callers
+    // (e.g. the terminal pane menu) rely on this to restore focus in onClose and then
+    // let onClick re-target it — flipping these two lines would break that. See
+    // split-container.ts wirePaneContextMenu().
     close();
     it.onClick?.();
   }

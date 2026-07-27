@@ -235,6 +235,15 @@ export class SplitContainer {
       showContextMenu({
         x: e.clientX,
         y: e.clientY,
+        // Restore keyboard focus to this pane's terminal after the menu closes —
+        // for EVERY action and dismissal, so no item handler can forget it. Without
+        // this, right-click → Copy/Paste/Select all left the xterm blurred (it renders
+        // a hollow "box" cursor when unfocused) and the user had to click the pane to
+        // type again. showContextMenu() runs onClose BEFORE the item's onClick (see
+        // activate() in context-menu.ts), so this fires first and the sync/async action
+        // then keeps or reassigns focus as needed — Split/Close deliberately re-target
+        // focus to the new/sibling pane in their own handlers.
+        onClose: () => host.focus(),
         items: buildTerminalContextMenu({
           hasSelection: host.hasSelection(),
           inSplit,

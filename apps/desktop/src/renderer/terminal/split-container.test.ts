@@ -1,6 +1,11 @@
 ﻿// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Records the order of host method invocations so tests can assert that focus is
+// restored AFTER an action (e.g. paste → focus). Hoisted so the vi.mock factory,
+// which is itself hoisted above imports, can close over it.
+const hostCalls = vi.hoisted(() => [] as string[]);
+
 // Stub @awakon/terminal-host BEFORE importing SplitContainer so the test
 // doesn't pull in xterm.js (which doesn't run cleanly under jsdom).
 vi.mock('@awakon/terminal-host', () => {
@@ -14,9 +19,9 @@ vi.mock('@awakon/terminal-host', () => {
     }
     hasSelection(): boolean { return this._hasSel; }
     getSelection(): string { return this.selection; }
-    paste(_: string): void {}
-    selectAll(): void { this._hasSel = true; }
-    focus(): void {}
+    paste(_: string): void { hostCalls.push('paste'); }
+    selectAll(): void { this._hasSel = true; hostCalls.push('selectAll'); }
+    focus(): void { hostCalls.push('focus'); }
     dispose(): void {}
   }
   return { TerminalHost: StubTerminalHost };
@@ -42,6 +47,7 @@ let bridge: FakeBridge;
 let splits: SplitContainer;
 
 beforeEach(() => {
+  hostCalls.length = 0;
   document.body.innerHTML = '';
   rootEl = document.createElement('div');
   document.body.appendChild(rootEl);
@@ -75,6 +81,38 @@ describe('SplitContainer pane context menu', () => {
     const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
     pane.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
+  });
+
+  // Regression: right-click → Copy/Paste/Select all used to leave the xterm blurred
+  // (hollow "box" cursor); the user had to click the pane before they could type. The
+  // menu now restores terminal focus via onClose for every action.
+  function openMenuAndClick(label: string): void {
+    const pane = rootEl.firstElementChild as HTMLElement;
+    pane.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }));
+    const item = Array.from(document.querySelectorAll('.aip-ctx-menu__item'))
+      .find((i) => i.textContent?.includes(label)) as HTMLElement | undefined;
+    if (!item) throw new Error(`menu item "${label}" not found`);
+    item.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }
+
+  it('restores terminal focus after Select all', () => {
+    openMenuAndClick('Select all');
+    expect(hostCalls).toContain('focus');
+    // focus is restored (via onClose) before the action's own effects — either way the
+    // terminal ends focused, which is what fixes the hollow-cursor bug.
+    expect(hostCalls).toEqual(['focus', 'selectAll']);
+  });
+
+  it('restores terminal focus after Paste', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText: vi.fn().mockResolvedValue('pasted text') },
+      configurable: true,
+    });
+    openMenuAndClick('Paste');
+    // onPaste is async (awaits clipboard.readText); let its microtasks settle.
+    await vi.waitFor(() => expect(hostCalls).toContain('paste'));
+    // Focus was restored on close, before the paste resolved — and nothing blurs it after.
+    expect(hostCalls).toEqual(['focus', 'paste']);
   });
 });
 
