@@ -186,7 +186,7 @@ pnpm --filter @awakon/desktop dist:win
 pnpm --filter @awakon/desktop dist:mac
 ```
 
-*Linux* — produces `Awakon-x.y.z.AppImage`:
+*Linux* — produces both `Awakon-x.y.z-amd64.deb` and `Awakon-x.y.z-x86_64.AppImage`:
 ```bash
 pnpm --filter @awakon/desktop dist:linux
 ```
@@ -195,6 +195,34 @@ The packaged output lands in `apps/desktop/release/<version>/`.
 
 > `electron-builder` can only target the OS it is running on without additional
 > cross-compilation setup, so run each `dist:*` command on the matching platform.
+
+### Installing on Linux — sandbox permissions
+
+Chromium's sandbox on Linux requires the bundled `chrome-sandbox` helper binary to
+be owned by root with the setuid bit (`4755`). How you install Awakon determines
+whether that's handled for you:
+
+- **`.deb` (recommended)** — the package's post-install script sets the
+  permissions automatically:
+  ```bash
+  sudo apt install ./Awakon-<version>-amd64.deb
+  ```
+- **AppImage** — no install step needed; just make it executable and run it.
+- **Manual copy of the unpacked build** (e.g. to `/opt/Awakon`) — a plain file
+  copy loses the setuid bit, and the app aborts on launch with:
+  ```
+  FATAL:setuid_sandbox_host.cc The SUID sandbox helper binary was found, but is not
+  configured correctly. ... /opt/Awakon/chrome-sandbox is owned by root and has mode 4755.
+  ```
+  Fix it by restoring the permissions the sandbox needs:
+  ```bash
+  sudo chown root:root /opt/Awakon/chrome-sandbox
+  sudo chmod 4755 /opt/Awakon/chrome-sandbox
+  ```
+
+Do **not** work around this with `--no-sandbox` — it disables renderer sandboxing
+entirely. This is Linux-only: macOS and Windows use OS-native sandboxing and need
+no such setup.
 
 ### IPC logging (troubleshooting)
 

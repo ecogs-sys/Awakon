@@ -60,13 +60,29 @@ describe('AttentionDetector', () => {
     expect(events.map((e) => e.signal)).toEqual(['bell', 'osc', 'bell']);
   });
 
-  it('ignores a malformed OSC-prefix-like sequence that resets', () => {
+  it('does not treat a foreign OSC sequence\'s own terminator as a bell (A4-I2)', () => {
     const d = new AttentionDetector();
     const events = collect(d);
-    // Start of OSC prefix, then a non-matching byte → reset, then plain BEL
+    // \x1b]999;other\x07 starts like an OSC (ESC ]) but diverges from our prefix at
+    // "999" — it's some OTHER program's OSC sequence, and its terminating BEL belongs
+    // to that sequence, not to the terminal's audible-bell channel.
     d.process(Buffer.from('\x1b]999;other\x07'));
-    expect(events).toHaveLength(1);
-    expect(events[0]?.signal).toBe('bell');
+    expect(events).toHaveLength(0);
+  });
+
+  it('does not mistake a shell window-title OSC\'s BEL terminator for a real bell (A4-I2)', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    // A very common real-world case: `ESC]0;title BEL` sets the window title.
+    d.process(Buffer.from('\x1b]0;my-shell-title\x07'));
+    expect(events).toHaveLength(0);
+  });
+
+  it('still detects a real bell that follows a foreign OSC sequence', () => {
+    const d = new AttentionDetector();
+    const events = collect(d);
+    d.process(Buffer.from('\x1b]0;title\x07\x07'));
+    expect(events.map((e) => e.signal)).toEqual(['bell']);
   });
 
   it('cap OSC payload length to prevent runaway buffering', () => {
@@ -199,6 +215,23 @@ describe('AttentionDetector', () => {
       d.dispose();
       vi.advanceTimersByTime(5000);
       expect(events.some((e) => e.signal === 'idle')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('emits idle for a colorized prompt whose reset code sits after the prompt char (A4-I1)', () => {
+    vi.useFakeTimers();
+    try {
+      const d = new AttentionDetector();
+      const events = collect(d);
+      // The trailing "\x1b[0m" reset code after "$" would defeat a raw \s*$ match
+      // against the un-stripped byte stream even though "$ " is what's on screen.
+      d.process(Buffer.from('\x1b[32m$\x1b[0m '));
+      vi.advanceTimersByTime(1600);
+      const idle = events.find((e) => e.signal === 'idle');
+      expect(idle).toBeDefined();
+      expect(idle?.snippet).toBe('$ ');
     } finally {
       vi.useRealTimers();
     }

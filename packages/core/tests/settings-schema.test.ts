@@ -1,5 +1,5 @@
 ﻿import { describe, expect, it } from 'vitest';
-import { AppSettingsSchema, DEFAULT_APP_SETTINGS } from '@awakon/contracts';
+import { AppSettingsSchema, DEFAULT_APP_SETTINGS, UserEditableSettingsSchema } from '@awakon/contracts';
 
 describe('AppSettingsSchema', () => {
   it('accepts the default settings', () => {
@@ -27,9 +27,48 @@ describe('AppSettingsSchema', () => {
     expect(AppSettingsSchema.safeParse(ok).success).toBe(true);
   });
 
-  it('defaults to enabled, matching Claude Code\'s rate-limit menu and selecting "wait"', () => {
-    expect(DEFAULT_APP_SETTINGS.autoResume.enabled).toBe(true);
+  it('defaults to disabled (opt-in), but preconfigured for Claude Code\'s rate-limit menu selecting "wait"', () => {
+    expect(DEFAULT_APP_SETTINGS.autoResume.enabled).toBe(false);
     expect(DEFAULT_APP_SETTINGS.autoResume.detectText).toBe('Stop and wait for limit to reset');
     expect(DEFAULT_APP_SETTINGS.autoResume.responseText).toBe('1');
+    expect(DEFAULT_APP_SETTINGS.autoResume.resumeText).toBe('continue');
+  });
+
+  it('defaults resumeText to "continue" (M6) so a persisted settings object saved before this field existed still parses', () => {
+    const persistedBeforeM6 = {
+      autoResume: { enabled: true, detectText: "You've hit your limit", responseText: '1' },
+    };
+    const parsed = AppSettingsSchema.safeParse(persistedBeforeM6);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.autoResume.resumeText).toBe('continue');
+  });
+
+  it('rejects a resumeText longer than 200 characters', () => {
+    const bad = {
+      autoResume: {
+        enabled: true, detectText: 'x', responseText: '1', resumeText: 'x'.repeat(201),
+      },
+    };
+    expect(AppSettingsSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('UserEditableSettingsSchema (C7)', () => {
+  it('accepts autoResume + defaultCwd without recentTabs', () => {
+    const parsed = UserEditableSettingsSchema.safeParse({
+      autoResume: DEFAULT_APP_SETTINGS.autoResume,
+      defaultCwd: '/home/me',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('strips a recentTabs field the client sends — the dialog cannot clobber the app-owned list', () => {
+    const parsed = UserEditableSettingsSchema.safeParse({
+      autoResume: DEFAULT_APP_SETTINGS.autoResume,
+      defaultCwd: '',
+      recentTabs: [{ cwd: '/evil', shell: 'bash', title: 'evil', lastUsedAt: 0 }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && 'recentTabs' in parsed.data).toBe(false);
   });
 });

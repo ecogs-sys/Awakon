@@ -20,9 +20,26 @@ describe('Session rate-limit detection', () => {
     session.on('rateLimitDetected', (resetText) => seen.push(resetText));
 
     await new Promise((r) => setTimeout(r, 400)); // flush startup noise
-    session.write('echo awakon-LIMIT-MARKER resets 9:30pm\r');
+    // Include a structural menu signature (numbered option line + confirm footer,
+    // Critical #2 anchoring) so this round-trip is recognized as a real prompt.
+    session.write('echo "  1. awakon-LIMIT-MARKER resets 9:30pm" && echo "Enter to confirm"\r');
 
     await new Promise((r) => setTimeout(r, 1500));
     expect(seen.some((t) => t.includes('awakon-LIMIT-MARKER'))).toBe(true);
+  });
+});
+
+describe('Session.promoteToTab (N3)', () => {
+  let session: Session | null = null;
+  afterEach(() => { session?.kill(); session = null; });
+
+  it('flips kind from pane to tab, reflected in info()', () => {
+    session = new Session('s2', { shell: defaultShell(), cwd: homedir(), cols: 80, rows: 24 }, 'pane');
+    expect(session.info().kind).toBe('pane');
+
+    session.promoteToTab();
+
+    expect(session.kind).toBe('tab');
+    expect(session.info().kind).toBe('tab');
   });
 });

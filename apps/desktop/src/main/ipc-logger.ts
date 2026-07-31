@@ -1,5 +1,6 @@
 import { closeSync, mkdirSync, openSync, readdirSync, unlinkSync, writeSync } from 'node:fs';
 import { join } from 'node:path';
+import { IpcChannel } from '@awakon/contracts';
 
 export interface IpcLogConfig {
   dir: string;
@@ -182,6 +183,16 @@ interface LoggerLike {
 const isAppChannel = (channel: string): boolean =>
   channel.startsWith('core.') || channel.startsWith('event.');
 
+function redactPayload(channel: string, payload: unknown): unknown {
+  // L4: core.session.write carries everything typed into any terminal, including
+  // passwords, base64-encoded. Log its length, never its content. Imported from
+  // @awakon/contracts (R9) so a channel rename can't silently disable this redaction.
+  if (channel !== IpcChannel.SessionWrite) return payload;
+  if (typeof payload !== 'object' || payload === null || !('data' in payload)) return payload;
+  const { data, ...rest } = payload as { data: unknown };
+  return { ...rest, dataLength: typeof data === 'string' ? data.length : undefined, redacted: true };
+}
+
 function senderId(event: unknown): number | undefined {
   const id = (event as { sender?: { id?: number } } | null)?.sender?.id;
   return typeof id === 'number' ? id : undefined;
@@ -216,7 +227,7 @@ export function installIpcInterceptors(
     if (!isAppChannel(channel)) return origHandle(channel, listener);
     origHandle(channel, async (event: unknown, ...args: unknown[]) => {
       const start = Date.now();
-      const payload = args[0];
+      const payload = redactPayload(channel, args[0]);
       const wcId = senderId(event);
       try {
         const response = await listener(event, ...args);
@@ -246,7 +257,7 @@ export function installIpcInterceptors(
       safeLog(logger, {
         t: new Date().toISOString(), dir: 'req', channel,
         ...(wcId !== undefined ? { wcId } : {}),
-        payload: args[0],
+        payload: redactPayload(channel, args[0]),
       });
       return listener(event, ...args);
     });
@@ -260,7 +271,7 @@ export function installIpcInterceptors(
         safeLog(logger, {
           t: new Date().toISOString(), dir: 'event', channel,
           ...(wcId !== undefined ? { wcId } : {}),
-          payload: args[0],
+          payload: redactPayload(channel, args[0]),
         });
       }
       return origSend(channel, ...args);

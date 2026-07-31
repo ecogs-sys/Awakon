@@ -2,6 +2,7 @@
 import type { SessionId, Shell, PersistedSplitNode } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
 import { showContextMenu, buildTerminalContextMenu } from './context-menu.js';
+import { ACCELERATOR_PLATFORM } from './platform.js';
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -39,8 +40,9 @@ export class SplitContainer {
   private readonly cwd: string;
   private readonly rootEl: HTMLElement;
   /** Primary session id of the owning tab — sent with every pane create so main can
-   * scope pane cleanup to this tab. */
-  private readonly tabId: SessionId;
+   * scope pane cleanup to this tab. Reassigned by retarget() when main promotes a
+   * sibling pane to primary after the original primary pane closes (see H2). */
+  private tabId: SessionId;
   /** When true, persist() is a no-op. Used during restore() to avoid emitting one
    * IPC call per replayed split during startup — a single final persist runs once
    * the tree has been fully rebuilt. */
@@ -77,6 +79,19 @@ export class SplitContainer {
       return;
     }
     const newSessionId = newSessionInfo.id as SessionId;
+
+    // A6-I3: `oldFocused` may have left the tree while the create-pane request was in
+    // flight (e.g. its pane was closed by closeFocusedPane() from elsewhere). Proceeding
+    // anyway would replaceChild against a detached element (a no-op, since parentElement
+    // is now null) and replaceInTree would fail to find `oldFocused` and fall back to
+    // installing `branch` as a brand-new root that was never attached to the DOM,
+    // corrupting the tree. Abandon the split and clean up the now-orphaned pane instead.
+    const stillInTree = oldFocused === this.root || this.findParent(this.root, oldFocused) !== null;
+    if (!stillInTree) {
+      console.warn('[split] focused pane left the tree while creating its sibling; abandoning split');
+      void this.bridge.send(IpcChannel.SessionClosePane, { sessionId: newSessionId });
+      return;
+    }
 
     const branchEl = document.createElement('div');
     branchEl.style.display = 'flex';
@@ -155,7 +170,7 @@ export class SplitContainer {
 
     // End the pane's session and tear down its terminal.
     target.host.dispose();
-    void this.bridge.send(IpcChannel.SessionClose, { sessionId: target.sessionId });
+    void this.bridge.send(IpcChannel.SessionClosePane, { sessionId: target.sessionId });
 
     // Replace the parent branch with the sibling subtree, in the DOM and the tree.
     sibling.el.style.flex = '1 1 100%';
@@ -220,9 +235,19 @@ export class SplitContainer {
       showContextMenu({
         x: e.clientX,
         y: e.clientY,
+        // Restore keyboard focus to this pane's terminal after the menu closes —
+        // for EVERY action and dismissal, so no item handler can forget it. Without
+        // this, right-click → Copy/Paste/Select all left the xterm blurred (it renders
+        // a hollow "box" cursor when unfocused) and the user had to click the pane to
+        // type again. showContextMenu() runs onClose BEFORE the item's onClick (see
+        // activate() in context-menu.ts), so this fires first and the sync/async action
+        // then keeps or reassigns focus as needed — Split/Close deliberately re-target
+        // focus to the new/sibling pane in their own handlers.
+        onClose: () => host.focus(),
         items: buildTerminalContextMenu({
           hasSelection: host.hasSelection(),
           inSplit,
+          platform: ACCELERATOR_PLATFORM,
           onCopy: () => {
             void navigator.clipboard.writeText(host.getSelection());
           },
@@ -249,6 +274,17 @@ export class SplitContainer {
 
   getFocusedSessionId(): SessionId {
     return this.focused.sessionId;
+  }
+
+  /** Main promoted a sibling pane to be this tab's new primary/tabId after the
+   * original primary pane closed. Future pane creates + persist calls must use the
+   * new id (see event.layout.tab-reparented). */
+  retarget(newTabId: SessionId): void {
+    this.tabId = newTabId;
+    // The tree shape was already corrected (pane removed/promoted) before main sent
+    // the reparent event; that persist landed under the old tabId and was dropped
+    // there (main deleted that entry). Re-send it under the new id (N1).
+    this.persist();
   }
 
   private serializeNode(node: SplitNode): PersistedSplitNode {

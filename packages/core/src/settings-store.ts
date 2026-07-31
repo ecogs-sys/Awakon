@@ -1,12 +1,46 @@
 ﻿import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { AppSettingsSchema, DEFAULT_APP_SETTINGS, type AppSettings } from '@awakon/contracts';
+import { AppSettingsSchema, DEFAULT_APP_SETTINGS, SETTINGS_SCHEMA_VERSION, type AppSettings } from '@awakon/contracts';
 
 const FILE_NAME = 'settings.json';
 
+type RawSettings = Record<string, unknown>;
+
+/** Migrates a raw parsed settings.json from its recorded `version` (an older file
+ * with no `version` field at all is treated as 0) up to SETTINGS_SCHEMA_VERSION, one
+ * step at a time. Add an entry here whenever a schema change would otherwise fail to
+ * parse an existing user's file (A2-I3) — without this, a schema break silently wipes
+ * every persisted setting back to defaults instead of migrating the old shape forward.
+ *
+ * Each function migrates from its key version to key+1.
+ */
+const MIGRATIONS: Record<number, (raw: RawSettings) => RawSettings> = {
+  // 0 -> 1: introduced explicit versioning. No field changes were needed — every
+  // pre-versioning settings.json already matches the v1 shape — so this step just
+  // stamps the version. Template for future migrations: reshape/rename/default
+  // fields here before bumping the number.
+  0: (raw) => ({ ...raw, version: 1 }),
+};
+
+function migrate(raw: RawSettings): RawSettings {
+  let version = typeof raw['version'] === 'number' ? raw['version'] : 0;
+  let migrated = raw;
+  while (version < SETTINGS_SCHEMA_VERSION) {
+    const step = MIGRATIONS[version];
+    if (!step) break; // no migration registered for this version — validation below decides its fate
+    migrated = step(migrated);
+    version += 1;
+  }
+  return migrated;
+}
+
+function isRecord(value: unknown): value is RawSettings {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Reads and writes the persisted application settings. Writes are atomic via
- * temp-file + rename. A missing, corrupt, or schema-mismatched file yields the
+ * temp-file + rename. A missing, corrupt, or unmigratable file yields the
  * defaults (the corrupt file is renamed aside) so the app always boots.
  * Modelled on SessionStore.
  */
@@ -41,7 +75,8 @@ export class SettingsStore {
       await this.backup(path);
       return DEFAULT_APP_SETTINGS;
     }
-    const result = AppSettingsSchema.safeParse(parsed);
+    const migrated = isRecord(parsed) ? migrate(parsed) : parsed;
+    const result = AppSettingsSchema.safeParse(migrated);
     if (!result.success) {
       await this.backup(path);
       return DEFAULT_APP_SETTINGS;

@@ -74,4 +74,51 @@ describe('parseResetTime', () => {
   it('returns null for garbage input', () => {
     expect(parseResetTime('25:99 xx', new Date())).toBeNull();
   });
+
+  // --- A4-I3/I4: 24h clock, anchoring to "resets", iterating candidates ---
+
+  it('parses a 24-hour clock time (A4-I3)', () => {
+    const now = new Date(2026, 4, 20, 6, 0, 0);
+    const ms = parseResetTime('resets 21:30 (Pacific/Auckland)', now);
+    expect(ms).not.toBeNull();
+    const dt = DateTime.fromMillis(ms!, { zone: 'Pacific/Auckland' });
+    expect(dt.hour).toBe(21);
+    expect(dt.minute).toBe(30);
+  });
+
+  it('rolls a 24-hour time to the next day once it has passed', () => {
+    const now = new Date(2026, 4, 20, 23, 0, 0);
+    const ms = parseResetTime('resets 09:15', now);
+    expect(new Date(ms!).getHours()).toBe(9);
+    expect(new Date(ms!).getMinutes()).toBe(15);
+    expect(ms!).toBeGreaterThan(now.getTime());
+  });
+
+  it('prefers the clock time nearest "resets" over an unrelated timestamp elsewhere in the window (A4-I4)', () => {
+    const now = new Date(2026, 4, 20, 6, 0, 0);
+    // An unrelated status timestamp (11:45am) appears well before the actual
+    // "resets HH:MM" header — the old first-match behavior would have locked onto it.
+    const text = 'last synced 11:45am · some filler text here padding the window out '
+      + '· You\'ve hit your limit · resets 9:30pm (Pacific/Auckland)';
+    const ms = parseResetTime(text, now);
+    const dt = DateTime.fromMillis(ms!, { zone: 'Pacific/Auckland' });
+    expect(dt.hour).toBe(21);
+    expect(dt.minute).toBe(30);
+  });
+
+  it('skips an invalid candidate and finds the next valid one instead of giving up (A4-I3)', () => {
+    const now = new Date(2026, 4, 20, 6, 0, 0);
+    // "25:99" is not a valid clock time; the parser must keep scanning rather than
+    // returning null just because the first-encountered candidate was garbage.
+    const ms = parseResetTime('resets 25:99, actually resets 3pm', now);
+    expect(ms).not.toBeNull();
+    expect(new Date(ms!).getHours()).toBe(15);
+  });
+
+  it('falls back to the first valid candidate when "resets" is not present in the text', () => {
+    const now = new Date(2026, 4, 20, 6, 0, 0);
+    const ms = parseResetTime('your session limit refreshes at 3pm', now);
+    expect(ms).not.toBeNull();
+    expect(new Date(ms!).getHours()).toBe(15);
+  });
 });

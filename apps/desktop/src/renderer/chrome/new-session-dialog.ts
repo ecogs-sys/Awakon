@@ -171,6 +171,11 @@ export function showNewSessionDialog(
       mount.classList.remove('open');
       mount.innerHTML = '';
       document.removeEventListener('keydown', onKey);
+      // A5-I2: without this, every open of this dialog left another 'click' listener
+      // on the persistent #dialog-mount element — they never fire the wrong dialog's
+      // cleanup (each closure is independently resolved/no-op-safe), but they
+      // accumulate for the life of the window, one per dialog ever opened.
+      mount.removeEventListener('click', onMountClick);
       resolve(result);
     };
 
@@ -179,11 +184,13 @@ export function showNewSessionDialog(
     };
     document.addEventListener('keydown', onKey);
 
+    const onMountClick = (ev: MouseEvent): void => {
+      if (ev.target === mount) cleanup(null);
+    };
+    mount.addEventListener('click', onMountClick);
+
     root.querySelector<HTMLButtonElement>('#ns-close')!.addEventListener('click', () => cleanup(null));
     root.querySelector<HTMLButtonElement>('#ns-cancel')!.addEventListener('click', () => cleanup(null));
-    mount.addEventListener('click', (ev) => {
-      if (ev.target === mount) cleanup(null);
-    });
 
     // ── Shell section ───────────────────────────────────────────────
     interface ShellOpt { value: Shell; label: string; }
@@ -371,6 +378,7 @@ export function showRenameDialog(
       mount.classList.remove('open');
       mount.innerHTML = '';
       document.removeEventListener('keydown', onKey);
+      mount.removeEventListener('click', onMountClick); // A5-I2
       resolve(result);
     };
 
@@ -389,10 +397,12 @@ export function showRenameDialog(
     };
     document.addEventListener('keydown', onKey);
 
+    const onMountClick = (ev: MouseEvent): void => {
+      if (ev.target === mount) cleanup(null);
+    };
+    mount.addEventListener('click', onMountClick);
+
     okEl.addEventListener('click', submit);
     cancelEl.addEventListener('click', () => cleanup(null));
-    mount.addEventListener('click', (ev) => {
-      if (ev.target === mount) cleanup(null);
-    });
   });
 }

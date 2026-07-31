@@ -29,6 +29,10 @@ export interface ViewManagerOptions {
  */
 export class ViewManager {
   private readonly views = new Map<SessionId, WebContentsView>();
+  /** The id each view is *currently* keyed under — rekey() updates this in place so the
+   * render-process-gone listener (registered once, at create time) always resolves the
+   * live id instead of the stale one captured in its closure (N2). */
+  private readonly liveIdOf = new WeakMap<WebContentsView, SessionId>();
   private parent: BrowserWindow | null = null;
   private currentSessionId: SessionId | null = null;
   private sidebarPx = SIDEBAR_OPEN_PX;
@@ -68,21 +72,33 @@ export class ViewManager {
     return this.views.get(sessionId);
   }
 
+  /** Whether `wc` is the webContents of a view this ViewManager currently owns — used to
+   * authorize IPC channels legitimately callable from any terminal view (not just chrome),
+   * e.g. ChromeOpenExternal for a link clicked in terminal output. */
+  ownsWebContents(wc: Electron.WebContents): boolean {
+    for (const view of this.views.values()) {
+      if (view.webContents === wc) return true;
+    }
+    return false;
+  }
+
   create(sessionId: SessionId): WebContentsView {
     if (!this.parent) throw new Error('ViewManager.create called before attach');
     const view = new WebContentsView({
       webPreferences: {
         preload: this.opts.preloadPath,
-        sandbox: false,
+        sandbox: true,
         contextIsolation: true,
       },
     });
     this.parent.contentView.addChildView(view);
     this.views.set(sessionId, view);
+    this.liveIdOf.set(view, sessionId);
     this.hideOne(view);
 
     view.webContents.on('render-process-gone', () => {
-      this.opts.onCrash?.(sessionId, view);
+      const liveId = this.liveIdOf.get(view);
+      if (liveId) this.opts.onCrash?.(liveId, view);
     });
 
     return view;
@@ -141,9 +157,26 @@ export class ViewManager {
     if (view) this.hideOne(view);
   }
 
-  /** Restore the previously-visible view after a modal closes. */
+  /** Restore the previously-visible view after a modal closes. Refocuses it like show()
+   * does, so typed keys land in the terminal again regardless of how the modal was
+   * dismissed (Esc, Enter-submit, scrim click) — see Issue 2's modal-focus fix. */
   resume(): void {
     this.layout();
+    if (!this.currentSessionId) return;
+    const view = this.views.get(this.currentSessionId);
+    view?.webContents.focus();
+  }
+
+  /** Rekey a view from an old session id to a new one, in place — used when a tab's
+   * primary pane closes and a sibling pane is promoted to take over its identity
+   * (H2: closing the primary pane must not tear down the tab's view). */
+  rekey(oldId: SessionId, newId: SessionId): void {
+    const view = this.views.get(oldId);
+    if (!view) return;
+    this.views.delete(oldId);
+    this.views.set(newId, view);
+    this.liveIdOf.set(view, newId);
+    if (this.currentSessionId === oldId) this.currentSessionId = newId;
   }
 
   /** Replace the underlying WebContentsView for a session (used during crash recovery). */

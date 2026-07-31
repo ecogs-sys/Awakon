@@ -8,10 +8,13 @@ interface Bridge {
 const APP_NAME = 'Awakon';
 const TAGLINE  = 'Run many agents · never miss a prompt';
 const REPO     = 'https://github.com/ecogs-sys/Awakon';
-const LINKS: Array<{ label: string; url: string }> = [
+/** Acknowledgements has no URL: it opens the THIRD_PARTY_NOTICES.md copy shipped
+ * with the app (main resolves the path) — the repo is private, so a GitHub blob
+ * URL would 404 for end users, and the shipped copy also works offline. */
+const LINKS: Array<{ label: string; url?: string }> = [
   { label: 'Website',          url: REPO },
   { label: 'Release notes',    url: `${REPO}/releases` },
-  { label: 'Acknowledgements', url: `${REPO}/blob/main/THIRD_PARTY_NOTICES.md` },
+  { label: 'Acknowledgements' },
   { label: 'Report an issue',  url: `${REPO}/issues` },
 ];
 
@@ -86,7 +89,8 @@ export function showAboutDialog(
       a.className = 'aip-about__link';
       a.textContent = link.label;
       a.addEventListener('click', () => {
-        void bridge.send(IpcChannel.ChromeOpenExternal, { url: link.url });
+        if (link.url) void bridge.send(IpcChannel.ChromeOpenExternal, { url: link.url });
+        else void bridge.send(IpcChannel.ChromeOpenAcknowledgements);
       });
       linksEl.appendChild(a);
     }

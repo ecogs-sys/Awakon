@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmptyStateView, shellChip, formatWhen, platformMod } from './empty-state.js';
+import { EmptyStateView, shellChip, formatWhen } from './empty-state.js';
 import type { RecentTab } from '@awakon/contracts';
 
 function makeHost(): HTMLElement {
@@ -54,26 +54,21 @@ describe('formatWhen', () => {
   });
 });
 
-// ── platformMod ──────────────────────────────────────────────────────────────
+// ── EmptyStateView ───────────────────────────────────────────────────────────
 
-describe('platformMod', () => {
-  it('returns ⌘ on macOS', () => {
-    Object.defineProperty(navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-      configurable: true,
-    });
-    expect(platformMod()).toBe('⌘');
+describe('EmptyStateView — New Session card shortcut (A5-I6)', () => {
+  it('formats the shortcut hint from the real newTab binding on Windows/Linux', () => {
+    const host = makeHost();
+    new EmptyStateView(host, 'win32').render([], { onNew: vi.fn(), onPickRecent: vi.fn() });
+    expect(host.querySelector('.aip-empty__card-kbd')?.textContent).toBe('Ctrl+T');
   });
-  it('returns Ctrl+ on Windows', () => {
-    Object.defineProperty(navigator, 'userAgent', {
-      value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-      configurable: true,
-    });
-    expect(platformMod()).toBe('Ctrl+');
+
+  it('formats the shortcut hint with the mac glyph on darwin', () => {
+    const host = makeHost();
+    new EmptyStateView(host, 'darwin').render([], { onNew: vi.fn(), onPickRecent: vi.fn() });
+    expect(host.querySelector('.aip-empty__card-kbd')?.textContent).toBe('⌘T');
   });
 });
-
-// ── EmptyStateView ───────────────────────────────────────────────────────────
 
 describe('EmptyStateView — brand section', () => {
   it('renders "Awakon" brand title', () => {

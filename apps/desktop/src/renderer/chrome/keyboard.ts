@@ -1,36 +1,24 @@
-﻿import { Bindings, type BindingId } from '@awakon/keymap';
+﻿import { matchBinding, type BindingId } from '@awakon/keymap';
 import type { LayoutManager } from './layout-manager.js';
 
-interface ParsedAccelerator {
-  ctrl: boolean;
-  shift: boolean;
-  alt: boolean;
-  key: string; // uppercase
+/**
+ * Chrome-side handlers for bindings whose target lives outside the LayoutManager.
+ * Every binding MUST have a working handler here: on Windows/Linux the app-menu
+ * accelerators do not fire while the chrome webContents has keyboard focus (empty
+ * state, palette open, after clicking the sidebar/titlebar), so this keydown path is
+ * the only one that runs there. A no-op entry produces a shortcut that works on macOS
+ * (the menu handles the key equivalent before the renderer sees it) but is silently
+ * dead on Windows/Linux — that was the Ctrl+K command-palette bug, runtime-verified
+ * with native keys + --log-ipc on 2026-07-13.
+ */
+export interface KeyboardCallbacks {
+  /** Toggle the command palette — same effect as the menu accelerator's ActionInvoke path. */
+  commandPalette: () => void;
+  /** Forward a pane action to the focused tab's terminal view (relayed via main). */
+  terminalAction: (action: 'splitHorizontal' | 'splitVertical' | 'closePane') => void;
 }
 
-function parseAccelerator(acc: string): ParsedAccelerator {
-  const parts = acc.split('+').map((p) => p.trim());
-  const result: ParsedAccelerator = { ctrl: false, shift: false, alt: false, key: '' };
-  for (const part of parts) {
-    if (part === 'CmdOrCtrl' || part === 'Ctrl' || part === 'Cmd') result.ctrl = true;
-    else if (part === 'Shift') result.shift = true;
-    else if (part === 'Alt' || part === 'Option') result.alt = true;
-    else result.key = part.toUpperCase();
-  }
-  return result;
-}
-
-function eventMatches(ev: KeyboardEvent, acc: ParsedAccelerator): boolean {
-  const ctrlPressed = ev.ctrlKey || ev.metaKey;
-  if (!!acc.ctrl !== ctrlPressed) return false;
-  if (!!acc.shift !== ev.shiftKey) return false;
-  if (!!acc.alt !== ev.altKey) return false;
-  return ev.key.toUpperCase() === acc.key || ev.code.toUpperCase() === acc.key
-    // Map `Tab` literal to the actual Tab key
-    || (acc.key === 'TAB' && ev.key === 'Tab');
-}
-
-const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager) => void> = {
+const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager, cb: KeyboardCallbacks) => void> = {
   newTab: (m) => void m.newTab(),
   closeTab: (m) => m.closeFocused(),
   nextTab: (m) => m.focusNext(),
@@ -45,34 +33,28 @@ const ACTION_HANDLERS: Record<BindingId, (m: LayoutManager) => void> = {
   jumpTab8: (m) => m.focusIndex(8),
   jumpTab9: (m) => m.focusIndex(9),
   toggleSidebar: (m) => m.toggleSidebar(),
-  // These act on the focused terminal view, not the chrome. They are dispatched by the
-  // Electron menu accelerator as a TerminalAction event; the chrome handler is a no-op.
-  splitHorizontal: () => {},
-  splitVertical: () => {},
-  closePane: () => {},
-  // The command palette is opened from the ActionInvoke listener in main.ts (so the
-  // global menu accelerator works from any focused view); no chrome-keydown handler.
-  commandPalette: () => {},
+  splitHorizontal: (_m, cb) => cb.terminalAction('splitHorizontal'),
+  splitVertical: (_m, cb) => cb.terminalAction('splitVertical'),
+  closePane: (_m, cb) => cb.terminalAction('closePane'),
+  commandPalette: (_m, cb) => cb.commandPalette(),
 };
 
-export function wireKeyboard(manager: LayoutManager): void {
-  const parsed: Array<{ id: BindingId; acc: ParsedAccelerator }> = Object.entries(Bindings).map(
-    ([id, binding]) => ({ id: id as BindingId, acc: parseAccelerator(binding.accelerator) }),
-  );
-
+export function wireKeyboard(manager: LayoutManager, callbacks: KeyboardCallbacks): void {
   document.addEventListener('keydown', (ev) => {
-    for (const { id, acc } of parsed) {
-      if (eventMatches(ev, acc)) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        ACTION_HANDLERS[id](manager);
-        return;
-      }
-    }
+    // A5-I1: a chrome dialog (Settings/About/New Session/Rename) owns its own Escape/
+    // Enter handling via its own document keydown listener — the global bindings here
+    // must not also fire while one is open (e.g. Ctrl+T re-triggering newTab and
+    // wiping the open New Session dialog's DOM out from under it).
+    if (manager.isDialogOpen()) return;
+    const id = matchBinding(ev);
+    if (!id) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    ACTION_HANDLERS[id](manager, callbacks);
   });
 }
 
-export function routeMenuAction(manager: LayoutManager, actionId: string): void {
+export function routeMenuAction(manager: LayoutManager, callbacks: KeyboardCallbacks, actionId: string): void {
   if (actionId === 'openSettings') {
     void manager.openSettings();
     return;
@@ -82,5 +64,5 @@ export function routeMenuAction(manager: LayoutManager, actionId: string): void 
     return;
   }
   const handler = ACTION_HANDLERS[actionId as BindingId];
-  if (handler) handler(manager);
+  if (handler) handler(manager, callbacks);
 }

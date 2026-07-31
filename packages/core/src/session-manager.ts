@@ -10,6 +10,7 @@ import type {
 } from '@awakon/contracts';
 import { Session } from './session.js';
 import { ResumeScheduler } from './resume-scheduler.js';
+import { parseResetTime } from './reset-time-parser.js';
 
 export interface SessionManagerEvents {
   sessionCreated: (info: SessionInfo) => void;
@@ -29,10 +30,18 @@ export interface SessionManagerEvents {
  */
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
-  private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '' };
+  private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '', resumeText: '' };
   private readonly resumeScheduler = new ResumeScheduler({
     onDue: (sessionId) => this.fireResume(sessionId),
   });
+  /** sessionId -> epoch ms of the last stage-1 answer. Guards against detector
+   * false->true churn (redraw cycles) re-firing the menu-answer write (N11). */
+  private readonly lastAnsweredAt = new Map<SessionId, number>();
+  /** sessionId -> epoch ms a resume was scheduled at. Used at fire time to detect real
+   * user input that happened after scheduling (A4-I5) — see fireResume(). */
+  private readonly resumeScheduledAt = new Map<SessionId, number>();
+  /** Real rate-limit hits are hours apart; menu redraw churn is seconds apart. */
+  private static readonly RESPONSE_COOLDOWN_MS = 5 * 60_000;
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
@@ -42,6 +51,8 @@ export class SessionManager extends EventEmitter {
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
     session.on('exit', ({ exitCode, signal }) => {
       this.resumeScheduler.cancel(id);
+      this.lastAnsweredAt.delete(id);
+      this.resumeScheduledAt.delete(id);
       this.emit('sessionExited', id, exitCode, signal);
       // Keep the session in the map so its ring buffer is still readable for a moment;
       // callers explicitly call close() to remove. (See Plan 1 success criteria — clean shutdown
@@ -51,14 +62,28 @@ export class SessionManager extends EventEmitter {
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
     // The rate-limit prompt is an interactive menu ("1. Stop and wait for limit
     // to reset" / "2. Upgrade your plan") that must be answered while it is on
-    // screen. Selecting option 1 hands the waiting to the agent itself, which
-    // resumes when the limit resets — so we respond the moment the phrase is
-    // detected rather than scheduling anything for a later reset time.
-    session.on('rateLimitDetected', () => {
+    // screen. Two-stage auto-resume (M6): Stage 1 answers the menu now —
+    // responseText ('1') selects "wait for reset", which Claude Code itself
+    // waits on. Stage 2 schedules a "continue" nudge for after the parsed reset
+    // time, in case Claude Code did not already resume on its own.
+    session.on('rateLimitDetected', (resetText) => {
       if (!this.autoResume.enabled) return;
       if (session.info().status === 'exited') return;
-      session.write(`${this.autoResume.responseText}\r`);
-      this.emit('resumeFired', id);
+      // A resume already pending means stage 1 already answered this hit — a
+      // redraw-triggered re-detection must not answer again (N11).
+      if (this.resumeScheduler.has(id)) return;
+      const now = Date.now();
+      const last = this.lastAnsweredAt.get(id);
+      if (last !== undefined && now - last < SessionManager.RESPONSE_COOLDOWN_MS) return;
+      this.lastAnsweredAt.set(id, now);
+      session.write(`${this.autoResume.responseText}\r`, { synthetic: true });
+      const resetAt = parseResetTime(resetText, new Date());
+      if (resetAt !== null && this.resumeScheduler.schedule(id, resetAt)) {
+        this.resumeScheduledAt.set(id, now);
+        this.emit('resumeScheduled', id, resetAt);
+      }
+      // If parsing fails, stage 1 already answered the menu and Claude Code waits on
+      // its own — no schedule, no badge; the cooldown above still guards this path.
     });
 
     session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');
@@ -113,6 +138,7 @@ export class SessionManager extends EventEmitter {
     }
     if (!config.enabled) {
       for (const sessionId of this.resumeScheduler.cancelAll()) {
+        this.resumeScheduledAt.delete(sessionId);
         this.emit('resumeCancelled', sessionId);
       }
     }
@@ -120,16 +146,27 @@ export class SessionManager extends EventEmitter {
 
   /** Cancel a pending resume (user clicked the badge's cancel control). */
   cancelResume(sessionId: SessionId): void {
+    this.resumeScheduledAt.delete(sessionId);
     if (this.resumeScheduler.cancel(sessionId)) {
       this.emit('resumeCancelled', sessionId);
     }
   }
 
-  /** Invoked by the scheduler when a resume is due: type the response into the tab. */
+  /** Invoked by the scheduler when a resume is due: type resumeText ('continue') into
+   * the tab — a nudge in case Claude Code did not already self-resume after stage 1.
+   * Fire-time re-check (A4-I5): if the user has typed into this session for real since
+   * the resume was scheduled, they're actively engaged with it — drop the nudge instead
+   * of injecting synthetic text over live typing. */
   private fireResume(sessionId: SessionId): void {
     const session = this.sessions.get(sessionId);
+    const scheduledAt = this.resumeScheduledAt.get(sessionId);
+    this.resumeScheduledAt.delete(sessionId);
     if (!session || session.info().status === 'exited') return;
-    session.write(`${this.autoResume.responseText}\r`);
+    if (scheduledAt !== undefined && session.getLastUserInputAt() > scheduledAt) {
+      this.emit('resumeCancelled', sessionId);
+      return;
+    }
+    session.write(`${this.autoResume.resumeText}\r`, { synthetic: true });
     this.emit('resumeFired', sessionId);
   }
 

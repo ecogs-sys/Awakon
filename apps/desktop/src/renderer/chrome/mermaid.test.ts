@@ -53,6 +53,18 @@ describe('renderMermaidBlocks', () => {
     expect(el.textContent).toContain('bad diagram');
   });
 
+  it('sanitizes the rendered SVG before injecting it (A5-I3)', async () => {
+    renderMock.mockResolvedValueOnce({
+      svg: '<svg><script>alert(1)</script><rect onload="alert(2)" width="1" height="1"/></svg>',
+    });
+    const el = host('<pre class="aip-mermaid"><code>graph TD; A-->B</code></pre>');
+    await renderMermaidBlocks(el);
+    expect(el.querySelector('script')).toBeNull();
+    expect(el.innerHTML).not.toContain('onload');
+    // The rest of the SVG (a harmless rect) survives sanitization.
+    expect(el.querySelector('rect')).not.toBeNull();
+  });
+
   it('does not import mermaid when there are no markers', async () => {
     const el = host('<p>no diagrams here</p>');
     await renderMermaidBlocks(el);

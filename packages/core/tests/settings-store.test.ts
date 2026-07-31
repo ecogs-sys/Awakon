@@ -24,7 +24,8 @@ describe('SettingsStore', () => {
   it('round-trips a saved value', async () => {
     const dir = tempDir();
     const next = {
-      autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go' },
+      version: 1,
+      autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go', resumeText: 'continue' },
       defaultCwd: '',
       recentTabs: [],
     };
@@ -45,6 +46,37 @@ describe('SettingsStore', () => {
     const dir = tempDir();
     await fs.writeFile(join(dir, 'settings.json'), JSON.stringify({ autoResume: { enabled: 1 } }), 'utf8');
     expect(await new SettingsStore(dir).load()).toEqual(DEFAULT_APP_SETTINGS);
+  });
+
+  // --- A2-I3: versioning + migration ---
+
+  it('migrates a pre-versioning settings.json (no version field) instead of wiping it to defaults', async () => {
+    const dir = tempDir();
+    const legacy = {
+      autoResume: { enabled: true, detectText: 'LIMIT', responseText: '1', resumeText: 'continue' },
+      defaultCwd: '/home/legacy',
+      recentTabs: [],
+    };
+    await fs.writeFile(join(dir, 'settings.json'), JSON.stringify(legacy), 'utf8');
+
+    const loaded = await new SettingsStore(dir).load();
+
+    // The user's actual settings survive the migration, not just the defaults.
+    expect(loaded.autoResume.detectText).toBe('LIMIT');
+    expect(loaded.defaultCwd).toBe('/home/legacy');
+    expect(loaded.version).toBe(1);
+  });
+
+  it('accepts a settings.json that already carries the current version', async () => {
+    const dir = tempDir();
+    const current = {
+      version: 1,
+      autoResume: { enabled: false, detectText: '', responseText: '', resumeText: 'continue' },
+      defaultCwd: '/x',
+      recentTabs: [],
+    };
+    await fs.writeFile(join(dir, 'settings.json'), JSON.stringify(current), 'utf8');
+    expect(await new SettingsStore(dir).load()).toEqual(current);
   });
 
   it('reports write failures through the onError callback', async () => {

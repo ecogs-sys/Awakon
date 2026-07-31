@@ -25,6 +25,12 @@ describe('renderMarkdown', () => {
     expect(html).not.toContain('onerror');
   });
 
+  it('strips id/name attributes to prevent DOM-clobbering #dialog-mount (A5-I4)', () => {
+    const html = renderMarkdown('<div id="dialog-mount">clobber</div>\n\n<a name="foo">x</a>');
+    expect(html).not.toContain('id="dialog-mount"');
+    expect(html).not.toContain('name="foo"');
+  });
+
   it('emits an aip-mermaid marker for mermaid fences', () => {
     const html = renderMarkdown('```mermaid\ngraph TD; A-->B\n```');
     expect(html).toContain('class="aip-mermaid"');

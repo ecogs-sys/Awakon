@@ -1,4 +1,6 @@
-import { IpcChannel } from '@awakon/contracts';
+import { IpcChannel, isHttpUrl } from '@awakon/contracts';
+import type { SessionId } from '@awakon/contracts';
+import { formatAccelerator } from '@awakon/keymap';
 import type { TabDocState, ReviewState } from './doc-state.js';
 import { renderMarkdown, countLoc } from './markdown.js';
 import { renderMermaidBlocks } from './mermaid.js';
@@ -32,17 +34,19 @@ export class DocReader {
   private readonly host: HTMLElement;
   private readonly bridge: Bridge;
   private readonly cb: DocReaderCallbacks;
+  private readonly platform: string;
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
   /** Guards against a stale async body write after the active doc changed. */
   private loadToken = 0;
 
-  constructor(host: HTMLElement, bridge: Bridge, callbacks: DocReaderCallbacks) {
+  constructor(host: HTMLElement, bridge: Bridge, callbacks: DocReaderCallbacks, platform: string) {
     this.host = host;
     this.bridge = bridge;
     this.cb = callbacks;
+    this.platform = platform;
   }
 
-  render(state: TabDocState): void {
+  render(state: TabDocState, tabId: SessionId): void {
     this.teardownKeys();
     const existing = this.host.querySelector('.aip-reader');
     // Whether the panel was already on-screen. If so, this render is an in-place update
@@ -79,8 +83,8 @@ export class DocReader {
         <div class="aip-reader__footer">
           <div class="aip-reader__hints">
             <span><span class="k">esc</span> close</span>
-            <span><span class="k">${mod()}[</span> prev file</span>
-            <span><span class="k">${mod()}]</span> next file</span>
+            <span><span class="k">${formatAccelerator('CmdOrCtrl+[', this.platform)}</span> prev file</span>
+            <span><span class="k">${formatAccelerator('CmdOrCtrl+]', this.platform)}</span> next file</span>
           </div>
           <span class="aip-reader__stats"></span>
         </div>
@@ -138,11 +142,11 @@ export class DocReader {
       if (!anchor) return;
       ev.preventDefault();
       const href = anchor.getAttribute('href') ?? '';
-      if (/^https?:\/\//i.test(href)) {
+      if (isHttpUrl(href)) {
         void this.bridge.send(IpcChannel.ChromeOpenExternal, { url: href });
       }
     });
-    void this.loadBody(active.resolvedPath, bodyEl, statsEl);
+    void this.loadBody(active.resolvedPath, bodyEl, statsEl, tabId);
 
     this.keyHandler = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') { e.preventDefault(); this.cb.onDismiss(); }
@@ -152,11 +156,11 @@ export class DocReader {
     document.addEventListener('keydown', this.keyHandler);
   }
 
-  private async loadBody(resolvedPath: string, bodyEl: HTMLElement, statsEl: HTMLElement): Promise<void> {
+  private async loadBody(resolvedPath: string, bodyEl: HTMLElement, statsEl: HTMLElement, tabId: SessionId): Promise<void> {
     const token = ++this.loadToken;
     let res: ReadFileResponse;
     try {
-      res = (await this.bridge.send(IpcChannel.FsReadFile, { path: resolvedPath })) as ReadFileResponse;
+      res = (await this.bridge.send(IpcChannel.FsReadFile, { path: resolvedPath, tabId })) as ReadFileResponse;
     } catch {
       res = { error: 'failed to read file' };
     }
@@ -199,8 +203,4 @@ function basename(p: string): string {
 
 function formatKb(bytes: number): string {
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-function mod(): string {
-  return navigator.userAgent.includes('Mac OS') ? '⌘' : 'Ctrl+';
 }

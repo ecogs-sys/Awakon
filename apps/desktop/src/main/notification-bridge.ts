@@ -30,6 +30,7 @@ export class NotificationBridge {
     this.service = new NotificationService(Notification as unknown as new (opts: { title: string; body: string }) => InstanceType<typeof Notification>);
     this.service.onClick((sessionId) => this.handleClick(sessionId));
     this.deps.sessionManager.on('sessionAttention', (ev) => this.handleAttention(ev));
+    this.deps.sessionManager.on('sessionExited', (sessionId) => this.service.forget(sessionId));
   }
 
   private handleAttention(ev: AttentionEvent): void {

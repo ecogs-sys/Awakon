@@ -43,21 +43,30 @@ function isXtermFocusReport(data: string): boolean {
 export class Session extends EventEmitter {
   readonly id: SessionId;
   readonly opts: SessionCreateOptions;
-  readonly kind: SessionKind;
+  /** Not readonly: promoteToTab() flips a pane session to tab role when H2's reparent
+   * makes it a tab's new primary — the role can change after creation, the identity can't. */
+  kind: SessionKind;
   readonly ringBuffer: RingBuffer;
   private readonly pty: pty.IPty;
-  private readonly detector = new AttentionDetector();
+  private readonly detector: AttentionDetector;
   private readonly rateLimitDetector = new RateLimitDetector('');
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
   private hasReceivedUserInput = false;
+  /** Epoch ms of the last real (non-synthetic, non-focus-report) user write. Lets
+   * SessionManager drop a scheduled auto-resume if the user has actually engaged with
+   * the session since it was scheduled (A4-I5) — firing a synthetic "continue" over
+   * someone's live typing would be surprising and possibly disruptive. */
+  private lastUserInputAt = 0;
 
-  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab') {
+  /** `idleAttentionMs` overrides AttentionDetector's idle window — for tests only (C9). */
+  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab', idleAttentionMs?: number) {
     super();
     this.id = id;
     this.opts = opts;
     this.kind = kind;
+    this.detector = new AttentionDetector(idleAttentionMs);
     this.ringBuffer = new RingBuffer(DEFAULT_RING_CAPACITY);
     this._title = opts.title ?? shellCommand(opts.shell);
 
@@ -66,7 +75,7 @@ export class Session extends EventEmitter {
       cols: opts.cols,
       rows: opts.rows,
       cwd: opts.cwd,
-      env: { ...process.env, ...(opts.env ?? {}) },
+      env: { ...process.env },
     });
     this._status = 'running';
 
@@ -104,7 +113,12 @@ export class Session extends EventEmitter {
     });
   }
 
-  write(data: Buffer | string): void {
+  /** `synthetic: true` marks a write main generated on the user's behalf (currently
+   * only the auto-resume response) rather than something they typed. Synthetic
+   * writes must not unlock the attention gate (L1) — a restored session the user
+   * never touched would otherwise start emitting attention notifications the
+   * instant auto-resume fires, defeating the point of the gate. */
+  write(data: Buffer | string, opts?: { synthetic?: boolean }): void {
     if (this._status === 'exited') return;
     // Any user input clears the awaiting-input state.
     if (this._status === 'awaiting-input') this._status = 'running';
@@ -115,10 +129,16 @@ export class Session extends EventEmitter {
     // they must reach the PTY (apps like vim use them) but must not count as
     // user typing, otherwise opening the app and clicking elsewhere would
     // unlock the gate for every session.
-    if (str.length > 0 && !isXtermFocusReport(str)) {
+    if (str.length > 0 && !isXtermFocusReport(str) && !opts?.synthetic) {
       this.hasReceivedUserInput = true;
+      this.lastUserInputAt = Date.now();
     }
     this.pty.write(str);
+  }
+
+  /** Epoch ms of the last real user write, or 0 if there has never been one. */
+  getLastUserInputAt(): number {
+    return this.lastUserInputAt;
   }
 
   resize(cols: number, rows: number): void {
@@ -147,6 +167,13 @@ export class Session extends EventEmitter {
   /** Update the rate-limit phrase scanned in this session's output. Empty = off. */
   setRateLimitDetectText(text: string): void {
     this.rateLimitDetector.setDetectText(text);
+  }
+
+  /** A pane promoted to be its tab's new primary (H2 reparent) must report kind
+   * 'tab' from then on — otherwise a fresh chrome bootstrap (or any other
+   * SessionManager.list() consumer) filters it out as a pane (N3). */
+  promoteToTab(): void {
+    this.kind = 'tab';
   }
 
   info(): SessionInfo {

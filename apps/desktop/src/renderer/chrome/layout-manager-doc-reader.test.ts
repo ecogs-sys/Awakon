@@ -18,6 +18,8 @@ import { IpcChannel } from '@awakon/contracts';
 import type { SessionInfo } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import type { Sidebar } from './sidebar.js';
+import { showNewSessionDialog } from './new-session-dialog.js';
+import { showSettingsDialog } from './settings-dialog.js';
 
 function sessionInfo(id: string): SessionInfo {
   return {
@@ -83,6 +85,7 @@ function makeLayout(bridge: BridgeMock) {
   const lm = new LayoutManager({
     bridge: bridge as unknown as PreloadBridge,
     tabStrip, sidebar, bodyEl, emptyStateHostEl, viewHostEl,
+    platform: 'linux',
   });
   return { lm, viewHostEl, tabStripEl };
 }
@@ -157,5 +160,87 @@ describe('LayoutManager — doc reader orchestration', () => {
     // The marker stays on t1's tab.
     const t1Tab = tabStripEl.querySelector('.tab[data-session-id="t1"]');
     expect(t1Tab?.querySelector('.doc-marker')).not.toBeNull();
+  });
+
+  it('closes the reader and resumes the terminal view when the tab it belongs to is closed (Critical #3)', async () => {
+    const bridge = makeBridge();
+    const { lm, viewHostEl } = makeLayout(bridge);
+    await lm.start();
+
+    bridge._fire(IpcChannel.SessionCreated, { info: sessionInfo('t1') });
+    bridge._fire(IpcChannel.DocOpenRequest, docOpenPayload('t1'));
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+
+    bridge.send.mockClear();
+    await lm.closeTab('t1');
+
+    expect(viewHostEl.querySelector('.aip-reader')).toBeNull();
+    const lastModalCall = bridge.send.mock.calls
+      .filter((c: unknown[]) => c[0] === IpcChannel.LayoutModal)
+      .at(-1);
+    expect(lastModalCall?.[1]).toEqual({ open: false });
+  });
+
+  it('keeps the terminal view suspended when a dialog closes while the reader is still open (Critical #3)', async () => {
+    const bridge = makeBridge();
+    const { lm, viewHostEl } = makeLayout(bridge);
+    await lm.start();
+
+    bridge._fire(IpcChannel.SessionCreated, { info: sessionInfo('t1') });
+    bridge._fire(IpcChannel.DocOpenRequest, docOpenPayload('t1'));
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+
+    bridge.send.mockClear();
+    // Opening and closing Settings while the reader is open must not resume the
+    // terminal view out from under the still-visible reader.
+    await lm.openSettings();
+
+    const lastModalCall = bridge.send.mock.calls
+      .filter((c: unknown[]) => c[0] === IpcChannel.LayoutModal)
+      .at(-1);
+    expect(lastModalCall?.[1]).toEqual({ open: true });
+    expect(viewHostEl.querySelector('.aip-reader')).not.toBeNull();
+  });
+});
+
+describe('LayoutManager dialog idempotency (A5-I1)', () => {
+  it('ignores a second openNewTabDialog() call while the first is still open', async () => {
+    const bridge = makeBridge();
+    const { lm } = makeLayout(bridge);
+    await lm.start();
+
+    let resolveDialog!: (v: null) => void;
+    vi.mocked(showNewSessionDialog).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDialog = resolve; }),
+    );
+
+    const first = lm.openNewTabDialog();
+    // Second call arrives while the first dialog is still pending (e.g. Ctrl+T pressed
+    // again, or the empty-state card clicked while the dialog is already up).
+    await lm.openNewTabDialog();
+    expect(showNewSessionDialog).toHaveBeenCalledTimes(1);
+    expect(lm.isDialogOpen()).toBe(true);
+
+    resolveDialog(null);
+    await first;
+    expect(lm.isDialogOpen()).toBe(false);
+  });
+
+  it('ignores openSettings() while a different dialog is already open', async () => {
+    const bridge = makeBridge();
+    const { lm } = makeLayout(bridge);
+    await lm.start();
+
+    let resolveDialog!: (v: null) => void;
+    vi.mocked(showNewSessionDialog).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDialog = resolve; }),
+    );
+
+    const first = lm.openNewTabDialog();
+    await lm.openSettings();
+    expect(showSettingsDialog).not.toHaveBeenCalled();
+
+    resolveDialog(null);
+    await first;
   });
 });

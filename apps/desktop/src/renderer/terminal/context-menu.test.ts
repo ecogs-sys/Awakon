@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { h, setChildren } from './dom.js';
 import { buildTerminalContextMenu } from './context-menu.js';
 
@@ -42,55 +42,11 @@ describe('dom.setChildren()', () => {
   });
 });
 
-describe('platform.kbd()', () => {
-  it('renders Mod+C as Ctrl+C on Windows/Linux', async () => {
-    vi.resetModules();
-    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true });
-    const { kbd } = await import('./platform.js');
-    expect(kbd('Mod+C')).toBe('Ctrl+C');
-    expect(kbd('Mod+Shift+P')).toBe('Ctrl+Shift+P');
-  });
-
-  it('renders Mod+C as ⌘C on macOS (no separator)', async () => {
-    vi.resetModules();
-    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true });
-    const { kbd } = await import('./platform.js');
-    expect(kbd('Mod+C')).toBe('⌘C');
-    expect(kbd('Mod+Shift+P')).toBe('⌘⇧P');
-    expect(kbd('Mod+Enter')).toBe('⌘↵');
-  });
-});
-
-describe('platform.matchShortcut()', () => {
-  it('matches Mod+K on Windows (ctrlKey)', async () => {
-    vi.resetModules();
-    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true });
-    const { matchShortcut } = await import('./platform.js');
-    const ev = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true });
-    expect(matchShortcut(ev, 'Mod+K')).toBe(true);
-  });
-
-  it('matches Mod+K on macOS (metaKey)', async () => {
-    vi.resetModules();
-    Object.defineProperty(navigator, 'platform', { value: 'MacIntel', configurable: true });
-    const { matchShortcut } = await import('./platform.js');
-    const ev = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
-    expect(matchShortcut(ev, 'Mod+K')).toBe(true);
-  });
-
-  it('rejects when wrong modifier is held', async () => {
-    vi.resetModules();
-    Object.defineProperty(navigator, 'platform', { value: 'Win32', configurable: true });
-    const { matchShortcut } = await import('./platform.js');
-    const ev = new KeyboardEvent('keydown', { key: 'k', shiftKey: true });
-    expect(matchShortcut(ev, 'Mod+K')).toBe(false);
-  });
-});
-
 describe('buildTerminalContextMenu()', () => {
   const baseOpts = {
     hasSelection: true,
     inSplit: true,
+    platform: 'linux' as const,
     onCopy: () => {},
     onPaste: () => {},
     onSelectAll: () => {},
@@ -98,6 +54,26 @@ describe('buildTerminalContextMenu()', () => {
     onSplitBelow: () => {},
     onClosePane: () => {},
   };
+
+  it('formats split/close-pane shortcuts from the real keymap bindings, not hardcoded literals (A6-I2)', () => {
+    const items = buildTerminalContextMenu(baseOpts);
+    expect(items[4]?.shortcut).toBe('Ctrl+\\');
+    expect(items[5]?.shortcut).toBe('Ctrl+Shift+\\');
+    expect(items[7]?.shortcut).toBe('Ctrl+Shift+W');
+  });
+
+  it('formats shortcuts with mac glyphs when platform is darwin', () => {
+    const items = buildTerminalContextMenu({ ...baseOpts, platform: 'darwin' });
+    expect(items[4]?.shortcut).toBe('⌘\\');
+    expect(items[7]?.shortcut).toBe('⇧⌘W');
+  });
+
+  it('does not advertise a shortcut for Copy/Paste/Select all (no keyboard wiring exists)', () => {
+    const items = buildTerminalContextMenu(baseOpts);
+    expect(items[0]?.shortcut).toBeUndefined();
+    expect(items[1]?.shortcut).toBeUndefined();
+    expect(items[2]?.shortcut).toBeUndefined();
+  });
 
   it('returns Copy / Paste / Select all + 2 sections of Split + Close pane', () => {
     const items = buildTerminalContextMenu(baseOpts);
@@ -147,6 +123,7 @@ describe('buildTerminalContextMenu()', () => {
     const items = buildTerminalContextMenu({
       hasSelection: true,
       inSplit: true,
+      platform: 'linux',
       onCopy:       () => calls.push('copy'),
       onPaste:      () => calls.push('paste'),
       onSelectAll:  () => calls.push('selectAll'),

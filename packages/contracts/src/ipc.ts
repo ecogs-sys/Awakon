@@ -17,11 +17,11 @@ import { RecentTabSchema } from './recent.js';
 export const IpcChannel = {
   // Requests (renderer -> main)
   SessionCreate: 'core.session.create',
-  SessionCreateDefault: 'core.session.create-default',
   SessionCreateForPane: 'core.session.create-for-pane',
   SessionWrite: 'core.session.write',
   SessionResize: 'core.session.resize',
   SessionClose: 'core.session.close',
+  SessionClosePane: 'core.session.close-pane',
   SessionSetTitle: 'core.session.set-title',
   SessionRestartView: 'core.session.restart-view',
   SessionList: 'core.session.list',
@@ -34,16 +34,19 @@ export const IpcChannel = {
   LayoutPersistSplits: 'core.layout.persist-splits',
   LayoutSplitsForTab: 'core.layout.splits-for-tab',
   LayoutDefaultCwd: 'core.layout.default-cwd',
+  LayoutDefaultShell: 'core.layout.default-shell',
   FsPickDirectory: 'core.fs.pick-directory',
   FsPathExists: 'core.fs.path-exists',
   SettingsGet: 'core.settings.get',
   SettingsUpdate: 'core.settings.update',
   ResumeCancel: 'core.resume.cancel',
-  ChromeMenuPopup: 'core.chrome.menu-popup',
   ChromeAppMenuPopup: 'core.chrome.app-menu-popup',
   ChromeWindowControl: 'core.chrome.window-control',
   ChromeAppInfo: 'core.chrome.app-info',
   ChromeOpenExternal: 'core.chrome.open-external',
+  ChromeOpenAcknowledgements: 'core.chrome.open-acknowledgements',
+  ChromeTerminalAction: 'core.chrome.terminal-action',
+  TerminalBindingInvoke: 'core.terminal.binding-invoke',
   RecentList: 'core.recent.list',
   RecentAdd:  'core.recent.add',
   FsReadFile: 'core.fs.read-file',
@@ -65,6 +68,7 @@ export const IpcChannel = {
   ResumeCancelled: 'event.resume.cancelled',
   ResumeFired: 'event.resume.fired',
   DocOpenRequest: 'event.doc.open-request',
+  LayoutTabReparented: 'event.layout.tab-reparented',
 } as const;
 
 // --- Request payloads ---
@@ -80,6 +84,9 @@ export const SessionResizePayloadSchema = z.object({
   rows: z.number().int().positive(),
 });
 
+/** Shared by both close channels: `SessionClose` (chrome tab-strip — full tab teardown,
+ * panes included) and `SessionClosePane` (terminal — close only the focused pane). Kept
+ * as separate channels (R3) so main never has to infer intent from a shared one. */
 export const SessionClosePayloadSchema = z.object({
   sessionId: SessionIdSchema,
 });
@@ -166,14 +173,6 @@ export const FsPathExistsResponseSchema = z.object({
   isDirectory: z.boolean(),
 });
 
-/** Renderer asks main to popup() one of the named submenus from app-menu.ts at the
- * given screen coordinates. Used by the custom in-window titlebar on Windows/Linux. */
-export const ChromeMenuPopupPayloadSchema = z.object({
-  menu: z.enum(['File', 'Tabs', 'View', 'Window', 'Help']),
-  x: z.number().int().nonnegative(),
-  y: z.number().int().nonnegative(),
-});
-
 /** Renderer asks main to popup() the full application menu (all top-level menus,
  * each with its submenu) at the given screen coordinates. Backs the top bar's
  * hamburger (⋯) button — the platform-neutral bar has no menu strip. */
@@ -199,9 +198,17 @@ export const ChromeAppInfoResponseSchema = z.object({
 });
 export type ChromeAppInfoResponse = z.infer<typeof ChromeAppInfoResponseSchema>;
 
+/** Shared http(s)-only predicate (C2) — z.string().url() alone accepts any scheme
+ * (file:/smb:/etc), which is not what "open externally" is meant to allow. Exported
+ * so the renderer-side link filters (doc-reader, terminal-host) can match main's
+ * ChromeOpenExternal boundary check exactly instead of each re-deriving their own regex. */
+export function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
 /** Renderer asks main to open a URL in the OS default browser. About dialog links. */
 export const ChromeOpenExternalPayloadSchema = z.object({
-  url: z.string().url(),
+  url: z.string().url().refine(isHttpUrl, { message: 'only http(s) URLs may be opened externally' }),
 });
 
 export const SessionCreateForPanePayloadSchema = z.object({
@@ -254,8 +261,29 @@ export const ActionInvokePayloadSchema = z.object({
   action: z.string().min(1),
 });
 
+/** Payload for both the main→terminal `TerminalAction` event and the chrome→main
+ * `ChromeTerminalAction` request (chrome keydown forwarding a pane action to the
+ * focused tab's terminal view — the app-menu accelerator doesn't fire on Win/Linux
+ * while the chrome webContents has keyboard focus, so the keydown path needs it). */
 export const TerminalActionPayloadSchema = z.object({
   action: z.enum(['splitHorizontal', 'splitVertical', 'closePane']),
+});
+
+/** Payload for the terminal→main `TerminalBindingInvoke` request: a reserved app
+ * shortcut pressed while an xterm terminal had keyboard focus. The terminal-side
+ * interceptor (terminal-host reserved-keys.ts) catches the keydown before xterm
+ * encodes it into PTY bytes and forwards the binding id; main routes pane actions
+ * back to the sender's own view and everything else into chrome's ActionInvoke pipe.
+ * The enum is the keymap Bindings table minus its TERMINAL_PASS_THROUGH set —
+ * `closeTab` is deliberately absent (Ctrl+W stays a shell key) — and that alignment
+ * is asserted by terminal-host's reserved-keys.test.ts. */
+export const TerminalBindingInvokePayloadSchema = z.object({
+  action: z.enum([
+    'newTab', 'nextTab', 'prevTab',
+    'jumpTab1', 'jumpTab2', 'jumpTab3', 'jumpTab4', 'jumpTab5',
+    'jumpTab6', 'jumpTab7', 'jumpTab8', 'jumpTab9',
+    'toggleSidebar', 'splitHorizontal', 'splitVertical', 'closePane', 'commandPalette',
+  ]),
 });
 
 // --- Settings + resume payloads ---
@@ -279,9 +307,12 @@ export const ResumeFiredEventSchema = z.object({
 
 // --- Doc reader payloads ---
 
-/** Renderer/main reads a .md file's content for the reader. */
+/** Renderer/main reads a .md file's content for the reader. `tabId` scopes the L2
+ * containment check to that tab's cwd (N6) — required so the boundary lives in the
+ * handler itself, which every read path (click-to-open and doc restore) goes through. */
 export const FsReadFilePayloadSchema = z.object({
   path: z.string().min(1),
+  tabId: SessionIdSchema,
 });
 export const FsReadFileResponseSchema = z.union([
   z.object({
@@ -298,6 +329,14 @@ export const FsReadFileResponseSchema = z.union([
 export const DocOpenPayloadSchema = z.object({
   sessionId: SessionIdSchema,
   path: z.string().min(1),
+});
+
+/** main -> chrome + main -> the tab's own terminal WebContents: closing the tab's
+ * primary pane while sibling panes survive promotes one sibling to be the new
+ * primary/tabId instead of tearing the tab down (see H2 in the 2026-07-05 review). */
+export const LayoutTabReparentedEventSchema = z.object({
+  oldTabId: SessionIdSchema,
+  newTabId: SessionIdSchema,
 });
 
 /** main -> chrome: open this doc in the owning tab's reader. */
@@ -324,6 +363,3 @@ export const LayoutDocsForTabResponseSchema = z.object({
   docs: z.array(PersistedOpenDocSchema),
   activeDocIndex: z.number().int().nullable(),
 });
-
-// Re-export for caller convenience.
-export { SessionCreateOptionsSchema, SessionInfoSchema, SessionIdSchema, AttentionEventSchema };

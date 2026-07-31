@@ -1,4 +1,5 @@
 ﻿import type { SessionId, SessionInfo } from '@awakon/contracts';
+import { Bindings, formatAccelerator } from '@awakon/keymap';
 
 export interface TabViewModel {
   info: SessionInfo;
@@ -20,10 +21,15 @@ export interface TabStripCallbacks {
 export class TabStrip {
   private readonly root: HTMLElement;
   private readonly callbacks: TabStripCallbacks;
+  /** 'win32' | 'darwin' | 'linux' — formats the close/new-tab shortcut hints via the
+   * shared keymap formatAccelerator (A5-I6: this used to hardcode "Ctrl+W"/"Ctrl+T",
+   * which is wrong on macOS and can't track the binding if it ever changes). */
+  private readonly platform: string;
 
-  constructor(root: HTMLElement, callbacks: TabStripCallbacks) {
+  constructor(root: HTMLElement, callbacks: TabStripCallbacks, platform: string = 'linux') {
     this.root = root;
     this.callbacks = callbacks;
+    this.platform = platform;
   }
 
   render(tabs: TabViewModel[], focusedId: SessionId | null): void {
@@ -76,7 +82,7 @@ export class TabStrip {
       const close = document.createElement('span');
       close.className = 'close';
       close.textContent = '×';
-      close.title = 'Close tab (Ctrl+W)';
+      close.title = `Close tab (${formatAccelerator(Bindings.closeTab.accelerator, this.platform)})`;
       close.addEventListener('click', (ev) => {
         ev.stopPropagation();
         this.callbacks.onTabClose(tab.info.id);
@@ -103,7 +109,7 @@ export class TabStrip {
     const plus = document.createElement('button');
     plus.id = 'new-tab';
     plus.textContent = '+';
-    plus.title = 'New tab (Ctrl+T)';
+    plus.title = `New tab (${formatAccelerator(Bindings.newTab.accelerator, this.platform)})`;
     plus.addEventListener('click', () => this.callbacks.onNewTab());
     this.root.appendChild(plus);
   }

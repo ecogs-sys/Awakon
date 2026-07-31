@@ -1,4 +1,4 @@
-﻿import { Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
+﻿import { app, Menu, type MenuItemConstructorOptions, BrowserWindow, type WebContentsView } from 'electron';
 import { Bindings } from '@awakon/keymap';
 import { IpcChannel } from '@awakon/contracts';
 
@@ -7,7 +7,7 @@ function send(action: string, chromeWindow: () => BrowserWindow | null): void {
   win?.webContents.send(IpcChannel.ActionInvoke, { action });
 }
 
-export type MenuName = 'File' | 'Tabs' | 'View' | 'Window' | 'Help';
+type MenuName = 'File' | 'Tabs' | 'View' | 'Window' | 'Help';
 
 /** Templates per top-level menu so the custom titlebar can pop them individually.
  * `buildAppMenu` composes the same templates into the OS application menu. */
@@ -50,9 +50,11 @@ function buildTemplates(
     { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: () => send('openSettings', chromeWindow) },
     { type: 'separator' },
     { label: 'Toggle Sidebar', accelerator: Bindings.toggleSidebar.accelerator, click: () => send('toggleSidebar', chromeWindow) },
-    { type: 'separator' },
-    { role: 'reload' },
-    { role: 'toggleDevTools' },
+    // L5: Reload re-runs start() against live state and DevTools shouldn't be a
+    // menu item in a shipped build — dev-only.
+    ...(!app.isPackaged
+      ? [{ type: 'separator' as const }, { role: 'reload' as const }, { role: 'toggleDevTools' as const }]
+      : []),
   ];
 
   const windowSubmenu: MenuItemConstructorOptions[] = [
@@ -97,15 +99,4 @@ export function buildAppMenu(
     { label: 'Window', submenu: t.Window },
     { label: 'Help',   submenu: t.Help },
   ]);
-}
-
-/** Build a one-off Menu for the named submenu so the custom titlebar can popup() it
- * at a specific (x, y). Rebuilt per call so click callbacks see fresh closures. */
-export function buildSubmenu(
-  name: MenuName,
-  chromeWindow: () => BrowserWindow | null,
-  getActiveTerminalView: () => WebContentsView | null,
-): Menu {
-  const t = buildTemplates(chromeWindow, getActiveTerminalView);
-  return Menu.buildFromTemplate(t[name]);
 }

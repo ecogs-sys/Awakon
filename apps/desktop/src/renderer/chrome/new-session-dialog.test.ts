@@ -295,4 +295,13 @@ describe('showNewSessionDialog — cancel paths', () => {
     mount.querySelector<HTMLButtonElement>('#ns-close')!.click();
     await expect(p).resolves.toBeNull();
   });
+
+  it('removes its scrim click listener on cleanup instead of leaking it (A5-I2)', async () => {
+    const mount = mountEl();
+    const removeSpy = vi.spyOn(mount, 'removeEventListener');
+    const p = showNewSessionDialog(mount, { defaultShell: 'bash', defaultCwd: '/x' });
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await p;
+    expect(removeSpy).toHaveBeenCalledWith('click', expect.any(Function));
+  });
 });

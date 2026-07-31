@@ -1,4 +1,5 @@
 ﻿import { stat, readFile } from 'node:fs/promises';
+import { isAbsolute, join } from 'node:path';
 import type { BrowserWindow } from 'electron';
 import {
   FsPickDirectoryPayloadSchema,
@@ -6,10 +7,11 @@ import {
   FsReadFilePayloadSchema,
   IpcChannel,
 } from '@awakon/contracts';
+import { isPathInside } from './navigation-guard.js';
 
 /** Subset of `ipcMain` we depend on — narrows the surface for tests. */
 export interface IpcLike {
-  handle: (channel: string, handler: (event: unknown, payload: unknown) => Promise<unknown> | unknown) => void;
+  handle: (channel: string, handler: (event: { sender: unknown }, payload: unknown) => Promise<unknown> | unknown) => void;
 }
 
 /** Subset of Electron's `dialog` we depend on. */
@@ -32,6 +34,8 @@ export function registerFsHandlers(
   ipc: IpcLike,
   getWindow: () => BrowserWindow | null,
   dialog: DialogLike,
+  getTabCwd: (tabId: string) => string | undefined,
+  isAuthorizedSender: (sender: unknown) => boolean,
 ): void {
   ipc.handle(IpcChannel.FsPickDirectory, async (_e, raw) => {
     const parsed = FsPickDirectoryPayloadSchema.safeParse(raw);
@@ -59,17 +63,26 @@ export function registerFsHandlers(
 
   const MAX_DOC_BYTES = 1_048_576; // 1 MB
 
-  ipc.handle(IpcChannel.FsReadFile, async (_e, raw) => {
+  ipc.handle(IpcChannel.FsReadFile, async (e, raw) => {
     const parsed = FsReadFilePayloadSchema.safeParse(raw);
     if (!parsed.success) return { error: parsed.error.message };
-    const { path } = parsed.data;
+    if (!isAuthorizedSender(e.sender)) return { error: 'not authorized for this session' };
+    const { path, tabId } = parsed.data;
     if (!path.toLowerCase().endsWith('.md')) {
       return { error: 'only .md files can be read by the reader' };
     }
+    // N6: this is the actual read boundary — the click-path check in index.ts's
+    // DocOpen handler is only an early bail, and the doc-restore path (a persisted
+    // tabMeta.docs entry replayed on relaunch) never goes through that handler at all.
+    const cwd = getTabCwd(tabId);
+    const resolvedPath = isAbsolute(path) ? path : join(cwd ?? '', path);
+    if (!cwd || !isPathInside(cwd, resolvedPath)) {
+      return { error: 'path is outside the tab\'s working directory' };
+    }
     try {
-      const st = await stat(path);
+      const st = await stat(resolvedPath);
       if (st.size > MAX_DOC_BYTES) return { tooLarge: true, sizeBytes: st.size };
-      const content = await readFile(path, 'utf8');
+      const content = await readFile(resolvedPath, 'utf8');
       return { content, sizeBytes: st.size, mtimeMs: st.mtimeMs };
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;

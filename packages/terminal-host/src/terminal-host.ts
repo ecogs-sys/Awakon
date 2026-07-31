@@ -3,8 +3,10 @@ import type { ILinkProvider, ILink, IBufferLine } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { SessionId } from '@awakon/contracts';
-import { IpcChannel } from '@awakon/contracts';
+import { IpcChannel, isHttpUrl } from '@awakon/contracts';
 import { findMarkdownLinks } from './md-links.js';
+import { sanitizePasteText } from './sanitize-paste.js';
+import { createReservedKeyHandler } from './reserved-keys.js';
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
@@ -92,8 +94,25 @@ export class TerminalHost {
     });
     this.fit = new FitAddon();
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon());
+    // Terminal output is untrusted (any command/remote server can print a URL).
+    // Never let the addon's default window.open() land inside the Electron app —
+    // route http(s) links through main's shell.openExternal, same as doc-reader.
+    this.term.loadAddon(new WebLinksAddon((_ev, uri) => {
+      if (isHttpUrl(uri)) {
+        void this.bridge.send(IpcChannel.ChromeOpenExternal, { url: uri });
+      }
+    }));
     this.term.registerLinkProvider(this.markdownLinkProvider());
+
+    // Reserved app shortcuts (Ctrl+K palette, tab management, splits) must never reach
+    // the PTY — intercept them ahead of xterm's key encoding and forward the binding id
+    // to main, which routes it to the right target. See reserved-keys.ts for the
+    // pass-through policy (Ctrl+W stays a shell key).
+    this.term.attachCustomKeyEventHandler(
+      createReservedKeyHandler((action) => {
+        void this.bridge.send(IpcChannel.TerminalBindingInvoke, { action });
+      }),
+    );
 
     this.term.open(opts.container);
     this.fit.fit();
@@ -122,7 +141,7 @@ export class TerminalHost {
   }
 
   paste(text: string): void {
-    this.term.paste(text);
+    this.term.paste(sanitizePasteText(text));
   }
 
   selectAll(): void {

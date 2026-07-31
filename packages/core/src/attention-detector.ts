@@ -1,7 +1,9 @@
 ﻿import { EventEmitter } from 'node:events';
 import { ATTENTION_SNIPPET_MAX_LEN } from '@awakon/contracts';
 import type { AttentionEvent, AttentionSignal } from '@awakon/contracts';
+import { stripAnsi } from './strip-ansi.js';
 
+const ESC = 0x1b;
 const BEL = 0x07;
 const OSC_PREFIX = Buffer.from('\x1b]1337;awakonAttention=', 'utf8');
 const PAYLOAD_MAX = ATTENTION_SNIPPET_MAX_LEN;
@@ -20,11 +22,23 @@ export interface AttentionDetectorEvents {
  */
 export class AttentionDetector extends EventEmitter {
   private inOsc = false;
+  /** Inside some OSC sequence that is not ours (e.g. a shell's `ESC]0;title BEL` window-
+   * title set) — its bytes are swallowed up to its own terminator, but that terminator
+   * BEL must not be counted as a user-facing bell (A4-I2). */
+  private inForeignOsc = false;
   private oscPayload = '';
   private prefixMatchPos = 0;
   private tailBuffer = '';
   private idleTimer: NodeJS.Timeout | null = null;
   private idleEmittedForCurrentQuiet = false;
+  private readonly idleMs: number;
+
+  /** `idleMs` overrides the idle window — for tests only (C9: real-PTY attention-gate
+   * tests would otherwise burn the real 1.5s window, several times per test). */
+  constructor(idleMs: number = IDLE_MS) {
+    super();
+    this.idleMs = idleMs;
+  }
 
   process(chunk: Buffer): void {
     if (chunk.length === 0) return;
@@ -43,6 +57,18 @@ export class AttentionDetector extends EventEmitter {
         continue;
       }
 
+      if (this.inForeignOsc) {
+        if (byte === BEL) {
+          this.inForeignOsc = false; // its own terminator — not a real bell (A4-I2)
+        } else if (byte === ESC) {
+          // Could be an ST (ESC \) terminator or a new sequence starting — leave
+          // foreign-OSC mode and let this byte be re-evaluated from scratch.
+          this.inForeignOsc = false;
+          i--;
+        }
+        continue;
+      }
+
       if (byte === OSC_PREFIX[this.prefixMatchPos]) {
         this.prefixMatchPos++;
         if (this.prefixMatchPos === OSC_PREFIX.length) {
@@ -53,7 +79,16 @@ export class AttentionDetector extends EventEmitter {
       }
 
       if (this.prefixMatchPos > 0) {
+        // Matching at least "ESC ]" (the first two bytes of OSC_PREFIX) before
+        // diverging means this is some OTHER OSC sequence, not ours (a very common
+        // one: a shell's `ESC]0;title BEL` window-title set). Its own terminator BEL
+        // must not be misread as a real bell (A4-I2) — swallow through to it instead
+        // of falling through to the plain-byte bell check below.
+        const wasInsideSomeOsc = this.prefixMatchPos >= 2;
         this.prefixMatchPos = 0;
+        if (wasInsideSomeOsc) {
+          this.inForeignOsc = true;
+        }
         // Re-process this byte from scratch. Safe because prefixMatchPos is now 0, so
         // the `prefixMatchPos > 0` branch above cannot fire on the re-entry — no loop.
         i--;
@@ -71,7 +106,7 @@ export class AttentionDetector extends EventEmitter {
     // Any new output resets the idle window and re-arms the once-per-quiet emit.
     this.idleEmittedForCurrentQuiet = false;
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => this.checkIdle(), IDLE_MS);
+    this.idleTimer = setTimeout(() => this.checkIdle(), this.idleMs);
     // Do not let a pending idle timer keep the Node event loop (or a test run) alive.
     this.idleTimer.unref?.();
   }
@@ -87,10 +122,15 @@ export class AttentionDetector extends EventEmitter {
 
   private checkIdle(): void {
     if (this.idleEmittedForCurrentQuiet) return;
-    if (!PROMPT_PATTERN.test(this.tailBuffer)) return;
+    // Strip ANSI before matching (A4-I1): a colorized prompt ("\x1b[32m$\x1b[0m ") has
+    // a trailing reset code after the visible prompt char, which defeats the `\s*$`
+    // anchor against the raw byte stream even though the prompt is right there on
+    // screen. Match — and extract the snippet — against the visible text only.
+    const stripped = stripAnsi(this.tailBuffer);
+    if (!PROMPT_PATTERN.test(stripped)) return;
     this.idleEmittedForCurrentQuiet = true;
-    const lastNewline = this.tailBuffer.lastIndexOf('\n');
-    const lastLine = this.tailBuffer.slice(lastNewline + 1);
+    const lastNewline = stripped.lastIndexOf('\n');
+    const lastLine = stripped.slice(lastNewline + 1);
     const snippet = lastLine.slice(-PAYLOAD_MAX);
     const ev: AttentionEvent = {
       sessionId: '__pending__',

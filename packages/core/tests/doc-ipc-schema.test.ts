@@ -21,10 +21,13 @@ describe('IpcChannel — doc reader channels', () => {
 
 describe('FsReadFile schemas', () => {
   it('accepts a valid request', () => {
-    expect(FsReadFilePayloadSchema.safeParse({ path: '/x/a.md' }).success).toBe(true);
+    expect(FsReadFilePayloadSchema.safeParse({ path: '/x/a.md', tabId: 't1' }).success).toBe(true);
   });
   it('rejects an empty path', () => {
-    expect(FsReadFilePayloadSchema.safeParse({ path: '' }).success).toBe(false);
+    expect(FsReadFilePayloadSchema.safeParse({ path: '', tabId: 't1' }).success).toBe(false);
+  });
+  it('rejects a missing tabId (N6 — containment needs the tab to resolve a cwd)', () => {
+    expect(FsReadFilePayloadSchema.safeParse({ path: '/x/a.md' }).success).toBe(false);
   });
   it('accepts each response variant', () => {
     expect(FsReadFileResponseSchema.safeParse({ content: '# hi', sizeBytes: 4, mtimeMs: 1 }).success).toBe(true);

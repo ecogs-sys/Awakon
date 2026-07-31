@@ -1,4 +1,4 @@
-﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
+﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, UserEditableSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
 import { emptyDocState, openDoc, closeDocAt, setReview, moveActive, toPersistedDocs, fromPersistedDocs, type ReviewState } from './doc-state.js';
 import { DocReader } from './doc-reader.js';
 import { IpcChannel } from '@awakon/contracts';
@@ -19,6 +19,9 @@ export interface LayoutDeps {
   bodyEl: HTMLElement;
   emptyStateHostEl: HTMLElement;
   viewHostEl: HTMLElement;
+  /** 'win32' | 'darwin' | 'linux' — forwarded to DocReader so its shortcut hints go
+   * through the shared formatAccelerator instead of a local UA sniff (L6). */
+  platform: string;
 }
 
 export class LayoutManager {
@@ -33,12 +36,24 @@ export class LayoutManager {
   /** User-configured default working directory (settings.defaultCwd). Cached here so
    *  platformDefaultCwd() can remain synchronous. Kept live by the SettingsChanged subscription. */
   private defaultCwdSetting = '';
+  /** Main's PATH-probed default shell (B3) — the chrome cannot check PATH itself.
+   *  Null until fetched; platformDefaultShell() falls back to a platform guess until then. */
+  private detectedDefaultShell: Shell | null = null;
   private readonly emptyStateHostEl: HTMLElement;
   private readonly emptyStateView: EmptyStateView;
   private readonly viewHostEl: HTMLElement;
   private readonly docReader: DocReader;
   /** Top bar, attached after construction so render() can reflect the focused session. */
   private titleBar: TitleBar | null = null;
+  /** True while a chrome dialog (Settings/About/New Session/Rename) is open. Combined
+   * with the reader's own visibility (see currentModalState) so that closing one overlay
+   * while another is still open does not tell main to un-suspend the terminal view out
+   * from under the overlay that's still showing (Critical #3). LayoutModal used to be
+   * sent as a bare open/close bracket per-overlay, which desynced the instant two
+   * overlays' lifetimes overlapped — e.g. opening Settings while the reader is open,
+   * then closing Settings, incorrectly resumed the terminal view over the still-visible
+   * reader. */
+  private dialogOpen = false;
 
   constructor(deps: LayoutDeps) {
     this.bridge = deps.bridge;
@@ -46,7 +61,7 @@ export class LayoutManager {
     this.sidebar = deps.sidebar;
     this.bodyEl = deps.bodyEl;
     this.emptyStateHostEl = deps.emptyStateHostEl;
-    this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl);
+    this.emptyStateView = new EmptyStateView(deps.emptyStateHostEl, deps.platform);
     this.viewHostEl = deps.viewHostEl;
     this.docReader = new DocReader(this.viewHostEl, this.bridge, {
       onDismiss:    () => this.dismissReader(),
@@ -55,7 +70,7 @@ export class LayoutManager {
       onReview:     (i, r) => this.reviewDoc(i, r),
       onPrevFile:   () => this.moveDoc(-1),
       onNextFile:   () => this.moveDoc(1),
-    });
+    }, deps.platform);
   }
 
   /** Wire the top bar so its breadcrumb + subtitle track the focused session. */
@@ -143,6 +158,22 @@ export class LayoutManager {
       const s = raw as AppSettings;
       this.defaultCwdSetting = s.defaultCwd ?? '';
     });
+    // A tab's primary pane closed and a sibling pane was promoted to take its place
+    // (H2). The tab keeps its view/session-state — just relabel the id it's tracked
+    // under so the tab strip/sidebar keep pointing at the still-alive session.
+    this.bridge.on(IpcChannel.LayoutTabReparented, (raw) => {
+      const e = raw as { oldTabId: SessionId; newTabId: SessionId };
+      const session = this.state.sessions.get(e.oldTabId);
+      if (!session) return;
+      this.state.sessions.delete(e.oldTabId);
+      this.state.sessions.set(e.newTabId, { ...session, info: { ...session.info, id: e.newTabId } });
+      this.state.tabOrder = this.state.tabOrder.map((id) => (id === e.oldTabId ? e.newTabId : id));
+      if (this.state.focusedId === e.oldTabId) this.state.focusedId = e.newTabId;
+      // Critical #3: re-point the reader at the session's new id (docReader.render is
+      // keyed by tab id) instead of leaving it wired to the id that just stopped existing.
+      this.syncReader();
+      this.render();
+    });
     this.bridge.on(IpcChannel.DocOpenRequest, (raw) => {
       const e = raw as {
         tabId: SessionId; rawPath: string; resolvedPath: string;
@@ -162,13 +193,15 @@ export class LayoutManager {
       this.render();
     });
 
-    // Fetch the real home directory, settings, and recent tabs in parallel.
-    const [homeCwdResult, settingsResult, recentsResult] = await Promise.allSettled([
+    // Fetch the real home directory, default shell, settings, and recent tabs in parallel.
+    const [homeCwdResult, defaultShellResult, settingsResult, recentsResult] = await Promise.allSettled([
       this.bridge.send(IpcChannel.LayoutDefaultCwd) as Promise<string>,
+      this.bridge.send(IpcChannel.LayoutDefaultShell) as Promise<Shell>,
       this.bridge.send(IpcChannel.SettingsGet) as Promise<AppSettings>,
       this.bridge.send(IpcChannel.RecentList) as Promise<RecentTab[]>,
     ]);
     if (homeCwdResult.status === 'fulfilled') this.homeCwd = homeCwdResult.value;
+    if (defaultShellResult.status === 'fulfilled') this.detectedDefaultShell = defaultShellResult.value;
     if (settingsResult.status === 'fulfilled') this.defaultCwdSetting = settingsResult.value.defaultCwd ?? '';
     if (recentsResult.status === 'fulfilled') this.state.recentTabs = recentsResult.value;
 
@@ -180,8 +213,12 @@ export class LayoutManager {
     }
     if (!this.state.focusedId && this.state.tabOrder[0]) this.focus(this.state.tabOrder[0]);
 
-    // Tick sidebar time-in-state once per second.
-    this.tickHandle = setInterval(() => this.render(), 1_000);
+    // Tick sidebar time-in-state labels once per second, in place — a full render()
+    // (tab strip + sidebar + empty state, each rebuilding all its DOM from scratch) on
+    // every tick was wasted work every single second regardless of whether anything
+    // besides the clock changed (A5-I5). Actual state changes still call render()
+    // directly from their own handlers below.
+    this.tickHandle = setInterval(() => this.sidebar.tick(), 1_000);
 
     this.render();
   }
@@ -201,30 +238,39 @@ export class LayoutManager {
   }
 
   async openSettings(): Promise<void> {
+    // A5-I1: refuse to open a second dialog on top of one already open — the mount
+    // element is shared, so stacking would wipe the first dialog's DOM out from under
+    // it via mount.innerHTML='', leaking its pending promise and keydown listener.
+    if (this.dialogOpen) return;
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay before any async work so the modal is never obscured.
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
-    let result: AppSettings | null;
+    this.dialogOpen = true;
+    this.sendModalState();
+    let result: UserEditableSettings | null;
     try {
       const current = (await this.bridge.send(IpcChannel.SettingsGet)) as AppSettings;
       result = await showSettingsDialog(mount, current);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!result) return;
     await this.bridge.send(IpcChannel.SettingsUpdate, result);
   }
 
   async openAbout(): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     try {
       const info = (await this.bridge.send(IpcChannel.ChromeAppInfo)) as ChromeAppInfoResponse;
       await showAboutDialog(mount, info);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
   }
 
@@ -239,10 +285,12 @@ export class LayoutManager {
   }
 
   async openNewTabDialog(): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
     // Suspend the terminal overlay so the modal is visible, restore it afterwards.
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     let result: { shell: Shell; cwd: string } | null;
     try {
       result = await showNewSessionDialog(mount, {
@@ -250,7 +298,8 @@ export class LayoutManager {
         defaultCwd: this.platformDefaultCwd(),
       });
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!result) return;
     const info = (await this.bridge.send(IpcChannel.SessionCreate, {
@@ -275,6 +324,9 @@ export class LayoutManager {
   }
 
   private platformDefaultShell(): Shell {
+    if (this.detectedDefaultShell) return this.detectedDefaultShell;
+    // Fallback before LayoutDefaultShell resolves (or if it failed): a platform guess
+    // only, since the chrome cannot itself check whether pwsh.exe is on PATH.
     const ua = navigator.userAgent;
     if (ua.includes('Windows')) return 'pwsh';
     if (ua.includes('Mac OS')) return 'zsh';
@@ -315,6 +367,10 @@ export class LayoutManager {
       this.state.focusedId = this.state.tabOrder[this.state.tabOrder.length - 1] ?? null;
       if (this.state.focusedId) void this.bridge.send(IpcChannel.LayoutShow, { sessionId: this.state.focusedId });
     }
+    // Critical #3: the closed tab's docState (and its reader, if open) went away with it.
+    // Without this, closing a tab with the reader open left the dead tab's reader
+    // rendered and the terminal view suspended indefinitely (LayoutModal stuck open).
+    this.syncReader();
     this.render();
   }
 
@@ -335,16 +391,19 @@ export class LayoutManager {
   }
 
   async renameTab(sessionId: SessionId): Promise<void> {
+    if (this.dialogOpen) return; // A5-I1
     const session = this.state.sessions.get(sessionId);
     if (!session) return;
     const mount = document.getElementById('dialog-mount');
     if (!mount) return;
-    void this.bridge.send(IpcChannel.LayoutModal, { open: true });
+    this.dialogOpen = true;
+    this.sendModalState();
     let newTitle: string | null;
     try {
       newTitle = await showRenameDialog(mount, session.info.title);
     } finally {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.dialogOpen = false;
+      this.sendModalState();
     }
     if (!newTitle) return;
     // Main echoes SessionTitleChanged, which updates local state + persists.
@@ -450,17 +509,36 @@ export class LayoutManager {
     return this.state.focusedId ? this.state.sessions.get(this.state.focusedId) : undefined;
   }
 
+  /** True while a chrome dialog (Settings/About/New Session/Rename) is open — lets
+   * the global keyboard handler suppress shortcuts that would open another one
+   * (A5-I1: pressing Ctrl+T while the New Session dialog was already open wiped its
+   * DOM out from under it via mount.innerHTML='', leaking its pending promise and its
+   * document keydown listener). */
+  isDialogOpen(): boolean {
+    return this.dialogOpen;
+  }
+
+  /** Whether the reader is currently showing a doc for the focused tab. */
+  private isReaderVisible(): boolean {
+    const ds = this.focusedDocState()?.docState;
+    return !!(ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0);
+  }
+
+  /** The combined suspend-request state main should see: suspended while the reader
+   * OR a chrome dialog is open, so one closing doesn't resume the terminal view out
+   * from under the other still being open (Critical #3). */
+  private sendModalState(): void {
+    void this.bridge.send(IpcChannel.LayoutModal, { open: this.isReaderVisible() || this.dialogOpen });
+  }
+
   /** Show or hide the reader to match the focused tab's doc state. */
   private syncReader(): void {
-    const session = this.focusedDocState();
-    const ds = session?.docState;
-    if (ds && ds.readerVisible && ds.activeDocIndex !== null && ds.openDocs.length > 0) {
-      void this.bridge.send(IpcChannel.LayoutModal, { open: true });
-      this.docReader.render(ds);
+    if (this.isReaderVisible()) {
+      this.docReader.render(this.focusedDocState()!.docState, this.state.focusedId!);
     } else {
-      this.docReader.render(emptyDocState());
-      void this.bridge.send(IpcChannel.LayoutModal, { open: false });
+      this.docReader.render(emptyDocState(), this.state.focusedId ?? '');
     }
+    this.sendModalState();
   }
 
   private dismissReader(): void {

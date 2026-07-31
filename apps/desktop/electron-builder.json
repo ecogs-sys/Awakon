@@ -13,7 +13,8 @@
     "node_modules/node-pty/**/*"
   ],
   "extraResources": [
-    { "from": "build/icon.png", "to": "icon.png" }
+    { "from": "build/icon.png", "to": "icon.png" },
+    { "from": "../../THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" }
   ],
   "afterPack": "./afterPack.cjs",
   "nodeGypRebuild": false,
@@ -27,7 +28,7 @@
     "identity": null
   },
   "linux": {
-    "target": ["AppImage", "deb"],
+    "target": ["AppImage"],
     "category": "Development",
     "executableName": "awakon",
     "artifactName": "${productName}-${version}-${arch}.${ext}"

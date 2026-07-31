@@ -22,7 +22,8 @@ function freshBridge(): FakeBridge {
 }
 
 const BASE: AppSettings = {
-  autoResume: { enabled: true, detectText: "You've hit your limit", responseText: 'continue' },
+  version: 1,
+  autoResume: { enabled: true, detectText: "You've hit your limit", responseText: '1', resumeText: 'continue' },
   defaultCwd: '',
   recentTabs: [],
 };
@@ -141,7 +142,8 @@ describe('showSettingsDialog — Default Working Directory section', () => {
   it('Save returns autoResume settings alongside the new defaultCwd', async () => {
     const mount = mountEl();
     const current: AppSettings = {
-      autoResume: { enabled: false, detectText: 'limit reached', responseText: 'go' },
+      version: 1,
+      autoResume: { enabled: false, detectText: 'limit reached', responseText: 'go', resumeText: 'continue' },
       defaultCwd: '/existing',
       recentTabs: [],
     };
@@ -154,11 +156,12 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     expect(result?.defaultCwd).toBe('/existing');
   });
 
-  it('Save preserves recentTabs from current — does not wipe the list', async () => {
+  it('Save never echoes recentTabs — the dialog\'s return type structurally cannot carry it (A5-M2)', async () => {
     const mount = mountEl();
     const tab = { title: 'proj', cwd: '/tmp', shell: 'bash' as const, closedAt: 1 };
     const current: AppSettings = {
-      autoResume: { enabled: false, detectText: '', responseText: '' },
+      version: 1,
+      autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' },
       defaultCwd: '',
       recentTabs: [tab],
     };
@@ -166,6 +169,16 @@ describe('showSettingsDialog — Default Working Directory section', () => {
 
     mount.querySelector<HTMLButtonElement>('#set-save')!.click();
     const result = await p;
-    expect(result?.recentTabs).toEqual([tab]);
+    expect(result).not.toHaveProperty('recentTabs');
+    expect(result).not.toHaveProperty('version');
+  });
+
+  it('removes its scrim click listener on cleanup instead of leaking it (A5-I2)', async () => {
+    const mount = mountEl();
+    const removeSpy = vi.spyOn(mount, 'removeEventListener');
+    const p = showSettingsDialog(mount, BASE);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await p;
+    expect(removeSpy).toHaveBeenCalledWith('click', expect.any(Function));
   });
 });

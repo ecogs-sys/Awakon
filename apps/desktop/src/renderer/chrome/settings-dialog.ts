@@ -1,4 +1,4 @@
-﻿import type { AppSettings } from '@awakon/contracts';
+﻿import type { AppSettings, UserEditableSettings } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
 
 interface Bridge {
@@ -7,13 +7,17 @@ interface Bridge {
 
 /**
  * Show the settings modal pre-filled from `current`. Resolves with the new
- * AppSettings on Save, or null on Cancel/Escape. Mirrors new-session-dialog.ts:
- * re-uses the single #dialog-mount element so opening twice never stacks modals.
+ * UserEditableSettings on Save, or null on Cancel/Escape. `recentTabs`/`version` are
+ * app-owned fields the dialog never edits (C7) — the return type only carries what
+ * this dialog can actually change, instead of forcing every caller to smuggle the
+ * current app-owned values through just to satisfy a wider type (A5-M2).
+ * Mirrors new-session-dialog.ts: re-uses the single #dialog-mount element so opening
+ * twice never stacks modals.
  */
 export function showSettingsDialog(
   mount: HTMLElement,
   current: AppSettings,
-): Promise<AppSettings | null> {
+): Promise<UserEditableSettings | null> {
   return new Promise((resolve) => {
     mount.innerHTML = '';
     mount.classList.add('open');
@@ -56,6 +60,12 @@ export function showSettingsDialog(
       </section>
 
       <section class="dlg-section">
+        <div class="dlg-label">RESUME TEXT</div>
+        <input id="set-resume" type="text" maxlength="200" class="dlg-input" />
+        <div class="dlg-help">Sent (followed by Enter) once the limit's reset time has passed — a nudge in case the agent didn't already resume on its own.</div>
+      </section>
+
+      <section class="dlg-section">
         <div class="dlg-label">DEFAULT WORKING DIRECTORY</div>
         <div class="aip-path-input">
           <div class="aip-path-input__field" id="set-default-cwd-field"></div>
@@ -76,6 +86,7 @@ export function showSettingsDialog(
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
+    const resumeEl = root.querySelector<HTMLInputElement>('#set-resume')!;
     const pathField = root.querySelector<HTMLDivElement>('#set-default-cwd-field')!;
     const saveEl = root.querySelector<HTMLButtonElement>('#set-save')!;
     const cancelEl = root.querySelector<HTMLButtonElement>('#set-cancel')!;
@@ -140,6 +151,7 @@ export function showSettingsDialog(
 
     detectEl.value = current.autoResume.detectText;
     responseEl.value = current.autoResume.responseText;
+    resumeEl.value = current.autoResume.resumeText;
     renderEdit({ focus: false, select: cwdValue.length > 0 });
     detectEl.focus();
     detectEl.select();
@@ -161,10 +173,11 @@ export function showSettingsDialog(
       })();
     });
 
-    const cleanup = (result: AppSettings | null): void => {
+    const cleanup = (result: UserEditableSettings | null): void => {
       mount.classList.remove('open');
       mount.innerHTML = '';
       document.removeEventListener('keydown', onKey);
+      mount.removeEventListener('click', onMountClick); // A5-I2
       resolve(result);
     };
 
@@ -172,6 +185,7 @@ export function showSettingsDialog(
       const enabled = enabledEl.checked;
       const detectText = detectEl.value.trim();
       const responseText = responseEl.value;
+      const resumeText = resumeEl.value;
       // Read from the active input if in edit mode, else from cwdValue (display mode).
       const activeInput = pathField.querySelector<HTMLInputElement>('input');
       const defaultCwd = (activeInput ? activeInput.value : cwdValue).trim();
@@ -180,7 +194,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText }, defaultCwd, recentTabs: current.recentTabs });
+      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd });
     }
 
     const onKey = (ev: KeyboardEvent): void => {
@@ -192,10 +206,12 @@ export function showSettingsDialog(
     };
     document.addEventListener('keydown', onKey);
 
+    const onMountClick = (ev: MouseEvent): void => {
+      if (ev.target === mount) cleanup(null);
+    };
+    mount.addEventListener('click', onMountClick);
+
     saveEl.addEventListener('click', submit);
     cancelEl.addEventListener('click', () => cleanup(null));
-    mount.addEventListener('click', (ev) => {
-      if (ev.target === mount) cleanup(null);
-    });
   });
 }

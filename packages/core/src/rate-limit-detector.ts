@@ -1,15 +1,33 @@
 import { EventEmitter } from 'node:events';
 import { StringDecoder } from 'node:string_decoder';
+import { stripAnsi } from './strip-ansi.js';
 
 /** Max characters of decoded output kept for phrase matching. */
 const WINDOW_MAX = 4096;
-/** Characters captured after the matched phrase, so the reset time is included. */
-const TRAILING_CONTEXT = 200;
+/** Characters captured after the matched phrase. detectText may anchor at the frame's
+ * header (a user-configured phrase like "You've hit your session limit") rather than at
+ * the option-1 label, and the option line + confirm footer sit ~250-300 chars after the
+ * header (status line + ruler lines in between) — verified from a real IPC log. 600 is
+ * symmetric with LEADING_CONTEXT and gives comfortable margin for wider terminals. */
+const TRAILING_CONTEXT = 600;
+/** The 'resets 9:10pm (Pacific/Auckland)' header sits ~250-300 chars before the
+ * option-1 label (status line + ruler lines in between) — verified from a real
+ * IPC log. 600 gives comfortable margin for wider terminals. */
+const LEADING_CONTEXT = 600;
 
-/** CSI sequences, OSC sequences, and other single escapes — stripped before matching. */
-const ANSI_RE =
-  // eslint-disable-next-line no-control-regex
-  /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b[@-_]/g;
+/** A structural menu signature — both parts must be present, not just one (N11 /
+ * Critical #2). The bare `❯` selector glyph alone is *not* sufficient: it is also the
+ * prompt glyph of Claude Code itself and of starship/pure/p10k shell themes, so any
+ * ordinary prompt sitting near a quoted mention of the phrase (a doc, `cat`'d file,
+ * pasted transcript) would satisfy an OR-based check even though no menu is on screen.
+ * Requiring an actual numbered option line ("1. ...") *and* the confirm footer
+ * together is specific enough that only the live interactive menu produces both. */
+const OPTION_LINE_RE = /^[ \t]*(?:❯[ \t]*)?\d+\.[ \t]+\S/m;
+const CONFIRM_FOOTER_RE = /Enter to confirm/;
+
+function hasMenuSignature(resetText: string): boolean {
+  return OPTION_LINE_RE.test(resetText) && CONFIRM_FOOTER_RE.test(resetText);
+}
 
 export interface RateLimitDetectorEvents {
   rateLimitDetected: (resetText: string) => void;
@@ -48,15 +66,22 @@ export class RateLimitDetector extends EventEmitter {
       this.present = false;
       return;
     }
-    const stripped = this.window.replace(ANSI_RE, '');
+    const stripped = stripAnsi(this.window);
     const idx = stripped.indexOf(this.detectText);
     if (idx === -1) {
       this.present = false;
       return;
     }
     if (this.present) return;
+    const resetText = stripped.slice(
+      Math.max(0, idx - LEADING_CONTEXT),
+      idx + this.detectText.length + TRAILING_CONTEXT,
+    );
+    // Cheap phrase match above is only a first-pass filter — require the structural
+    // menu signature nearby before treating this as a real prompt (quoted text has
+    // neither an option line nor a confirm footer).
+    if (!hasMenuSignature(resetText)) return;
     this.present = true;
-    const resetText = stripped.slice(idx, idx + this.detectText.length + TRAILING_CONTEXT);
     this.emit('rateLimitDetected', resetText);
   }
 
