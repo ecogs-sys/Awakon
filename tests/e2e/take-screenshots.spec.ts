@@ -88,15 +88,28 @@ async function resizeWindow(app: ElectronApp): Promise<void> {
   });
 }
 
-/** Send raw text to a session's PTY (base64, matching the IPC contract). */
-async function writeSession(chrome: Page, id: string, cmd: string): Promise<void> {
-  await chrome.evaluate(
-    async ({ id, cmd }: { id: string; cmd: string }) => {
-      const awakon = (window as unknown as { awakon: { send(c: string, p: unknown): Promise<unknown> } }).awakon;
-      await awakon.send('core.session.write', { sessionId: id, data: btoa(unescape(encodeURIComponent(cmd))) });
-    },
-    { id, cmd },
-  );
+/**
+ * Send raw text to a session's PTY (base64, matching the IPC contract). This must go
+ * through that session's OWN terminal webContents, not chrome's: a terminal view is
+ * only authorized (both by the preload allowlist and the main process's
+ * isAuthorizedSender check) to write into a session it actually hosts. An inactive
+ * tab's WebContentsView is hidden but still alive — reachable via Electron's
+ * webContents.getAllWebContents(), just not surfaced by Playwright's
+ * electronApp.windows()/'window' event (those only track top-level BrowserWindows).
+ */
+async function writeSession(app: ElectronApp, id: string, cmd: string): Promise<void> {
+  const data = Buffer.from(cmd, 'utf8').toString('base64');
+  await expect(async () => {
+    await app.evaluate(async ({ webContents }, { sessionId, data }) => {
+      const target = webContents.getAllWebContents().find((wc) => wc.getURL().includes(`sessionId=${sessionId}`));
+      if (!target) throw new Error(`no terminal webContents found yet for session ${sessionId}`);
+      await target.executeJavaScript(`
+        (async () => {
+          await window.awakon.send('core.session.write', ${JSON.stringify({ sessionId, data })});
+        })();
+      `);
+    }, { sessionId: id, data });
+  }).toPass({ timeout: 8_000, intervals: [250] });
 }
 
 /** Apply app settings (auto-resume config, default cwd) via IPC. */
@@ -353,7 +366,7 @@ test('screenshot: main — single session', async () => {
   await chrome.waitForTimeout(2_500);
 
   const tabId = await chrome.locator('#tab-strip .tab').nth(0).getAttribute('data-session-id');
-  await writeSession(chrome, tabId!, isWin ? 'Get-Date\r' : 'date\r');
+  await writeSession(app, tabId!, isWin ? 'Get-Date\r' : 'date\r');
   await chrome.waitForTimeout(1_500);
 
   await captureComposite(app, chrome, join(IMAGES, 'main.png'));
@@ -394,7 +407,7 @@ test('screenshot: multi-tab — badges and sidebar', async () => {
   await chrome.waitForTimeout(500);
 
   for (const id of [secondTabId, thirdTabId]) {
-    await writeSession(chrome, id, bellCmd);
+    await writeSession(app, id, bellCmd);
   }
 
   await expect(chrome.locator(`#tab-strip .tab[data-session-id="${secondTabId}"] .dot.awaiting`)).toBeVisible({ timeout: 8_000 });
@@ -421,7 +434,7 @@ test('screenshot: auto-resume — rate-limited tab with pending resume', async (
   await chrome.waitForTimeout(500);
 
   const tabId = await chrome.locator('#tab-strip .tab').nth(0).getAttribute('data-session-id');
-  await writeSession(chrome, tabId!, rateLimitCmd);
+  await writeSession(app, tabId!, rateLimitCmd);
 
   // The detector parses "9:30pm" and schedules a resume → sidebar shows the limited pill.
   await expect(chrome.locator('#sidebar-list .sr-pill.limited')).toBeVisible({ timeout: 12_000 });
@@ -513,9 +526,9 @@ test('screenshot: sidebar — live status close-up', async () => {
   await chrome.locator(`#tab-strip .tab[data-session-id="${runningId}"]`).click();
   await chrome.waitForTimeout(400);
 
-  await writeSession(chrome, limitedId, rateLimitCmd);   // → limited
-  await writeSession(chrome, awaitingId, bellCmd);        // → awaiting (background)
-  await writeSession(chrome, idleId, isWin ? 'exit\r' : 'exit\r'); // → exited (idle bucket)
+  await writeSession(app, limitedId, rateLimitCmd);   // → limited
+  await writeSession(app, awaitingId, bellCmd);        // → awaiting (background)
+  await writeSession(app, idleId, isWin ? 'exit\r' : 'exit\r'); // → exited (idle bucket)
 
   await expect(chrome.locator('#sidebar-list .sr-pill.limited')).toBeVisible({ timeout: 8_000 });
   await expect(chrome.locator(`#tab-strip .tab[data-session-id="${awaitingId}"] .dot.awaiting`)).toBeVisible({ timeout: 8_000 });

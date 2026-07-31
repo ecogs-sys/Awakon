@@ -29,16 +29,33 @@ test('opening a 2nd tab and triggering BEL badges the inactive tab', async () =>
   expect(secondTabId).toBeTruthy();
   await chrome.locator(`#tab-strip .tab[data-session-id="${firstTabId}"]`).click();
 
-  // Write a BEL-producing command to the SECOND session via IPC.
+  // Write a BEL-producing command to the SECOND session's own PTY. This must go through
+  // that session's OWN terminal webContents, not chrome's: a terminal view is only
+  // authorized (both by the preload allowlist and the main process's isAuthorizedSender
+  // check) to write into a session it actually hosts, and the inactive 2nd tab's
+  // WebContentsView is hidden (positioned offscreen) but still alive — reachable via
+  // Electron's webContents.getAllWebContents(), just not surfaced by Playwright's
+  // electronApp.windows()/'window' event (those only track top-level BrowserWindows).
   // PowerShell on Windows: `[char]7 | Write-Host -NoNewline\r`
   const bellCmd = process.platform === 'win32'
     ? '[char]7 | Write-Host -NoNewline\r'
     : `printf '\\a'\r`;
-  await chrome.evaluate(async ({ id, cmd }) => {
-    const awakon = (window as unknown as { awakon: { send: (c: string, p: unknown) => Promise<unknown> } }).awakon;
-    const data = btoa(unescape(encodeURIComponent(cmd)));
-    await awakon.send('core.session.write', { sessionId: id, data });
-  }, { id: secondTabId!, cmd: bellCmd });
+  const data = Buffer.from(bellCmd, 'utf8').toString('base64');
+
+  // The 2nd tab's WebContentsView is still navigating to terminal-host.html at this
+  // point (its load() is async and started only just before this), so its webContents
+  // may not have committed the sessionId URL yet — retry until it has.
+  await expect(async () => {
+    await electronApp.evaluate(async ({ webContents }, { sessionId, data }) => {
+      const target = webContents.getAllWebContents().find((wc) => wc.getURL().includes(`sessionId=${sessionId}`));
+      if (!target) throw new Error(`no terminal webContents found yet for session ${sessionId}`);
+      await target.executeJavaScript(`
+        (async () => {
+          await window.awakon.send('core.session.write', ${JSON.stringify({ sessionId, data })});
+        })();
+      `);
+    }, { sessionId: secondTabId!, data });
+  }).toPass({ timeout: 8_000, intervals: [250] });
 
   // Wait for the attention dot to appear on the second tab.
   await expect(
