@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.10.0](https://github.com/ecogs-sys/Awakon/compare/v0.9.0...v0.10.0) (2026-07-31)
+
+
+### Features
+
+* add rate-limit auto-resume simulator script ([0f6a508](https://github.com/ecogs-sys/Awakon/commit/0f6a5085a2b7a99ef6468e3f1937201cf816f024))
+* generate, ship, and surface third-party license notices ([ea4aa87](https://github.com/ecogs-sys/Awakon/commit/ea4aa8775e58f8b9a843530ef0c645af3c53aad4))
+* make reserved app shortcuts work while the terminal has focus ([f3c5c4a](https://github.com/ecogs-sys/Awakon/commit/f3c5c4a7f1b5a649ad5414ccfa0f98296f914cb6))
+* security hardening, license notices, terminal focus & shortcut fixes ([56c3b1c](https://github.com/ecogs-sys/Awakon/commit/56c3b1c418bb49796438395821b2328b2d795d8e))
+
+
+### Bug Fixes
+
+* address findings from 2026-07-05 whole-app code review ([65a001d](https://github.com/ecogs-sys/Awakon/commit/65a001daef8a59c903fbcd7dc508c5db7af72bfe))
+* address Microsoft Store readiness findings B2, B3, R1, R3, B1 (scaffold) ([042e9de](https://github.com/ecogs-sys/Awakon/commit/042e9deb1f84a1cf38625810e56c312c92594eca))
+* address round-2 findings (R1-R9) and wire in M6 auto-resume scheduler ([51df7fc](https://github.com/ecogs-sys/Awakon/commit/51df7fcd081f946a9ea0bcd6a061ea6c351f3782))
+* address round-3 findings (N1-N11) and cleanup items (C1-C9) ([93b5e1b](https://github.com/ecogs-sys/Awakon/commit/93b5e1b08b6ca8e9bb19ada74eeaf3fa87462fc9))
+* allow clipboard permissions, refocus chrome on modal open, widen rate-limit detection window ([16eb33d](https://github.com/ecogs-sys/Awakon/commit/16eb33d1486bfdf328e4f398598bb548f217ae56))
+* authorize IPC senders uniformly across all main-process handlers ([8219d1b](https://github.com/ecogs-sys/Awakon/commit/8219d1b7d53d14496cead32b61807ffb803b63b8))
+* close remaining nav-guard gaps (subframe nav, webview attach, permissions) ([397683b](https://github.com/ecogs-sys/Awakon/commit/397683bbdeb8e06212b1b2ea2a76348e942fafed))
+* derive shortcut labels from the real keymap bindings, not hardcoded literals ([2bc48e6](https://github.com/ecogs-sys/Awakon/commit/2bc48e6bd9c31b6b7c5b06aba1ad080a9d46db3e))
+* **e2e:** write session IPC through the owning terminal view, not chrome ([9871b94](https://github.com/ecogs-sys/Awakon/commit/9871b9410127f8803175750e10261603c9e6a603))
+* flip Electron security fuses on pack; pin auto-update channel + gate download ([0efcf32](https://github.com/ecogs-sys/Awakon/commit/0efcf322d8ac49f3101458dba2782c5285c63ca3))
+* guarantee app.exit() runs even if closeAll() rejects on quit ([6eaa3ec](https://github.com/ecogs-sys/Awakon/commit/6eaa3ec2f73b35d119ff1cd705067f6c801ffa7a))
+* guard splitFocused() against the focused pane leaving the tree mid-await ([47877c1](https://github.com/ecogs-sys/Awakon/commit/47877c1cc54cb9436530e1bb72e681fef8c25b67))
+* harden reset-time parsing and add a fire-time user-input re-check ([f15f53e](https://github.com/ecogs-sys/Awakon/commit/f15f53ed6822758b5a81116b339e4ce27655d222))
+* keep terminal focused after context-menu copy/paste/select-all ([c2879fe](https://github.com/ecogs-sys/Awakon/commit/c2879fe7b805fb69b1da82b3dc56b0ddf4d3b679))
+* require a structural menu signature, not a bare glyph, before auto-resume fires ([eea70c9](https://github.com/ecogs-sys/Awakon/commit/eea70c9db6d9330ca5c00240ef00044f7850d5a1))
+* resolve reader/modal lifecycle desync on tab close and nested overlays ([38cf596](https://github.com/ecogs-sys/Awakon/commit/38cf596e862c205ec2314ad5dd74f62515f67e14))
+* sanitize clipboard text before passing it to xterm.paste() ([c010813](https://github.com/ecogs-sys/Awakon/commit/c010813ef24a42a135ddc09d578a90497cd7f46a))
+* sanitize mermaid SVG output and strip id/name from rendered markdown ([af7ff6d](https://github.com/ecogs-sys/Awakon/commit/af7ff6dec67c6d6476c9825c48235162cd16ca66))
+* split appx target into its own electron-builder config ([e7577c4](https://github.com/ecogs-sys/Awakon/commit/e7577c41abbdd0718caeaa69af48f1433317bab2))
+* stop rebuilding the whole chrome UI every second; fix two attention-detector bugs ([01be6fb](https://github.com/ecogs-sys/Awakon/commit/01be6fbca34ba7a4b089f1db6d390e9d9a268369))
+* suppress global shortcuts while a dialog is open; stop leaking scrim listeners ([89e850f](https://github.com/ecogs-sys/Awakon/commit/89e850fe9b5f371a7ced7fa183fd448cb5c81160))
+* upgrade Electron 33.4.11 -&gt; 43.0.0 (S2) ([ed98f5a](https://github.com/ecogs-sys/Awakon/commit/ed98f5adaa09821d65d353a1195113f82e90d6e5))
+* use appInfo.productFilename for win/mac fuse-flip binary path ([ccb7c51](https://github.com/ecogs-sys/Awakon/commit/ccb7c518c22d9fe85a83f073d21303c3055bf8eb))
+* version settings.json and migrate forward instead of wiping on schema mismatch ([8b4ff50](https://github.com/ecogs-sys/Awakon/commit/8b4ff506e9795f066e9626b95f1dacb103356866))
+
 ## [0.9.0](https://github.com/ecogs-sys/Awakon/compare/v0.8.0...v0.9.0) (2026-07-04)
 
 
