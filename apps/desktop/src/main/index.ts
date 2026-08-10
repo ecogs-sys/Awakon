@@ -12,6 +12,7 @@ import { bootstrapSessions } from './session-bootstrap.js';
 import { setupAutoUpdate } from './auto-update.js';
 import { registerFsHandlers } from './fs-handlers.js';
 import { resolveLogConfig, IpcLogger, installIpcInterceptors } from './ipc-logger.js';
+import { installCrashHandlers, type CrashKind } from './crash-logger.js';
 import { isAllowedNavigation, isPathInside } from './navigation-guard.js';
 import { isAllowedPermission } from './permission-guard.js';
 import { probeDefaultShell, shouldSetAppUserModelId } from './platform-defaults.js';
@@ -31,6 +32,35 @@ if (!app.requestSingleInstanceLock()) {
 if (shouldSetAppUserModelId(process.platform, process.windowsStore)) {
   app.setAppUserModelId('com.ecogs.awakon');
 }
+
+// Crash logging (always on). Without a global uncaughtException/unhandledRejection handler
+// an unexpected throw on a native async callback — e.g. node-pty teardown when a tab is
+// closed after long uptime — killed the whole app with no error and no log. Installed as
+// early as possible so it also covers startup crashes. See docs/troubleshooting/crash-logging.md.
+let lastCrashDialogAt = 0;
+function resolveCrashLogDir(): string {
+  try {
+    return app.getPath('logs');
+  } catch {
+    // 'logs' can be unavailable very early on some platforms; userData always resolves.
+    return join(app.getPath('userData'), 'logs');
+  }
+}
+function notifyCrash(kind: CrashKind, err: unknown, logFile: string | null): void {
+  // Unhandled rejections are logged only — a dialog per rejection would be too noisy.
+  if (kind !== 'uncaughtException') return;
+  if (!app.isReady()) return; // dialog.showErrorBox needs a ready app
+  const now = Date.now();
+  if (now - lastCrashDialogAt < 10_000) return; // avoid a dialog storm if a throw recurs
+  lastCrashDialogAt = now;
+  const message = err instanceof Error ? err.message : String(err);
+  const where = logFile ? `\n\nDetails were written to:\n${logFile}` : '';
+  dialog.showErrorBox(
+    'Awakon hit an unexpected error',
+    `${message}\n\nThe app is still running, but restart it if it behaves oddly.${where}`,
+  );
+}
+installCrashHandlers({ logDir: resolveCrashLogDir(), notify: notifyCrash });
 
 // IPC logging (opt-in via --log-ipc <dir> or AWAKON_LOG_IPC). Installed BEFORE the
 // IpcRouter and any window so every ipcMain.handle request and every main→renderer
