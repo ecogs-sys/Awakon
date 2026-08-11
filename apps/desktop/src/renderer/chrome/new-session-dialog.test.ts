@@ -266,6 +266,54 @@ describe('showNewSessionDialog — submit', () => {
   });
 });
 
+describe('showNewSessionDialog — recent sessions', () => {
+  it('renders no Recent section when recentTabs is omitted or empty', () => {
+    const mount = mountEl();
+    void showNewSessionDialog(mount, { defaultShell: 'pwsh', defaultCwd: 'C:\\x' });
+    expect(mount.querySelector('.aip-ns-recent-list')).toBeNull();
+
+    const mount2 = mountEl();
+    void showNewSessionDialog(mount2, { defaultShell: 'pwsh', defaultCwd: 'C:\\x', recentTabs: [] });
+    expect(mount2.querySelector('.aip-ns-recent-list')).toBeNull();
+  });
+
+  it('renders a row per recent tab with shell chip, path, and relative time', () => {
+    const mount = mountEl();
+    void showNewSessionDialog(mount, {
+      defaultShell: 'pwsh',
+      defaultCwd: 'C:\\x',
+      recentTabs: [
+        { title: 'proj', cwd: 'C:\\work\\proj', shell: 'pwsh', closedAt: Date.now() - 60_000 },
+        { title: 'scratch', cwd: 'C:\\work\\scratch', shell: 'git-bash', closedAt: Date.now() - 3_600_000 },
+      ],
+    });
+
+    const rows = mount.querySelectorAll<HTMLButtonElement>('.aip-ns-recent-row');
+    expect(rows.length).toBe(2);
+    expect(rows[0]!.querySelector('.aip-ns-recent-row__path')!.textContent).toBe('C:\\work\\proj');
+    expect(rows[0]!.querySelector('.aip-ns-recent-row__chip')!.textContent).toBe('PS');
+    expect(rows[1]!.querySelector('.aip-ns-recent-row__path')!.textContent).toBe('C:\\work\\scratch');
+  });
+
+  it('clicking a recent row fills in its cwd and selects its shell', () => {
+    setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+    const mount = mountEl();
+    void showNewSessionDialog(mount, {
+      defaultShell: 'pwsh',
+      defaultCwd: 'C:\\x',
+      recentTabs: [{ title: 'scratch', cwd: 'C:\\work\\scratch', shell: 'git-bash', closedAt: Date.now() }],
+    });
+
+    mount.querySelector<HTMLButtonElement>('.aip-ns-recent-row')!.click();
+
+    const input = mount.querySelector<HTMLInputElement>('.aip-path-input__field input')!;
+    expect(input.value).toBe('C:\\work\\scratch');
+    const active = mount.querySelector('.aip-radio--active')!;
+    expect(active.textContent).toContain('git-bash');
+    expect(mount.querySelector<HTMLButtonElement>('#ns-start')!.disabled).toBe(false);
+  });
+});
+
 describe('showNewSessionDialog — cancel paths', () => {
   it('resolves null on Escape', async () => {
     const mount = mountEl();

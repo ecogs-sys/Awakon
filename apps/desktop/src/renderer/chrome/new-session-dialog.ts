@@ -1,5 +1,6 @@
-﻿import type { Shell } from '@awakon/contracts';
+﻿import type { RecentTab, Shell } from '@awakon/contracts';
 import { IpcChannel } from '@awakon/contracts';
+import { formatWhen, shellChip } from './empty-state.js';
 
 export interface NewSessionResult {
   shell: Shell;
@@ -9,6 +10,9 @@ export interface NewSessionResult {
 export interface NewSessionDialogOptions {
   defaultShell: Shell;
   defaultCwd: string;
+  /** Recently-closed sessions, most recent first. Renders a "Recent" picker
+   * below the shell/directory fields when non-empty (browse + recent flow). */
+  recentTabs?: RecentTab[];
 }
 
 interface Bridge {
@@ -291,6 +295,54 @@ export function showNewSessionDialog(
     }
 
     renderRadios();
+
+    // ── Recent section (browse + recent) ──────────────────────────────
+    const recentTabs = opts.recentTabs ?? [];
+    if (recentTabs.length > 0) {
+      const recentSection = document.createElement('div');
+      recentSection.className = 'aip-modal__section';
+      recentSection.innerHTML = `
+        <div class="aip-label">Recent</div>
+        <div class="aip-ns-recent-list" role="listbox" aria-label="Recent sessions"></div>
+      `;
+      body.appendChild(recentSection);
+      const recentList = recentSection.querySelector<HTMLDivElement>('.aip-ns-recent-list')!;
+
+      function pickRecent(recent: RecentTab): void {
+        state.cwd = recent.cwd;
+        clearError();
+        renderEdit({ focus: false });
+        const idx = shellOpts.findIndex((o) => o.value === recent.shell);
+        if (idx >= 0) {
+          state.shell = shellOpts[idx]!.value;
+          updateRadioStates();
+        }
+        startBtn.disabled = state.cwd.trim().length === 0;
+      }
+
+      recentTabs.forEach((recent) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'aip-ns-recent-row';
+        row.setAttribute('role', 'option');
+
+        const chip = document.createElement('span');
+        chip.className = 'aip-ns-recent-row__chip';
+        chip.textContent = shellChip(recent.shell);
+
+        const path = document.createElement('span');
+        path.className = 'aip-ns-recent-row__path';
+        path.textContent = recent.cwd;
+
+        const when = document.createElement('span');
+        when.className = 'aip-ns-recent-row__when';
+        when.textContent = formatWhen(recent.closedAt);
+
+        row.append(chip, path, when);
+        row.addEventListener('click', () => pickRecent(recent));
+        recentList.appendChild(row);
+      });
+    }
 
     // ── Start button + submit ───────────────────────────────────────
     const startBtn = root.querySelector<HTMLButtonElement>('#ns-start')!;

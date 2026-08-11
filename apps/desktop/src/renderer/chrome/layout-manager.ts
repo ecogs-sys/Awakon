@@ -296,6 +296,7 @@ export class LayoutManager {
       result = await showNewSessionDialog(mount, {
         defaultShell: this.platformDefaultShell(),
         defaultCwd: this.platformDefaultCwd(),
+        recentTabs: this.state.recentTabs,
       });
     } finally {
       this.dialogOpen = false;
