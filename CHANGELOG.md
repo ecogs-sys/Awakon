@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/ecogs-sys/Awakon/compare/v0.10.0...v0.11.0) (2026-08-11)
+
+
+### Features
+
+* **desktop:** add global crash logging for silent main-process crashes ([cf278a7](https://github.com/ecogs-sys/Awakon/commit/cf278a7b1bec4ca0c95a27ea910233f539c1c129))
+* **desktop:** add global crash logging for silent main-process crashes ([76173f1](https://github.com/ecogs-sys/Awakon/commit/76173f1aa1323a609c09735e871bb9da16699fd0))
+
 ## [0.10.0](https://github.com/ecogs-sys/Awakon/compare/v0.9.0...v0.10.0) (2026-07-31)
 
 
