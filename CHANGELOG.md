@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/ecogs-sys/Awakon/compare/v0.11.0...v0.12.0) (2026-08-11)
+
+
+### Features
+
+* **desktop:** add Recent list to the New Session dialog ([4f67d7c](https://github.com/ecogs-sys/Awakon/commit/4f67d7c58e5cd6898761e0f269ecceccdf737a7e))
+* **desktop:** add Recent list to the New Session dialog ([682da81](https://github.com/ecogs-sys/Awakon/commit/682da8149ba0d168de2d7d44fcc46790782cf048))
+
 ## [0.11.0](https://github.com/ecogs-sys/Awakon/compare/v0.10.0...v0.11.0) (2026-08-11)
 
 
