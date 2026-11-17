@@ -38,6 +38,10 @@ export class TabStrip {
       const el = document.createElement('div');
       el.className = 'tab' + (tab.info.id === focusedId ? ' active' : '');
       el.dataset['sessionId'] = tab.info.id;
+      // Default tab labels are the launch folder name, which can collide across
+      // sessions (two projects with the same folder name) — the tooltip always
+      // carries the shell + full path so the session is still identifiable.
+      el.title = `${tab.info.shell} · ${tab.info.cwd}`;
 
       // The active tab's accent edge is a CSS inset box-shadow (.tab.active), so
       // it follows the tab's rounded top corners — no separate stripe element.
