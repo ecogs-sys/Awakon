@@ -46,7 +46,7 @@
     "@types/node": "^20.19.43",
     "@vitest/coverage-v8": "^2.1.9",
     "electron": "^43.0.0",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.18.0",
     "electron-vite": "^2.3.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.9.3",
