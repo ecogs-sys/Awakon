@@ -36,9 +36,9 @@
   },
   "pnpm": {
     "overrides": {
-      "app-builder-lib": "26.15.3",
-      "dmg-builder": "26.15.3",
-      "electron-builder-squirrel-windows": "26.15.3"
+      "app-builder-lib": "26.18.0",
+      "dmg-builder": "26.18.0",
+      "electron-builder-squirrel-windows": "26.18.0"
     }
   }
 }
