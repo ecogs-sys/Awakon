@@ -22,6 +22,9 @@ export const SEND_CHANNELS = [
 export const LISTEN_CHANNELS = [
   IpcChannel.SessionData,
   IpcChannel.SessionExited,
+  // Shell integration pushes the foreground program name; the pane's right-click
+  // policy reads it (the only signal that sees Codex/Gemini).
+  IpcChannel.SessionCommandChanged,
   IpcChannel.TerminalAction,
   IpcChannel.LayoutTabReparented,
 ] as const;

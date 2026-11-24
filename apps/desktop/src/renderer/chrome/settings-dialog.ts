@@ -76,6 +76,15 @@ export function showSettingsDialog(
         <div class="dlg-help">Leave blank to use your home directory.</div>
       </section>
 
+      <section class="dlg-section dlg-toggle-row">
+        <button id="set-shellint-toggle" type="button" class="dlg-switch" role="switch" aria-checked="true"><i></i></button>
+        <input id="set-shellint" type="checkbox" hidden />
+        <div>
+          <div class="dlg-toggle-title">Shell integration</div>
+          <div class="dlg-toggle-help">Lets Awakon tell which program a tab is running, so right-click can paste straight into agent CLIs instead of opening the menu. Adds a small startup snippet to shells Awakon launches; your own profile and prompt are left untouched. Takes effect for new tabs.</div>
+        </div>
+      </section>
+
       <div class="dlg-footer">
         <button id="set-cancel" class="dlg-btn">Cancel</button>
         <button id="set-save" class="dlg-btn dlg-btn-primary">Save</button>
@@ -84,6 +93,7 @@ export function showSettingsDialog(
     mount.appendChild(root);
 
     const enabledEl = root.querySelector<HTMLInputElement>('#set-enabled')!;
+    const shellIntEl = root.querySelector<HTMLInputElement>('#set-shellint')!;
     const detectEl = root.querySelector<HTMLInputElement>('#set-detect')!;
     const responseEl = root.querySelector<HTMLInputElement>('#set-response')!;
     const resumeEl = root.querySelector<HTMLInputElement>('#set-resume')!;
@@ -139,6 +149,15 @@ export function showSettingsDialog(
     };
     setToggle(current.autoResume.enabled);
     toggleEl.addEventListener('click', () => setToggle(!enabledEl.checked));
+
+    const shellIntToggleEl = root.querySelector<HTMLButtonElement>('#set-shellint-toggle')!;
+    const setShellIntToggle = (on: boolean): void => {
+      shellIntEl.checked = on;
+      shellIntToggleEl.setAttribute('aria-checked', on ? 'true' : 'false');
+      shellIntToggleEl.dataset['on'] = on ? '1' : '0';
+    };
+    setShellIntToggle(current.shellIntegration);
+    shellIntToggleEl.addEventListener('click', () => setShellIntToggle(!shellIntEl.checked));
     root.querySelector<HTMLButtonElement>('#set-close')!.addEventListener('click', () => cleanup(null));
 
     root.querySelectorAll<HTMLButtonElement>('#set-detect-chips .dlg-chip').forEach((chip) => {
@@ -194,7 +213,7 @@ export function showSettingsDialog(
         detectEl.focus();
         return;
       }
-      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd });
+      cleanup({ autoResume: { enabled, detectText, responseText, resumeText }, defaultCwd, shellIntegration: shellIntEl.checked });
     }
 
     const onKey = (ev: KeyboardEvent): void => {

@@ -120,7 +120,7 @@ const settingsStore = new SettingsStore(app.getPath('userData'));
 settingsStore.onError((err) => {
   console.warn('[main] settings not saved:', err instanceof Error ? err.message : err);
 });
-let appSettings: AppSettings = { version: SETTINGS_SCHEMA_VERSION, autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' }, defaultCwd: '', recentTabs: [] };
+let appSettings: AppSettings = { version: SETTINGS_SCHEMA_VERSION, autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' }, defaultCwd: '', shellIntegration: true, recentTabs: [] };
 const tabMeta = new Map<string, PersistedTab>();
 /** Authoritative tab order (persisted). Updated on create, close, and drag-reorder. */
 let tabOrder: string[] = [];
@@ -393,6 +393,7 @@ ipcMain.handle(IpcChannel.SettingsUpdate, (e, raw): { ok: true } | { error: stri
   appSettings = { ...parsed.data, recentTabs: appSettings.recentTabs, version: appSettings.version };
   void settingsStore.save(appSettings);
   sessionManager.applyAutoResumeConfig(appSettings.autoResume);
+  sessionManager.setShellIntegrationEnabled(appSettings.shellIntegration);
   chromeWindow?.webContents.send(IpcChannel.SettingsChanged, appSettings);
   return { ok: true };
 });
@@ -724,6 +725,7 @@ async function createChromeWindow(): Promise<void> {
   // guarantees appSettings is populated before the renderer can query it.
   appSettings = await settingsStore.load();
   sessionManager.applyAutoResumeConfig(appSettings.autoResume);
+  sessionManager.setShellIntegrationEnabled(appSettings.shellIntegration);
 
   await (() => {
     const entry = rendererEntry('chrome');

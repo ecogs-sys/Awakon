@@ -5,7 +5,7 @@ import { bootstrapSessions, type BootstrapDeps } from './session-bootstrap.js';
 function makeInfo(id: string): SessionInfo {
   return {
     id, title: id, shell: 'bash', cwd: '/home/me',
-    status: 'running', kind: 'tab', pid: 1, exitCode: null,
+    status: 'running', kind: 'tab', pid: 1, exitCode: null, foregroundCommand: null,
   };
 }
 

@@ -23,6 +23,11 @@ export type AutoResumeSettings = z.infer<typeof AutoResumeSettingsSchema>;
 export const UserEditableSettingsSchema = z.object({
   autoResume:  AutoResumeSettingsSchema,
   defaultCwd:  z.string().default(''),
+  /** Inject shell-integration hooks when spawning a session. On by default: it is
+   * invisible when it works, and it is what lets Awakon tell which agent CLI is
+   * running. Injecting into someone's shell must stay refusable, hence the toggle.
+   * `.default` keeps existing users' persisted settings parsing without a migration. */
+  shellIntegration: z.boolean().default(true),
 });
 export type UserEditableSettings = z.infer<typeof UserEditableSettingsSchema>;
 
@@ -59,6 +64,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     resumeText: 'continue',
   }),
   defaultCwd: '',
+  shellIntegration: true,
   recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],
   version: SETTINGS_SCHEMA_VERSION,
 });

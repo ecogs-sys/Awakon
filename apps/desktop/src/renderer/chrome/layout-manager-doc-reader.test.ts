@@ -24,7 +24,7 @@ import { showSettingsDialog } from './settings-dialog.js';
 function sessionInfo(id: string): SessionInfo {
   return {
     id, title: id, shell: 'pwsh', cwd: '/x',
-    status: 'running', kind: 'tab', pid: 1, exitCode: null,
+    status: 'running', kind: 'tab', pid: 1, exitCode: null, foregroundCommand: null,
   };
 }
 

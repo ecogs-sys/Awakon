@@ -69,6 +69,9 @@ export class TerminalHost {
   /** Latest OSC window title the pane's program has set, used to identify WHICH app
    * is running (see app-profiles.ts). '' until one is reported. */
   private currentTitle = '';
+  /** Foreground program name pushed by main (shell integration), or null at the
+   * prompt / when the session has no integration. */
+  private foregroundCommand: string | null = null;
 
   constructor(opts: TerminalHostOptions) {
     this.sessionId = opts.sessionId;
@@ -182,6 +185,7 @@ export class TerminalHost {
       mouseTrackingMode: this.term.modes.mouseTrackingMode,
       title: this.currentTitle,
       platform: RIGHT_CLICK_PLATFORM,
+      foregroundCommand: this.foregroundCommand,
     });
   }
 
@@ -225,13 +229,21 @@ export class TerminalHost {
       else this.pendingChunks.push(decoded);
     });
 
+    // Shell integration tells us which program the shell actually launched — the only
+    // signal that sees Codex or Gemini, which draw inline without taking the screen.
+    const onCommand = this.bridge.on(IpcChannel.SessionCommandChanged, (raw) => {
+      const event = raw as { sessionId: SessionId; command: string | null };
+      if (event.sessionId !== this.sessionId) return;
+      this.foregroundCommand = event.command;
+    });
+
     const onExit = this.bridge.on(IpcChannel.SessionExited, (raw) => {
       const event = raw as { sessionId: SessionId; exitCode: number | null };
       if (event.sessionId !== this.sessionId) return;
       this.term.write(`\r\n\x1b[90m[session exited, code=${event.exitCode}]\x1b[0m\r\n`);
     });
 
-    this.unsubscribers.push(onData, onExit);
+    this.unsubscribers.push(onData, onCommand, onExit);
   }
 
   /** xterm link provider: underlines `.md` paths and opens the reader on click. */

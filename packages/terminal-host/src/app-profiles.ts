@@ -34,8 +34,13 @@ export type RightClickAction = 'menu' | 'paste' | 'passthrough';
 
 export interface AppProfile {
   id: string;
-  /** Matched against the pane's current OSC window title. */
+  /** Matched against the pane's current OSC window title. Used only when the
+   *  foreground program name is unavailable (no shell integration). */
   match: RegExp;
+  /** Foreground program names this profile claims, lowercased and without
+   *  extension (see Session.programName). Preferred over `match` because it is
+   *  reported by the shell rather than inferred from what the app drew. */
+  commands?: readonly string[];
   rightClick: RightClickAction;
 }
 
@@ -43,7 +48,13 @@ export interface AppProfile {
  *  later (first match wins, so user entries would be prepended). */
 export const BUILT_IN_APP_PROFILES: readonly AppProfile[] = [
   // Claude Code sets its title to "claude", then "✳ Claude Code".
-  { id: 'claude-code', match: /claude/i, rightClick: 'paste' },
+  { id: 'claude-code', match: /claude/i, commands: ['claude'], rightClick: 'paste' },
+  // Codex and Gemini are invisible to terminal-mode detection: both render inline in
+  // the normal buffer without taking the alternate screen or the mouse, and Codex sets
+  // no OSC title at all. They are reachable ONLY via shell integration, which is why
+  // they carry no `match` pattern — there is nothing in the byte stream to match on.
+  { id: 'codex', match: /$^/, commands: ['codex'], rightClick: 'paste' },
+  { id: 'gemini', match: /$^/, commands: ['gemini'], rightClick: 'paste' },
 ];
 
 /** Which platform the pane is rendering on. Right-click means different things on
@@ -83,10 +94,25 @@ export function matchAppProfile(
   return null;
 }
 
+/** Profile claiming `command` (a lowercased program name), or null. */
+export function matchAppProfileByCommand(
+  command: string,
+  profiles: readonly AppProfile[] = BUILT_IN_APP_PROFILES,
+): AppProfile | null {
+  const name = command.toLowerCase();
+  for (const p of profiles) {
+    if (p.commands?.includes(name)) return p;
+  }
+  return null;
+}
+
 export interface PaneAppState extends TerminalModeState {
   /** Current OSC window title, or '' if the pane has never reported one. */
   title: string;
   platform: RightClickPlatform;
+  /** Foreground program name from shell integration, or null/undefined when the
+   *  session has none (cmd, wsl, opted out, or a shell still at its prompt). */
+  foregroundCommand?: string | null;
 }
 
 /** Decide what a right-click should do in a pane. */
@@ -101,6 +127,19 @@ export function resolveRightClick(
   // Ctrl+click problem by construction: with no paste path there, there is no
   // button-2-only gesture left to miss.
   if (state.platform !== 'windows') return 'menu';
+
+  // Shell integration, when present, is authoritative: the shell TOLD us what it ran,
+  // rather than us inferring it from what the app drew. It is also the only way to see
+  // Codex or Gemini at all. A null command means the shell is at its prompt.
+  if (state.foregroundCommand) {
+    const byCommand = matchAppProfileByCommand(state.foregroundCommand, profiles);
+    if (byCommand) return byCommand.rightClick;
+    // A known-but-unprofiled program is still an app holding the pane — but only
+    // treat it as such if it also took the screen, so that ordinary commands
+    // (`git status`, `npm test`) keep the menu while they run.
+    return isAppInControl(state) ? 'passthrough' : 'menu';
+  }
+
   // No app in control — a shell prompt. Menu, exactly as before.
   if (!isAppInControl(state)) return 'menu';
   // An app owns the pane: a known one gets its configured behaviour, an unknown

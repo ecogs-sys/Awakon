@@ -37,6 +37,11 @@ export const SessionInfoSchema = z.object({
   kind: SessionKindSchema,
   pid: z.number().int().nullable(),
   exitCode: z.number().int().nullable(),
+  /** Program name running in the foreground (`claude`, `codex`), or null at the
+   * prompt. Populated only when shell integration is active for the session.
+   * Deliberately the program NAME only — never the argument tail, which routinely
+   * carries secrets. `.default(null)` keeps older persisted//IPC payloads parsing. */
+  foregroundCommand: z.string().nullable().default(null),
 });
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 

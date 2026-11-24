@@ -12,6 +12,8 @@ import { cwdBasename } from '@awakon/contracts';
 import { AttentionDetector } from './attention-detector.js';
 import { RateLimitDetector } from './rate-limit-detector.js';
 import { RingBuffer } from './ring-buffer.js';
+import { ShellIntegrationDetector } from './shell-integration-detector.js';
+import { shellIntegrationSpawn } from './shell-integration-spawn.js';
 
 export interface SessionEvents {
   data: (chunk: Buffer) => void;
@@ -19,6 +21,18 @@ export interface SessionEvents {
   titleChanged: (title: string) => void;
   attention: (ev: AttentionEvent) => void;
   rateLimitDetected: (resetText: string) => void;
+  /** The program running in the foreground changed — null when back at the prompt.
+   *  Only ever the program NAME, never the argument tail (see setForegroundCommand). */
+  foregroundCommandChanged: (command: string | null) => void;
+}
+
+/** Per-session options that are not part of the create payload. */
+export interface SessionRuntimeOptions {
+  /** Overrides AttentionDetector's idle window — for tests only (C9). */
+  idleAttentionMs?: number;
+  /** False disables shell-integration injection for this session (settings opt-out).
+   *  Defaults to true. */
+  shellIntegration?: boolean;
 }
 
 const DEFAULT_RING_CAPACITY = 256 * 1024; // ~256 KB ≈ 5,000 lines
@@ -33,6 +47,22 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
     case 'wsl': return 'wsl.exe';
     case 'git-bash': return 'bash.exe';
   }
+}
+
+/**
+ * First token of a command line, stripped of any path and extension, lowercased:
+ *   `claude --continue`                  -> 'claude'
+ *   `"C:\Program Files\x\codex.exe" -v`  -> 'codex'
+ * Returns null for a blank line (bare Enter at the prompt).
+ */
+export function programName(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  // Honour a quoted first token so paths containing spaces survive.
+  const quoted = /^"([^"]+)"/.exec(trimmed) ?? /^'([^']+)'/.exec(trimmed);
+  const first = quoted ? quoted[1]! : trimmed.split(/\s+/)[0]!;
+  const base = first.split(/[\\/]/).pop() ?? first;
+  return base.replace(/\.(exe|cmd|bat|ps1|sh)$/i, '').toLowerCase() || null;
 }
 
 /** xterm.js emits these when its DOM element gains/loses focus. They are not
@@ -51,6 +81,14 @@ export class Session extends EventEmitter {
   private readonly pty: pty.IPty;
   private readonly detector: AttentionDetector;
   private readonly rateLimitDetector = new RateLimitDetector('');
+  private readonly shellIntegrationDetector = new ShellIntegrationDetector();
+  /** True when this session was spawned with integration hooks installed. */
+  readonly shellIntegrationEnabled: boolean = false;
+  /** Program name currently in the foreground, or null at the prompt. */
+  private _foregroundCommand: string | null = null;
+  /** Live cwd as reported by the shell (OSC 7). Falls back to the launch cwd.
+   *  Deliberately NOT used for tab labels — those stay on the launch folder. */
+  private _liveCwd: string | null = null;
   private _title: string;
   private _status: SessionStatus = 'starting';
   private _exitCode: number | null = null;
@@ -61,17 +99,32 @@ export class Session extends EventEmitter {
    * someone's live typing would be surprising and possibly disruptive. */
   private lastUserInputAt = 0;
 
-  /** `idleAttentionMs` overrides AttentionDetector's idle window — for tests only (C9). */
-  constructor(id: SessionId, opts: SessionCreateOptions, kind: SessionKind = 'tab', idleAttentionMs?: number) {
+  /** `runtime` carries test overrides and the shell-integration opt-out. The legacy
+   *  number form is still accepted so existing callers/tests keep working. */
+  constructor(
+    id: SessionId,
+    opts: SessionCreateOptions,
+    kind: SessionKind = 'tab',
+    runtime?: number | SessionRuntimeOptions,
+  ) {
     super();
+    const runtimeOpts: SessionRuntimeOptions =
+      typeof runtime === 'number' ? { idleAttentionMs: runtime } : (runtime ?? {});
     this.id = id;
     this.opts = opts;
     this.kind = kind;
-    this.detector = new AttentionDetector(idleAttentionMs);
+    this.detector = new AttentionDetector(runtimeOpts.idleAttentionMs);
     this.ringBuffer = new RingBuffer(DEFAULT_RING_CAPACITY);
     this._title = opts.title ?? cwdBasename(opts.cwd);
 
-    this.pty = pty.spawn(shellCommand(opts.shell), [], {
+    // Shell integration: extra spawn args that install the OSC-marker hooks. Null when
+    // the shell cannot be instrumented (cmd, wsl) or the user opted out — in which case
+    // the session simply spawns bare and app detection falls back to terminal modes.
+    const integration =
+      runtimeOpts.shellIntegration === false ? null : shellIntegrationSpawn(opts.shell);
+    this.shellIntegrationEnabled = integration !== null;
+
+    this.pty = pty.spawn(shellCommand(opts.shell), integration?.args ?? [], {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
@@ -95,12 +148,25 @@ export class Session extends EventEmitter {
       this.emit('rateLimitDetected', resetText);
     });
 
+    // Shell integration: a submitted command puts a program in the foreground; the
+    // next prompt means it finished and we are idle again.
+    this.shellIntegrationDetector.on('commandStart', (line) => {
+      this.setForegroundCommand(line);
+    });
+    this.shellIntegrationDetector.on('promptStart', () => {
+      this.setForegroundCommand(null);
+    });
+    this.shellIntegrationDetector.on('cwdChanged', (cwd) => {
+      this._liveCwd = cwd;
+    });
+
     this.pty.onData((data: string) => {
       // node-pty delivers a decoded string; re-encode to Buffer for the ring buffer + downstream consumers.
       const buf = Buffer.from(data, 'utf8');
       this.ringBuffer.write(buf);
       this.detector.process(buf);
       this.rateLimitDetector.process(buf);
+      this.shellIntegrationDetector.process(buf);
       this.emit('data', buf);
     });
 
@@ -110,6 +176,7 @@ export class Session extends EventEmitter {
       // The session is done — clear the detector's pending idle timer.
       this.detector.dispose();
       this.rateLimitDetector.dispose();
+      this.shellIntegrationDetector.dispose();
       this.emit('exit', { exitCode, signal: signal != null ? String(signal) : null });
     });
   }
@@ -159,6 +226,33 @@ export class Session extends EventEmitter {
     }
   }
 
+  /** Program name currently in the foreground, or null when sitting at the prompt. */
+  get foregroundCommand(): string | null {
+    return this._foregroundCommand;
+  }
+
+  /** Live cwd reported by the shell, falling back to the launch cwd when shell
+   *  integration is unavailable or has not reported yet. */
+  get cwd(): string {
+    return this._liveCwd ?? this.opts.cwd;
+  }
+
+  /**
+   * Record the foreground program from a submitted command line.
+   *
+   * Only the first token is kept. Command lines routinely carry secrets
+   * (`$env:TOKEN='…'`, `curl -H "Authorization: …"`), and this value is broadcast over
+   * IPC and held in memory — the argument tail is never needed, since consumers match
+   * on the program name. Dropping it here means the secret-bearing part is discarded at
+   * the earliest possible point rather than trusted not to leak downstream.
+   */
+  private setForegroundCommand(line: string | null): void {
+    const name = line === null ? null : programName(line);
+    if (this._foregroundCommand === name) return;
+    this._foregroundCommand = name;
+    this.emit('foregroundCommandChanged', name);
+  }
+
   setTitle(title: string): void {
     if (this._title === title) return;
     this._title = title;
@@ -187,6 +281,7 @@ export class Session extends EventEmitter {
       kind: this.kind,
       pid: this.pty.pid,
       exitCode: this._exitCode,
+      foregroundCommand: this._foregroundCommand,
     };
   }
 }

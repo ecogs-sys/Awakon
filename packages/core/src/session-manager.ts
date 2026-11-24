@@ -17,6 +17,7 @@ export interface SessionManagerEvents {
   sessionData: (sessionId: SessionId, chunk: Buffer) => void;
   sessionExited: (sessionId: SessionId, exitCode: number | null, signal: string | null) => void;
   sessionTitleChanged: (sessionId: SessionId, title: string) => void;
+  sessionCommandChanged: (sessionId: SessionId, command: string | null) => void;
   sessionAttention: (ev: AttentionEvent) => void;
   resumeScheduled: (sessionId: SessionId, resetAt: number) => void;
   resumeCancelled: (sessionId: SessionId) => void;
@@ -30,6 +31,8 @@ export interface SessionManagerEvents {
  */
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
+  /** Mirrors settings.shellIntegration; read when a session spawns. */
+  private shellIntegration = true;
   private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '', resumeText: '' };
   private readonly resumeScheduler = new ResumeScheduler({
     onDue: (sessionId) => this.fireResume(sessionId),
@@ -45,7 +48,9 @@ export class SessionManager extends EventEmitter {
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
-    const session = new Session(id, opts, kind);
+    // Shell integration is decided at spawn time (it is extra argv), so a change to
+    // the setting only affects sessions started afterwards.
+    const session = new Session(id, opts, kind, { shellIntegration: this.shellIntegration });
     this.sessions.set(id, session);
 
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
@@ -59,6 +64,8 @@ export class SessionManager extends EventEmitter {
       // calls closeAll().)
     });
     session.on('titleChanged', (title) => this.emit('sessionTitleChanged', id, title));
+    session.on('foregroundCommandChanged', (command) =>
+      this.emit('sessionCommandChanged', id, command));
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
     // The rate-limit prompt is an interactive menu ("1. Stop and wait for limit
     // to reset" / "2. Upgrade your plan") that must be answered while it is on
@@ -126,6 +133,12 @@ export class SessionManager extends EventEmitter {
       this.sessions.delete(id);
     });
     session.kill('SIGHUP');
+  }
+
+  /** Enable/disable shell-integration injection for FUTURE sessions. Existing ones
+   * keep whatever they spawned with — the hooks are argv, not runtime state. */
+  setShellIntegrationEnabled(enabled: boolean): void {
+    this.shellIntegration = enabled;
   }
 
   /** Apply auto-resume settings: push the detect phrase to every session and,

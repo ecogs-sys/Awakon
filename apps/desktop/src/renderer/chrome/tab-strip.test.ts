@@ -4,7 +4,7 @@ import { TabStrip, type TabViewModel } from './tab-strip.js';
 import type { SessionInfo } from '@awakon/contracts';
 
 function info(id: string): SessionInfo {
-  return { id, title: id, shell: 'pwsh', cwd: '/x', status: 'running', kind: 'tab', pid: 1, exitCode: null };
+  return { id, title: id, shell: 'pwsh', cwd: '/x', status: 'running', kind: 'tab', pid: 1, exitCode: null, foregroundCommand: null };
 }
 function vm(id: string, hasDoc: boolean): TabViewModel {
   return { info: info(id), attention: false, broken: false, resumeAt: null, hasDoc };
