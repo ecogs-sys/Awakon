@@ -10,13 +10,26 @@
 
 **Tech Stack:** TypeScript, Node.js, Vitest, node-pty, PowerShell, pnpm monorepo.
 
+**Phases:**
+
+| Phase | Scope | Tasks |
+|---|---|---|
+| 1 | Spike: does OSC 133 survive ConPTY? | **COMPLETE — passed** |
+| 2 | pwsh/powershell integration, end to end | Tasks 1–4 |
+| 3 | bash / zsh / git-bash | Task 2.2 extensions |
+| 4 | Consumers: auto-resume for other CLIs, live cwd | separate plans |
+| 5 | Process-tree fallback for `cmd.exe` | Task 5 — **may be dropped entirely** |
+
+Phase 2 is the whole payoff: it is what makes `codex` and `gemini` work. Phases 3–5 are
+each independently droppable.
+
 ---
 
 ## Phase 1 spike — COMPLETE, viable
 
 The one result that could have killed this: ConPTY re-renders output rather than passing bytes through, and is known to filter some sequences (synthesized `DECSET 1003h/1006h` never reached xterm during the PR #26 investigation). If it swallowed OSC 133, the approach was dead on the only platform that needs it.
 
-Measured against a real pty running `pwsh.exe`, with the integration dot-sourced exactly as the real injection would do it:
+Measured against a real pty running `pwsh.exe`:
 
 | Marker | Survived ConPTY |
 |---|---|
@@ -38,13 +51,33 @@ readline hook : ["readline-hooked"]
 
 The cwd report tracking `cd packages` confirms live cwd works, which closes the "tab labels show the launch folder forever" limitation from PR #26.
 
+**Re-verified after the injection mechanism changed.** The original spike dot-sourced a
+`.ps1`; Step 2.3 rejects that (ExecutionPolicy), so the mechanism was re-tested as
+`powershell -NoExit -EncodedCommand <base64>` — the exact spawn `Session` will use:
+
+```
+probe (integration installed): YES    OSC 133;A/B/C/D: YES    OSC 7: YES
+captured commands: ["echo still-interactive", "cd packages"]
+cwd reports      : [".../Awakon", ".../Awakon/packages"]
+shell stayed interactive: YES
+```
+
+Still unverified, and called out at Step 2.4: whether our hooks install *after* the
+user's profile. If they install first, a prompt framework defined in the profile
+overwrites the wrapper and every marker disappears silently.
+
 ---
 
 ## File Structure
 
 **Created:**
-- `packages/core/src/shell-integration/pwsh.ps1` — the injected script (Phase 2)
-- `packages/core/src/shell-integration/bash.sh`, `zsh.zsh` — (Phase 3)
+- `packages/core/src/shell-integration/pwsh.ts` — the pwsh integration **as an exported
+  string constant**, not a `.ps1` on disk. See Step 2.3: ExecutionPolicy blocks loading
+  script files on a default Windows install, so the script is injected via
+  `-EncodedCommand` and never touches the filesystem (Phase 2)
+- `packages/core/src/shell-integration/bash.ts`, `zsh.ts` — same pattern (Phase 3).
+  POSIX shells have no ExecutionPolicy equivalent, but keeping one shape avoids two
+  packaging stories
 - `packages/core/src/shell-integration-detector.ts` — OSC 133 / 7 / 1337 stream parser
 - `packages/core/tests/shell-integration-detector.test.ts` — parser unit tests
 - `packages/core/src/shell-integration-spawn.ts` — per-shell spawn args/env computation
@@ -77,12 +110,16 @@ Byte-stream scanner in the same shape as `AttentionDetector`. Emits `commandStar
 
 ## Task 2: Spawn-time injection
 
-- [ ] **Step 2.1: Write `pwsh.ps1`**
+- [ ] **Step 2.1: Author the pwsh integration string**
 
-Wrap — never replace — the existing `prompt` and `PSConsoleHostReadLine`, so prompt frameworks (oh-my-posh, starship) keep working. Guard every hook with existence checks and leave the shell fully functional if anything throws. Validated shape from the spike:
+Wrap — never replace — the existing `prompt` and `PSConsoleHostReadLine`, so prompt frameworks (oh-my-posh, starship) keep working. Guard every hook with existence checks and leave the shell fully functional if anything throws. Shape verified end-to-end through `-EncodedCommand` (note `$ESC`/`$BEL` must be defined — without them the markers silently emit as empty strings):
 
 ```powershell
-$global:__awakonOrigPrompt = $function:prompt
+$ESC = [char]27
+$BEL = [char]7
+if (-not (Test-Path variable:global:__awakonOrigPrompt)) {
+  $global:__awakonOrigPrompt = $function:prompt
+}
 function global:prompt {
   $exitCode = if ($global:LASTEXITCODE -ne $null) { $global:LASTEXITCODE } else { 0 }
   $out  = "$ESC]133;D;$exitCode$BEL" + "$ESC]133;A$BEL"
@@ -93,10 +130,20 @@ function global:prompt {
 }
 ```
 
+Two accuracy caveats to handle while writing it:
+- **`$LASTEXITCODE` only reflects native executables.** A failing *cmdlet* leaves it
+  stale, so `133;D` would report a wrong exit code. Combine with `$?` the way VS Code's
+  integration does.
+- **`OSC 7` must URL-encode the path.** The snippet above only swaps separators; a cwd
+  containing spaces or `#` produces a malformed file:// URL. Encode here, and have the
+  Task 1 parser decode — pick one convention and test a path with spaces both ways.
+
 - [ ] **Step 2.2: Per-shell spawn computation + tests**
 
 Pure function: shell → `{ args, env }`.
-- **pwsh/powershell** — dot-source the script via `-NoExit -Command`
+- **pwsh/powershell** — `-NoExit -EncodedCommand <base64 utf16le>` (see Step 2.3 for why
+  not a dot-sourced file). Verified: integration installs, all markers emit, and the
+  shell stays interactive afterwards.
 - **bash/git-bash** — `--init-file` wrapper that sources the user's `~/.bashrc` **first**
 - **zsh** — temp `ZDOTDIR` whose `.zshrc` sources the user's
 - **cmd** — unsupported, return unchanged args (cmd has no hook; VS Code doesn't support it either)
@@ -131,6 +178,14 @@ of the archive. Two risks closed by one decision.
 Do **not** reach for `-ExecutionPolicy Bypass` instead: it is security-sensitive,
 looks like malware behaviour to endpoint tooling, and is unnecessary given the above.
 
+- [ ] **Step 2.4: Verify our hooks install AFTER the user's profile**
+
+**Unverified and load-bearing.** If the encoded command runs before profile load, an
+oh-my-posh or starship `prompt` defined in the profile overwrites our wrapper and every
+marker silently disappears. PowerShell documents `-Command` as running after profiles,
+but this was not tested — and the whole feature fails quietly if it is wrong. Test with
+a real profile that installs a prompt framework, asserting `133;A` still appears.
+
 ## Task 3: Surface the state
 
 - [ ] **Step 3.1: `SessionInfo.foregroundCommand` + IPC broadcast**
@@ -148,12 +203,17 @@ Injecting into someone's shell must be refusable without uninstalling.
 
 ## Task 5 (later phase, possibly never): process-tree fallback
 
-**This task exists only to serve `cmd.exe`.** Every other Windows shell Awakon offers
-(pwsh, powershell, git-bash) can be instrumented directly, so if `cmd` sessions are
-acceptable without app detection, **this entire task can be dropped** — along with
-its native-module-or-helper-process decision, its polling cost, and its
-descendants-aren't-foreground inference. That is the single largest simplification
-available to this plan, and it is a product call, not a technical one.
+**This task exists to serve `cmd.exe`, and nothing else it can actually reach.** Every
+other Windows shell Awakon offers (pwsh, powershell, git-bash) can be instrumented
+directly, so if `cmd` sessions are acceptable without app detection, **this entire task
+can be dropped** — along with its native-module-or-helper-process decision, its polling
+cost, and its descendants-aren't-foreground inference. That is the single largest
+simplification available to this plan, and it is a product call, not a technical one.
+
+Note `wsl` is **not** an argument for keeping it: a WSL session's processes live in a
+separate Linux PID namespace, so a Windows process-tree walk sees only `wsl.exe` and
+never the program inside. WSL is reachable only by installing integration in the WSL
+distro itself — neither mechanism here covers it.
 
 Graceful degradation makes dropping it cheap: a `cmd` session with no integration
 simply keeps the PR #26 behaviour (mode-state detection), which still catches Claude
@@ -204,8 +264,14 @@ sources apart; right-click paste is safe either way.
 
 ## Risks
 
-- **Prompt frameworks.** oh-my-posh/starship also override `prompt`. Wrapping (not replacing) plus installing last is the mitigation, but this is the most likely source of "Awakon broke my terminal". Test explicitly against oh-my-posh.
-- **Packaging.** The script must be dot-sourceable from outside the asar. Verify in a real packaged build.
+- **Prompt frameworks.** oh-my-posh/starship also override `prompt`. Wrapping (not replacing) plus installing last is the mitigation, but this is the most likely source of "Awakon broke my terminal". Test explicitly against oh-my-posh — and note Step 2.4: if our hook installs *before* the profile, the framework silently wins and every marker vanishes.
+- **Command lines enter the scrollback.** `OSC 1337;awakonCommand=<line>` puts the full
+  command text into the session byte stream, which flows into the `RingBuffer` and is
+  replayed on restore. Command lines routinely contain secrets (`$env:TOKEN='…'`,
+  `curl -H "Authorization: …"`). The marker is invisible on screen but present in the
+  buffer. Never write the parsed command to disk — not to `crash.log`, not through the
+  IPC logger — and treat `foregroundCommand` as sensitive: match profiles on the first
+  token (the program name), and do not retain the argument tail.
 - **Trust.** The script is injected into the user's shell: ship it readable, in-repo, executing nothing dynamic, and make it opt-out.
 - **SSH / WSL / containers.** Only works if integration exists on the far side. Explicitly out of scope — but note process inspection cannot reach there *at all*, so this is still strictly better.
 - **Scope discipline.** Live cwd (Task 1 gives it for free) is tempting to wire straight into tab labels. That is a separate change with its own UX question (does a tab rename itself as you `cd`?) and should not ride along here.
@@ -217,6 +283,12 @@ sources apart; right-click paste is safe either way.
 1. **Default on or opt-in?** Recommend on, with a settings toggle — invisible when it works.
 2. **Own OSC namespace or VS Code's `633`?** Recommend our own `1337;awakon*` (matches the existing `awakonAttention` precedent) to avoid implying compatibility with VS Code's full protocol.
 3. **Does live cwd change tab labels?** Recommend deferring — land the plumbing, decide the UX separately.
+4. **PowerShell-only, or PowerShell-first?** PowerShell-only (Phase 2, stop) deletes
+   Task 5 *and* Phase 3, roughly halving the remaining work, at the cost of Git Bash
+   users — a real segment on Windows. Recommend **PowerShell-first**: ship Phase 2,
+   add bash/git-bash in Phase 3 (cheap, well-understood), and drop Task 5 regardless,
+   since `cmd` degrades gracefully to the PR #26 behaviour. Dropping Task 5 is the
+   simplification worth taking; dropping Phase 3 is the one worth thinking about.
 
 ---
 
