@@ -54,10 +54,16 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     // nested subagent result lines). responseText '1' selects option 1, which
     // makes Claude wait and resume itself when the limit resets.
     //
-    // Off by default (M7): RateLimitDetector scans ALL PTY output, so any program
-    // that happens to print this phrase — cat of a file, a log line, a remote
-    // command's output — would make the app type responseText into that session.
-    // Users opt in from Settings once they understand the trade-off.
+    // Off by default (M7): RateLimitDetector scans PTY output, so any program that
+    // happens to print this phrase — cat of a file, a log line, a remote command's
+    // output — would make the app type responseText into that session.
+    //
+    // Shell integration narrows that considerably: in a session where it is active,
+    // detection is armed ONLY while an agent CLI with an answerable rate-limit prompt
+    // is in the foreground (see auto-resume-agents.ts), so ordinary output can no
+    // longer trigger it. The hazard remains for sessions without integration (cmd,
+    // wsl, or opted out), which is why this still ships off — but flipping the
+    // default is now a defensible product call rather than a risky one.
     enabled: false,
     detectText: 'Stop and wait for limit to reset',
     responseText: '1',
