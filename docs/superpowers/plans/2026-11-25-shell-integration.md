@@ -102,9 +102,34 @@ Pure function: shell → `{ args, env }`.
 - **cmd** — unsupported, return unchanged args (cmd has no hook; VS Code doesn't support it either)
 - **wsl** — unchanged for now; depends on the inner shell
 
-- [ ] **Step 2.3: Wire into `Session`**
+- [ ] **Step 2.3: Wire into `Session` — inject via `-EncodedCommand`, NOT a .ps1 file**
 
-Script path must resolve correctly **inside the packaged asar** — `extraResources` or `asarUnpack`, since PowerShell cannot dot-source a file inside an asar. This is the most likely packaging failure; verify with a `--dir` build, not just `pnpm dev`.
+**Do not ship the integration as a `.ps1` and dot-source it.** PowerShell's
+ExecutionPolicy governs script *files*, and Windows clients default to `Restricted`,
+where loading one fails outright:
+
+```
+--- dot-source .ps1 under Restricted ---
+. : File ...\integration.ps1 cannot be loaded because running scripts is
+    disabled on this system.
+--- same file under Unrestricted (control) --- INTEGRATION-RAN
+--- inline -Command under Restricted ---      INLINE-RAN
+--- -EncodedCommand under Restricted ---      ENCODED-RAN
+```
+
+The Phase 1 spike dot-sourced a file successfully only because that machine has
+`LocalMachine = Unrestricted`. On a default install it would have failed for every
+user. ExecutionPolicy does **not** apply to code passed via `-Command` /
+`-EncodedCommand`, so embed the integration as a string in the bundle and inject it
+encoded (`-EncodedCommand` over inline `-Command`: no quoting to escape, and the
+script is multi-line).
+
+This also removes the asar problem entirely — with no file on disk there is nothing
+to `extraResources` or `asarUnpack`, and nothing for PowerShell to fail to read out
+of the archive. Two risks closed by one decision.
+
+Do **not** reach for `-ExecutionPolicy Bypass` instead: it is security-sensitive,
+looks like malware behaviour to endpoint tooling, and is unnecessary given the above.
 
 ## Task 3: Surface the state
 
@@ -121,12 +146,23 @@ Injecting into someone's shell must be refusable without uninstalling.
 
 ---
 
-## Task 5 (later phase): process-tree fallback where integration can't reach
+## Task 5 (later phase, possibly never): process-tree fallback
 
-Do **not** start this until Tasks 1–4 have shipped and been lived with. It exists to
-cover the sessions shell integration structurally cannot serve — primarily `cmd.exe`,
-which has no prompt hook or init-file mechanism (VS Code doesn't support it either) —
-plus any session where injection was declined or failed.
+**This task exists only to serve `cmd.exe`.** Every other Windows shell Awakon offers
+(pwsh, powershell, git-bash) can be instrumented directly, so if `cmd` sessions are
+acceptable without app detection, **this entire task can be dropped** — along with
+its native-module-or-helper-process decision, its polling cost, and its
+descendants-aren't-foreground inference. That is the single largest simplification
+available to this plan, and it is a product call, not a technical one.
+
+Graceful degradation makes dropping it cheap: a `cmd` session with no integration
+simply keeps the PR #26 behaviour (mode-state detection), which still catches Claude
+Code — it just won't catch Codex or Gemini there.
+
+Do **not** start this until Tasks 1–4 have shipped and been lived with, and only if
+`cmd` support is judged necessary. It covers sessions shell integration structurally
+cannot serve — `cmd.exe`, which has no prompt hook or init-file mechanism (VS Code
+doesn't support it either) — plus any session where injection was declined or failed.
 
 Scoping it this way is what makes the cost acceptable: the measurements in Appendix A
 rule out polling *every* session continuously, but a fallback that runs only for
