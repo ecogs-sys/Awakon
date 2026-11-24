@@ -102,3 +102,4 @@ test('shell integration reports the foreground command for codex', async () => {
 
   await electronApp.close();
 });
+

@@ -14,6 +14,7 @@ import { RateLimitDetector } from './rate-limit-detector.js';
 import { RingBuffer } from './ring-buffer.js';
 import { ShellIntegrationDetector } from './shell-integration-detector.js';
 import { shellIntegrationSpawn } from './shell-integration-spawn.js';
+import { resolveGitBashPath } from './resolve-git-bash.js';
 
 export interface SessionEvents {
   data: (chunk: Buffer) => void;
@@ -45,7 +46,10 @@ function shellCommand(shell: SessionCreateOptions['shell']): string {
     case 'bash': return 'bash';
     case 'zsh': return 'zsh';
     case 'wsl': return 'wsl.exe';
-    case 'git-bash': return 'bash.exe';
+    // NOT the bare name: System32\bash.exe is the WSL launcher, and PATH order decides
+    // which one wins. In the packaged app System32 won, so git-bash sessions started
+    // WSL and died instantly. See resolve-git-bash.ts.
+    case 'git-bash': return resolveGitBashPath();
   }
 }
 
@@ -129,7 +133,8 @@ export class Session extends EventEmitter {
       cols: opts.cols,
       rows: opts.rows,
       cwd: opts.cwd,
-      env: { ...process.env },
+      // Integration env (zsh's ZDOTDIR) layers over the inherited environment.
+      env: { ...process.env, ...(integration?.env ?? {}) },
     });
     this._status = 'running';
 
