@@ -6,6 +6,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // which is itself hoisted above imports, can close over it.
 const hostCalls = vi.hoisted(() => [] as string[]);
 
+// What every stub host reports from resolveRightClickAction(). Hoisted alongside
+// hostCalls so the vi.mock factory can close over it; tests flip it to simulate an
+// app (Claude Code, vim) taking control of the pane.
+const hostState = vi.hoisted(() => ({
+  rightClickAction: 'menu' as 'menu' | 'paste' | 'passthrough',
+}));
+
 // Stub @awakon/terminal-host BEFORE importing SplitContainer so the test
 // doesn't pull in xterm.js (which doesn't run cleanly under jsdom).
 vi.mock('@awakon/terminal-host', () => {
@@ -17,6 +24,8 @@ vi.mock('@awakon/terminal-host', () => {
       this.selection = text;
       this._hasSel = text.length > 0;
     }
+    /** Mirrors TerminalHost.resolveRightClickAction(); 'menu' = plain shell prompt. */
+    resolveRightClickAction(): string { return hostState.rightClickAction; }
     hasSelection(): boolean { return this._hasSel; }
     getSelection(): string { return this.selection; }
     paste(_: string): void { hostCalls.push('paste'); }
@@ -48,6 +57,7 @@ let splits: SplitContainer;
 
 beforeEach(() => {
   hostCalls.length = 0;
+  hostState.rightClickAction = 'menu';
   document.body.innerHTML = '';
   rootEl = document.createElement('div');
   document.body.appendChild(rootEl);
@@ -81,6 +91,74 @@ describe('SplitContainer pane context menu', () => {
     const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
     pane.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(true);
+  });
+});
+
+// Right-click policy per running app. The pane shows the menu only at a shell
+// prompt; when an app owns the pane its profile decides (see app-profiles.ts).
+describe('SplitContainer right-click app policy', () => {
+  beforeEach(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { readText: vi.fn().mockResolvedValue('pasted text') },
+      configurable: true,
+    });
+  });
+
+  function rightClick(pane: HTMLElement): { down: MouseEvent; ctx: MouseEvent } {
+    const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 2, clientX: 10, clientY: 10 });
+    pane.dispatchEvent(down);
+    const ctx = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
+    pane.dispatchEvent(ctx);
+    return { down, ctx };
+  }
+
+  it('shows no menu when a known app (Claude Code) is running', () => {
+    hostState.rightClickAction = 'paste';
+    rightClick(rootEl.firstElementChild as HTMLElement);
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+  });
+
+  it('pastes through the sanitized host path instead of opening the menu', async () => {
+    hostState.rightClickAction = 'paste';
+    rightClick(rootEl.firstElementChild as HTMLElement);
+    // The paste is async (clipboard read) — let the microtask queue drain.
+    await vi.waitFor(() => expect(hostCalls).toContain('paste'));
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+  });
+
+  it('stops the right-click reaching the app so it sees no phantom click', () => {
+    hostState.rightClickAction = 'paste';
+    const { down } = rightClick(rootEl.firstElementChild as HTMLElement);
+    // Capture-phase preventDefault is what keeps xterm from forwarding button 2 to
+    // the PTY; without it Claude Code would get the click AND we would paste.
+    expect(down.defaultPrevented).toBe(true);
+  });
+
+  it('shows no menu and does not paste for an unknown full-screen app', async () => {
+    hostState.rightClickAction = 'passthrough';
+    rightClick(rootEl.firstElementChild as HTMLElement);
+    await Promise.resolve();
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+    expect(hostCalls).not.toContain('paste');
+  });
+
+  it('leaves a left-click alone while an app is in control', () => {
+    hostState.rightClickAction = 'paste';
+    const pane = rootEl.firstElementChild as HTMLElement;
+    const left = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 });
+    pane.dispatchEvent(left);
+    expect(left.defaultPrevented).toBe(false);
+    expect(hostCalls).not.toContain('paste');
+  });
+
+  it('still shows the menu at a shell prompt after an app exits', () => {
+    hostState.rightClickAction = 'paste';
+    rightClick(rootEl.firstElementChild as HTMLElement);
+    expect(document.querySelector('.aip-ctx-menu')).toBeNull();
+    // App exits -> modes reset -> pane is a plain prompt again.
+    hostState.rightClickAction = 'menu';
+    rightClick(rootEl.firstElementChild as HTMLElement);
+    expect(document.querySelector('.aip-ctx-menu')).not.toBeNull();
   });
 
   // Regression: right-click → Copy/Paste/Select all used to leave the xterm blurred

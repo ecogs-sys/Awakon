@@ -1,7 +1,7 @@
 ﻿import type { SessionId, SessionInfo, AttentionEvent, Shell, AppSettings, UserEditableSettings, ChromeAppInfoResponse, RecentTab } from '@awakon/contracts';
 import { emptyDocState, openDoc, closeDocAt, setReview, moveActive, toPersistedDocs, fromPersistedDocs, type ReviewState } from './doc-state.js';
 import { DocReader } from './doc-reader.js';
-import { IpcChannel } from '@awakon/contracts';
+import { IpcChannel, cwdBasename } from '@awakon/contracts';
 import type { PreloadBridge } from '@awakon/terminal-host';
 import { TabStrip, type TabViewModel } from './tab-strip.js';
 import { Sidebar, type SidebarRowVm } from './sidebar.js';
@@ -651,15 +651,11 @@ export class LayoutManager {
     const status = focused.resumeAt !== null ? 'rate-limited' : statusLabel(info.status);
     this.titleBar.setContext({
       project: cwdBasename(info.cwd),
-      subtitle: `${info.title || info.shell} · ${status}`,
+      // Breadcrumb's "project" already shows the folder name (now also the default
+      // session title) — subtitle shows shell + status instead so it doesn't repeat.
+      subtitle: `${info.shell} · ${status}`,
     });
   }
-}
-
-/** Last path segment of a cwd, tolerant of both separators and trailing slashes. */
-function cwdBasename(cwd: string): string {
-  const parts = cwd.split(/[/\\]+/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1]! : cwd;
 }
 
 function statusLabel(status: SessionInfo['status']): string {

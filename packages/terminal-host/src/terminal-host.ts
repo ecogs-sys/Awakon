@@ -7,6 +7,19 @@ import { IpcChannel, isHttpUrl } from '@awakon/contracts';
 import { findMarkdownLinks } from './md-links.js';
 import { sanitizePasteText } from './sanitize-paste.js';
 import { createReservedKeyHandler } from './reserved-keys.js';
+import { resolveRightClick, type RightClickAction, type RightClickPlatform } from './app-profiles.js';
+
+/** Detected once per renderer. Mirrors the renderer's own platform helper, but this
+ * package cannot import from apps/desktop, so it reads navigator directly. */
+function detectRightClickPlatform(): RightClickPlatform {
+  if (typeof navigator === 'undefined') return 'linux';
+  const p = (navigator.platform || navigator.userAgent || '').toLowerCase();
+  if (p.includes('mac')) return 'mac';
+  if (p.includes('win')) return 'windows';
+  return 'linux';
+}
+
+const RIGHT_CLICK_PLATFORM: RightClickPlatform = detectRightClickPlatform();
 
 /**
  * Bridge between an xterm.js Terminal instance and one Session in the main process.
@@ -53,6 +66,9 @@ export class TerminalHost {
    * be written to xterm ahead of the snapshot. */
   private replayComplete = false;
   private pendingChunks: string[] = [];
+  /** Latest OSC window title the pane's program has set, used to identify WHICH app
+   * is running (see app-profiles.ts). '' until one is reported. */
+  private currentTitle = '';
 
   constructor(opts: TerminalHostOptions) {
     this.sessionId = opts.sessionId;
@@ -114,6 +130,10 @@ export class TerminalHost {
       }),
     );
 
+    // OSC 0/2 window title — the app-identity half of the right-click policy.
+    const titleSub = this.term.onTitleChange((title) => { this.currentTitle = title; });
+    this.unsubscribers.push(() => titleSub.dispose());
+
     this.term.open(opts.container);
     this.fit.fit();
 
@@ -150,6 +170,19 @@ export class TerminalHost {
 
   focus(): void {
     this.term.focus();
+  }
+
+  /** What a right-click should do in this pane right now: show the menu (shell
+   * prompt), paste immediately (a known app like Claude Code), or pass the click
+   * through to the running app. Read live — a pane flips between these as apps
+   * start and exit. See app-profiles.ts for how the decision is made. */
+  resolveRightClickAction(): RightClickAction {
+    return resolveRightClick({
+      bufferType: this.term.buffer.active.type,
+      mouseTrackingMode: this.term.modes.mouseTrackingMode,
+      title: this.currentTitle,
+      platform: RIGHT_CLICK_PLATFORM,
+    });
   }
 
   private async replay(): Promise<void> {

@@ -8,6 +8,7 @@ import type {
   SessionKind,
   SessionStatus,
 } from '@awakon/contracts';
+import { cwdBasename } from '@awakon/contracts';
 import { AttentionDetector } from './attention-detector.js';
 import { RateLimitDetector } from './rate-limit-detector.js';
 import { RingBuffer } from './ring-buffer.js';
@@ -68,7 +69,7 @@ export class Session extends EventEmitter {
     this.kind = kind;
     this.detector = new AttentionDetector(idleAttentionMs);
     this.ringBuffer = new RingBuffer(DEFAULT_RING_CAPACITY);
-    this._title = opts.title ?? shellCommand(opts.shell);
+    this._title = opts.title ?? cwdBasename(opts.cwd);
 
     this.pty = pty.spawn(shellCommand(opts.shell), [], {
       name: 'xterm-256color',
