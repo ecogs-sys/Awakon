@@ -221,14 +221,45 @@ export class SplitContainer {
     return el;
   }
 
-  /** Right-click on a pane opens the themed context menu. The leaf is resolved
-   * fresh from the DOM element on every event so it remains correct after
-   * splits reshape the tree. */
+  /** Right-click on a pane opens the themed context menu — unless an app is running
+   * in it, in which case the pane's app profile decides (Claude Code: paste straight
+   * away; anything else: the click belongs to the app). The leaf is resolved fresh
+   * from the DOM element on every event so it remains correct after splits reshape
+   * the tree, and the action is resolved per-event so a pane tracks apps starting
+   * and exiting. See app-profiles.ts. */
   private wirePaneContextMenu(el: HTMLElement): void {
+    // Right-click-to-paste has to intercept mousedown in the CAPTURE phase. Apps that
+    // enable mouse tracking (Claude Code does) have their right-click forwarded to the
+    // PTY by xterm on mousedown — which fires BEFORE contextmenu — so handling it in
+    // the contextmenu listener alone would paste AND leave the app processing a
+    // phantom right-click. Capturing above xterm stops the forward from happening.
+    el.addEventListener('mousedown', (e) => {
+      if (e.button !== 2) return;
+      const leaf = this.findLeafByElement(el);
+      if (!leaf || leaf.host.resolveRightClickAction() !== 'paste') return;
+      e.preventDefault();
+      e.stopPropagation();
+      const host = leaf.host;
+      void (async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          // Goes through host.paste() -> sanitizePasteText(), the same guarded path
+          // the menu's Paste uses (A6-I1) — never xterm's raw native paste.
+          host.paste(text);
+        } catch (err) {
+          console.warn('[split] right-click paste failed:', err);
+        }
+        host.focus();
+      })();
+    }, true);
+
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const leaf = this.findLeafByElement(el);
       if (!leaf) return;
+      // 'paste' already ran on mousedown above; 'passthrough' means the app owns the
+      // click. Either way no menu — only a shell prompt gets one.
+      if (leaf.host.resolveRightClickAction() !== 'menu') return;
       const host = leaf.host;
       const inSplit = this.root.kind === 'branch';
 

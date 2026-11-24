@@ -5,3 +5,10 @@ export type { MarkdownLinkHit } from './md-links.js';
 export { sanitizePasteText } from './sanitize-paste.js';
 export { createReservedKeyHandler } from './reserved-keys.js';
 export type { ReservedBindingId } from './reserved-keys.js';
+export {
+  BUILT_IN_APP_PROFILES,
+  isAppInControl,
+  matchAppProfile,
+  resolveRightClick,
+} from './app-profiles.js';
+export type { AppProfile, PaneAppState, RightClickAction } from './app-profiles.js';
