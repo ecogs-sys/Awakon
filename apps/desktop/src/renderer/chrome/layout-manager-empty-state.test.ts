@@ -22,7 +22,7 @@ import type { Sidebar } from './sidebar.js';
 const SAMPLE_SESSION: SessionInfo = {
   id: 'sess-1', title: 'my-project', shell: 'bash',
   cwd: '/home/me/proj', status: 'running', kind: 'tab',
-  pid: 123, exitCode: null,
+  pid: 123, exitCode: null, foregroundCommand: null,
 };
 
 const SAMPLE_RECENT: RecentTab = {

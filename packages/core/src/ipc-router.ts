@@ -412,6 +412,10 @@ export class IpcRouter {
       this.broadcast(IpcChannel.SessionTitleChanged, { sessionId, title });
     });
 
+    this.manager.on('sessionCommandChanged', (sessionId, command) => {
+      this.broadcast(IpcChannel.SessionCommandChanged, { sessionId, command });
+    });
+
     this.manager.on('sessionAttention', (ev: AttentionEvent) => {
       this.broadcast(IpcChannel.SessionAttention, ev);
     });

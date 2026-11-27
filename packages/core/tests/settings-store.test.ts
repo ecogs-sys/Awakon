@@ -27,6 +27,9 @@ describe('SettingsStore', () => {
       version: 1,
       autoResume: { enabled: false, detectText: 'LIMIT', responseText: 'go', resumeText: 'continue' },
       defaultCwd: '',
+      // Supplied by the schema default on load — an older settings.json gains the
+      // field without a migration, which is what .default(true) is there for.
+      shellIntegration: true,
       recentTabs: [],
     };
     await new SettingsStore(dir).save(next);
@@ -73,6 +76,7 @@ describe('SettingsStore', () => {
       version: 1,
       autoResume: { enabled: false, detectText: '', responseText: '', resumeText: 'continue' },
       defaultCwd: '/x',
+      shellIntegration: true,
       recentTabs: [],
     };
     await fs.writeFile(join(dir, 'settings.json'), JSON.stringify(current), 'utf8');

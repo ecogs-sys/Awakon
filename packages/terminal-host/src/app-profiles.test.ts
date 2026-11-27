@@ -110,11 +110,66 @@ describe('resolveRightClick() platform policy', () => {
     expect(resolveRightClick({ ...CLAUDE_RUNNING, platform: 'linux' })).toBe('menu');
   });
 
+  it('shows the menu on mac/Linux even with a known foreground command', () => {
+    const codex = { ...IDLE_SHELL, title: '', foregroundCommand: 'codex' };
+    expect(resolveRightClick({ ...codex, platform: 'mac' })).toBe('menu');
+    expect(resolveRightClick({ ...codex, platform: 'linux' })).toBe('menu');
+  });
+
   it('shows the menu on mac/Linux for an unknown full-screen app too', () => {
     const vim = { bufferType: 'alternate' as const, mouseTrackingMode: 'none', title: 'vim' };
     expect(resolveRightClick({ ...vim, platform: 'mac' })).toBe('menu');
     expect(resolveRightClick({ ...vim, platform: 'linux' })).toBe('menu');
     // ...but passes it to the app on Windows.
     expect(resolveRightClick({ ...vim, platform: 'windows' })).toBe('passthrough');
+  });
+});
+
+// Shell integration is the only signal that sees Codex or Gemini: both render inline
+// in the normal buffer without taking the alternate screen or the mouse, and Codex
+// sets no OSC title at all. Terminal-mode detection is blind to them by construction.
+describe('resolveRightClick() with shell integration', () => {
+  const WIN = { platform: 'windows' as const, title: '' };
+
+  it.each(['claude', 'codex', 'gemini'])('pastes for %s via foreground command', (cmd) => {
+    expect(resolveRightClick({ ...IDLE_SHELL, ...WIN, foregroundCommand: cmd })).toBe('paste');
+  });
+
+  // The whole point: Codex looks exactly like a shell prompt to mode detection.
+  it('catches Codex even though it never takes the screen', () => {
+    const state = { ...IDLE_SHELL, ...WIN, foregroundCommand: 'codex' };
+    expect(isAppInControl(state)).toBe(false);   // invisible to mode detection
+    expect(resolveRightClick(state)).toBe('paste'); // but caught anyway
+  });
+
+  it('shows the menu at the prompt (null command)', () => {
+    expect(resolveRightClick({ ...IDLE_SHELL, ...WIN, foregroundCommand: null })).toBe('menu');
+  });
+
+  // An ordinary command must NOT suppress the menu just because it is running —
+  // `git status` holds the foreground but does not take over the pane.
+  it('keeps the menu for an ordinary command that does not take the screen', () => {
+    expect(resolveRightClick({ ...IDLE_SHELL, ...WIN, foregroundCommand: 'git' })).toBe('menu');
+  });
+
+  it('passes through for an unprofiled app that DID take the screen', () => {
+    const vim = { bufferType: 'alternate' as const, mouseTrackingMode: 'none', ...WIN, foregroundCommand: 'vim' };
+    expect(resolveRightClick(vim)).toBe('passthrough');
+  });
+
+  // Falling back matters for cmd/wsl sessions and for anyone who opted out.
+  it('falls back to title matching when no command is available', () => {
+    const claudeByTitle = {
+      bufferType: 'alternate' as const,
+      mouseTrackingMode: 'any',
+      title: '✳ Claude Code',
+      platform: 'windows' as const,
+      foregroundCommand: null,
+    };
+    expect(resolveRightClick(claudeByTitle)).toBe('paste');
+  });
+
+  it('is case-insensitive about the program name', () => {
+    expect(resolveRightClick({ ...IDLE_SHELL, ...WIN, foregroundCommand: 'CODEX' })).toBe('paste');
   });
 });

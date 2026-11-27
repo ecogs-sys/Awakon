@@ -59,6 +59,7 @@ export const IpcChannel = {
   SessionData: 'event.session.data',
   SessionExited: 'event.session.exited',
   SessionTitleChanged: 'event.session.title-changed',
+  SessionCommandChanged: 'event.session.command-changed',
   SessionAttention: 'event.session.attention',
   SessionTabBroken: 'event.session.tab-broken',
   ActionInvoke: 'event.action.invoke',
@@ -248,6 +249,13 @@ export const SessionExitedEventSchema = z.object({
 export const SessionTitleChangedEventSchema = z.object({
   sessionId: SessionIdSchema,
   title: z.string(),
+});
+
+/** Emitted when the foreground program in a session changes (shell integration).
+ * `command` is the program NAME only, never the argument tail. */
+export const SessionCommandChangedEventSchema = z.object({
+  sessionId: SessionIdSchema,
+  command: z.string().nullable(),
 });
 
 export const SessionAttentionEventSchema = AttentionEventSchema;

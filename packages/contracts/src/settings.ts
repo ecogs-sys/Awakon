@@ -23,6 +23,11 @@ export type AutoResumeSettings = z.infer<typeof AutoResumeSettingsSchema>;
 export const UserEditableSettingsSchema = z.object({
   autoResume:  AutoResumeSettingsSchema,
   defaultCwd:  z.string().default(''),
+  /** Inject shell-integration hooks when spawning a session. On by default: it is
+   * invisible when it works, and it is what lets Awakon tell which agent CLI is
+   * running. Injecting into someone's shell must stay refusable, hence the toggle.
+   * `.default` keeps existing users' persisted settings parsing without a migration. */
+  shellIntegration: z.boolean().default(true),
 });
 export type UserEditableSettings = z.infer<typeof UserEditableSettingsSchema>;
 
@@ -49,16 +54,23 @@ export const DEFAULT_APP_SETTINGS: AppSettings = Object.freeze({
     // nested subagent result lines). responseText '1' selects option 1, which
     // makes Claude wait and resume itself when the limit resets.
     //
-    // Off by default (M7): RateLimitDetector scans ALL PTY output, so any program
-    // that happens to print this phrase — cat of a file, a log line, a remote
-    // command's output — would make the app type responseText into that session.
-    // Users opt in from Settings once they understand the trade-off.
+    // Off by default (M7): RateLimitDetector scans PTY output, so any program that
+    // happens to print this phrase — cat of a file, a log line, a remote command's
+    // output — would make the app type responseText into that session.
+    //
+    // Shell integration narrows that considerably: in a session where it is active,
+    // detection is armed ONLY while an agent CLI with an answerable rate-limit prompt
+    // is in the foreground (see auto-resume-agents.ts), so ordinary output can no
+    // longer trigger it. The hazard remains for sessions without integration (cmd,
+    // wsl, or opted out), which is why this still ships off — but flipping the
+    // default is now a defensible product call rather than a risky one.
     enabled: false,
     detectText: 'Stop and wait for limit to reset',
     responseText: '1',
     resumeText: 'continue',
   }),
   defaultCwd: '',
+  shellIntegration: true,
   recentTabs: Object.freeze([]) as unknown as AppSettings['recentTabs'],
   version: SETTINGS_SCHEMA_VERSION,
 });

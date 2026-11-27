@@ -24,7 +24,7 @@ function freshBridge(): FakeBridge {
 const BASE: AppSettings = {
   version: 1,
   autoResume: { enabled: true, detectText: "You've hit your limit", responseText: '1', resumeText: 'continue' },
-  defaultCwd: '',
+  defaultCwd: '', shellIntegration: true,
   recentTabs: [],
 };
 
@@ -144,7 +144,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     const current: AppSettings = {
       version: 1,
       autoResume: { enabled: false, detectText: 'limit reached', responseText: 'go', resumeText: 'continue' },
-      defaultCwd: '/existing',
+      defaultCwd: '/existing', shellIntegration: true,
       recentTabs: [],
     };
     const p = showSettingsDialog(mount, current);
@@ -162,7 +162,7 @@ describe('showSettingsDialog — Default Working Directory section', () => {
     const current: AppSettings = {
       version: 1,
       autoResume: { enabled: false, detectText: '', responseText: '', resumeText: '' },
-      defaultCwd: '',
+      defaultCwd: '', shellIntegration: true,
       recentTabs: [tab],
     };
     const p = showSettingsDialog(mount, current);

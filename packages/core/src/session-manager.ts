@@ -1,5 +1,6 @@
 ﻿import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
+import { isAutoResumeAgent } from './auto-resume-agents.js';
 import type {
   AttentionEvent,
   AutoResumeSettings,
@@ -17,6 +18,7 @@ export interface SessionManagerEvents {
   sessionData: (sessionId: SessionId, chunk: Buffer) => void;
   sessionExited: (sessionId: SessionId, exitCode: number | null, signal: string | null) => void;
   sessionTitleChanged: (sessionId: SessionId, title: string) => void;
+  sessionCommandChanged: (sessionId: SessionId, command: string | null) => void;
   sessionAttention: (ev: AttentionEvent) => void;
   resumeScheduled: (sessionId: SessionId, resetAt: number) => void;
   resumeCancelled: (sessionId: SessionId) => void;
@@ -30,6 +32,8 @@ export interface SessionManagerEvents {
  */
 export class SessionManager extends EventEmitter {
   private readonly sessions = new Map<SessionId, Session>();
+  /** Mirrors settings.shellIntegration; read when a session spawns. */
+  private shellIntegration = true;
   private autoResume: AutoResumeSettings = { enabled: false, detectText: '', responseText: '', resumeText: '' };
   private readonly resumeScheduler = new ResumeScheduler({
     onDue: (sessionId) => this.fireResume(sessionId),
@@ -45,7 +49,9 @@ export class SessionManager extends EventEmitter {
 
   create(opts: SessionCreateOptions, kind: SessionKind = 'tab'): Session {
     const id: SessionId = randomUUID();
-    const session = new Session(id, opts, kind);
+    // Shell integration is decided at spawn time (it is extra argv), so a change to
+    // the setting only affects sessions started afterwards.
+    const session = new Session(id, opts, kind, { shellIntegration: this.shellIntegration });
     this.sessions.set(id, session);
 
     session.on('data', (chunk) => this.emit('sessionData', id, chunk));
@@ -59,6 +65,12 @@ export class SessionManager extends EventEmitter {
       // calls closeAll().)
     });
     session.on('titleChanged', (title) => this.emit('sessionTitleChanged', id, title));
+    session.on('foregroundCommandChanged', (command) => {
+      this.emit('sessionCommandChanged', id, command);
+      // Arm/disarm as the agent starts and exits, so the phrase is only ever scanned
+      // for while a CLI that can actually be answered is running.
+      this.armRateLimitDetection(session);
+    });
     session.on('attention', (ev) => this.emit('sessionAttention', ev));
     // The rate-limit prompt is an interactive menu ("1. Stop and wait for limit
     // to reset" / "2. Upgrade your plan") that must be answered while it is on
@@ -86,7 +98,10 @@ export class SessionManager extends EventEmitter {
       // its own — no schedule, no badge; the cooldown above still guards this path.
     });
 
-    session.setRateLimitDetectText(this.autoResume.enabled ? this.autoResume.detectText : '');
+    // A session with shell integration starts DISARMED and is armed only while an
+    // agent CLI is actually in the foreground (see armRateLimitDetection). Without
+    // integration there is no way to know, so the legacy always-on behaviour stands.
+    this.armRateLimitDetection(session);
     this.emit('sessionCreated', session.info());
     return session;
   }
@@ -128,13 +143,44 @@ export class SessionManager extends EventEmitter {
     session.kill('SIGHUP');
   }
 
+  /**
+   * Point the session's rate-limit detector at the configured phrase, or at nothing.
+   *
+   * With shell integration the detector listens ONLY while an agent CLI that has an
+   * answerable rate-limit prompt is in the foreground. That closes the false-positive
+   * hazard documented on DEFAULT_APP_SETTINGS: the phrase used to be scanned in every
+   * session's output at all times, so a `cat` of the wrong file could make Awakon type
+   * into that session.
+   *
+   * Without integration (cmd, wsl, or opted out) there is no foreground information,
+   * so the previous always-on behaviour is kept rather than silently disabling a
+   * feature the user turned on.
+   */
+  private armRateLimitDetection(session: Session): void {
+    if (!this.autoResume.enabled) {
+      session.setRateLimitDetectText('');
+      return;
+    }
+    const armed = session.shellIntegrationEnabled
+      ? isAutoResumeAgent(session.foregroundCommand)
+      : true;
+    session.setRateLimitDetectText(armed ? this.autoResume.detectText : '');
+  }
+
+  /** Enable/disable shell-integration injection for FUTURE sessions. Existing ones
+   * keep whatever they spawned with — the hooks are argv, not runtime state. */
+  setShellIntegrationEnabled(enabled: boolean): void {
+    this.shellIntegration = enabled;
+  }
+
   /** Apply auto-resume settings: push the detect phrase to every session and,
    * when disabling, cancel every pending resume. */
   applyAutoResumeConfig(config: AutoResumeSettings): void {
     this.autoResume = config;
-    const detect = config.enabled ? config.detectText : '';
     for (const session of this.sessions.values()) {
-      session.setRateLimitDetectText(detect);
+      // Re-arm per session rather than pushing one phrase to all of them: an
+      // integrated session only listens while an agent CLI is in its foreground.
+      this.armRateLimitDetection(session);
     }
     if (!config.enabled) {
       for (const sessionId of this.resumeScheduler.cancelAll()) {
