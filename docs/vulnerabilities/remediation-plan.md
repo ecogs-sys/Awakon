@@ -6,19 +6,22 @@ Covers 28 of the 29 vulnerable packages found by `pnpm audit`. `zod` is excluded
 Phases are ordered so the lowest-risk, highest-value fixes land first. Each phase ends with
 `pnpm install && pnpm audit` to confirm progress before moving on.
 
-## Status: Phases 0-4 complete
+## Status: fully remediated
 
-All four phases below have been applied and verified (typecheck, full test suite, production
-build, and a runtime smoke test per the `apps/desktop:verify` skill — see commit messages on
-branch `docs/vulnerability-remediation-plan` for the verification detail of each phase).
+`pnpm audit` is clean — **0 advisories**, down from 186. All four phases below were applied and
+verified (typecheck, full test suite, production build, and a runtime smoke test per the
+`apps/desktop:verify` skill — see commit messages on branch `docs/vulnerability-remediation-plan`
+for the verification detail of each phase).
 
-`pnpm audit` went from **186 advisories / 29 packages → 3 advisories / 2 packages** (0 critical,
-0 moderate, 2 high, 0 low):
-
-| Package | Status |
-|---|---|
-| `builder-util-runtime` | **Accepted residual risk.** The real, shipped instance (`electron-updater`'s runtime dependency) is patched at `9.7.0`. One remaining vulnerable instance (`9.2.10`) is reachable only through electron-builder's own circular `app-builder-lib`/`dmg-builder`/`electron-builder-squirrel-windows` peer dependencies — pnpm (9.12.0) won't resolve the existing `pnpm.overrides` pin for `electron-builder-squirrel-windows` onto that peer slot even after a from-scratch lockfile regen. This project never builds a Squirrel.Windows installer (absent from both `electron-builder.json` and `electron-builder.appx.json`), so it's build-tool-only exposure on an unused code path. |
-| `zod` | **Tracked separately** — see [`zod-v4-migration.md`](zod-v4-migration.md). Needs a real code migration, not a version bump. |
+Two follow-ups after the four phases:
+- **`builder-util-runtime`** — Phase 3 (below) originally proposed overriding this directly, but
+  at the time it was applied, only `katex` got added and `builder-util-runtime` was set aside as
+  "accepted residual risk" after an attempt to fix it a different way (pinning
+  `electron-builder-squirrel-windows`, which pnpm wouldn't resolve onto the right peer slot — see
+  that section's history). Revisiting it: the original plan was right — overriding
+  `builder-util-runtime` *directly* (rather than its parent) works, because it isn't itself caught
+  in the circular peer-dependency cycle that `electron-builder-squirrel-windows` is. Added, fixed.
+- **`zod`** — migrated 3→4, tracked in [`zod-v4-migration.md`](zod-v4-migration.md).
 
 One deviation from the original plan below: Phase 4's `minimatch` fix needed **two** scoped
 overrides, not one — a second vulnerable instance (`minimatch@10.2.6`, via electron-builder's
@@ -236,10 +239,7 @@ override depends on electron-builder's own upstream release, independent of that
 | 2 | `vitest`, `vite`, `electron-vite`, `tinypool`, `@vitest/mocker`, `esbuild`, `glob` | 0 critical advisories after this phase (down from 4 at the start) |
 | 3 | `katex` | forced via override past mermaid's own declared range; verified by direct API call + build |
 | 4 | `minimatch` | two scoped overrides needed (`@9` and `@10` — the second only surfaced after the first was applied) |
-| *(separate doc)* | `zod` | tracked in `zod-v4-migration.md` — requires code changes, not just a version bump |
+| follow-up | `builder-util-runtime` | overriding the package directly (not its parent) resolves the instance stuck behind electron-builder's circular peer dependencies |
+| follow-up | `zod` | migrated 3→4, tracked in `zod-v4-migration.md` |
 
-**Residual, accepted risk:** `builder-util-runtime@9.2.10`, reachable only through
-electron-builder's circular peer-dependency graph on an installer format (Squirrel.Windows) this
-project never builds. See the Status section at the top of this document.
-
-Final `pnpm audit`: **3 advisories** (2 high, 1 — `zod` — moderate), down from 186.
+Final `pnpm audit`: **0 advisories**, down from 186.

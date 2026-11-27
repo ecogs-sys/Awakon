@@ -1,5 +1,41 @@
 # zod v3 → v4 Migration (separate from the rest of the remediation)
 
+## Status: Complete
+
+Bumped `zod` to `^4.6.7` in `packages/contracts` and `packages/core`. `pnpm audit` is now clean
+(0 advisories). Findings from the three checks called out below, plus what else came up during
+the migration:
+
+- **`z.string().url()` (the external-URL gate, #1 below):** confirmed unchanged where it matters —
+  `javascript:`, `data:`, and `file:` URLs are still rejected (verified directly against the
+  installed `zod@4.6.7`, beyond what the existing test already covers). Found one incidental
+  behavior change: v4's `.url()` now trims leading/trailing whitespace before validating (v3
+  didn't — confirmed by comparing against the old `zod@3.25.76` still sitting in the pnpm store).
+  This makes v4 *slightly more permissive* on whitespace-padded input, not less — the value that
+  reaches `.refine(isHttpUrl, ...)` is the trimmed string, the http(s)-only gate itself is
+  unaffected, and the actual value used downstream (`safeParse(...).data`) is the clean, trimmed
+  URL. Not a regression, just worth knowing about.
+- **`.default()` / `.nullable()` round-tripping (#2):** already covered end-to-end by the existing
+  test suite (`settings-schema.test.ts`, `persistence-migration.test.ts`, `settings-store.test.ts`),
+  all passing live against zod v4 — no gap to fill by hand.
+- **Error message surface (#3):** confirmed cosmetic only. Compared `safeParse(...).error.message`
+  between v3 and v4 directly: same JSON-array-of-issues shape, but field names (`type` → `origin`)
+  and wording ("Number must be greater than 0" → "Too small: expected number to be >0") changed.
+  Grepped every renderer use of an IPC `.error` field (`doc-reader.ts`, `layout-manager.ts`,
+  `new-session-dialog.ts`, `split-container.ts`) — all either `console.error`/`console.warn`
+  (devtools-only) or paths that only surface on a pre-existing bug (a zod parse failure at the IPC
+  boundary means the renderer sent a malformed payload, not a normal user action).
+- **One real compile break, unrelated to zod's types changing:** `packages/core`'s typecheck
+  briefly failed two exhaustiveness checks (`session.ts`, `shell-integration-spawn.ts`) after the
+  version bump. Root cause was `pnpm install` not rebuilding `packages/contracts`' compiled
+  `dist/*.d.ts` — those files still reflected the previous build. Running
+  `pnpm run build:packages` resolved it; this would bite the same way on any dependency bump to a
+  workspace package that other packages consume via `dist/`, not specifically a zod issue.
+
+Verified: `pnpm -r typecheck`, `pnpm test` (240 core + 54 terminal-host + 348 desktop, all pass),
+production build, and a runtime smoke test of the packaged app (renderer boots, IPC round-trips
+settings/session-list correctly).
+
 ## Why this is split out
 
 Every other package in [`remediation-plan.md`](remediation-plan.md) has a patched release inside
