@@ -1697,7 +1697,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### commander 7.2.0
+### commander 15.1.0
 
 License: MIT · Author: TJ Holowaychuk · Homepage: https://github.com/tj/commander.js#readme
 
@@ -1726,7 +1726,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### commander 8.3.0
+### commander 7.2.0
 
 License: MIT · Author: TJ Holowaychuk · Homepage: https://github.com/tj/commander.js#readme
 
@@ -3404,7 +3404,7 @@ OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHE
  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### katex 0.16.47
+### katex 0.18.10
 
 License: MIT · Homepage: https://katex.org
 

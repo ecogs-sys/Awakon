@@ -38,7 +38,8 @@
     "overrides": {
       "app-builder-lib": "26.18.0",
       "dmg-builder": "26.18.0",
-      "electron-builder-squirrel-windows": "26.18.0"
+      "electron-builder-squirrel-windows": "26.18.0",
+      "katex": "^0.18.2"
     }
   }
 }
