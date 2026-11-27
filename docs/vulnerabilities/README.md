@@ -3,7 +3,7 @@
 Audit source: `pnpm audit --json` (this repo uses pnpm, not npm — `npm audit` fails with
 `ENOLOCK` because there is no `package-lock.json`, only `pnpm-lock.yaml`).
 
-Snapshot taken 2026-11-28, 752 resolved dependencies:
+Initial snapshot taken 2026-11-28, 752 resolved dependencies:
 
 | Severity | Count |
 |---|---|
@@ -13,9 +13,14 @@ Snapshot taken 2026-11-28, 752 resolved dependencies:
 | Low | 28 |
 | **Total advisories** | **186** |
 
-186 advisories collapse to **29 distinct vulnerable packages**. Most of the volume is a small
-number of packages with many CVEs each (`electron` alone accounts for 58 advisories, `undici`
+186 advisories collapsed to **29 distinct vulnerable packages**. Most of the volume was a small
+number of packages with many CVEs each (`electron` alone accounted for 58 advisories, `undici`
 for 34) — fixing the package fixes every advisory under it.
+
+**Status: Phases 0-4 of `remediation-plan.md` are complete.** Final state: **3 advisories, 2
+packages** (`zod` — tracked separately — and one accepted residual-risk instance of
+`builder-util-runtime` on a build-tool-only, unused code path). See the Status section at the top
+of `remediation-plan.md` for the full before/after and what each phase actually did.
 
 ## Documents
 

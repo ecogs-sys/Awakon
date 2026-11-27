@@ -6,6 +6,25 @@ Covers 28 of the 29 vulnerable packages found by `pnpm audit`. `zod` is excluded
 Phases are ordered so the lowest-risk, highest-value fixes land first. Each phase ends with
 `pnpm install && pnpm audit` to confirm progress before moving on.
 
+## Status: Phases 0-4 complete
+
+All four phases below have been applied and verified (typecheck, full test suite, production
+build, and a runtime smoke test per the `apps/desktop:verify` skill — see commit messages on
+branch `docs/vulnerability-remediation-plan` for the verification detail of each phase).
+
+`pnpm audit` went from **186 advisories / 29 packages → 3 advisories / 2 packages** (0 critical,
+0 moderate, 2 high, 0 low):
+
+| Package | Status |
+|---|---|
+| `builder-util-runtime` | **Accepted residual risk.** The real, shipped instance (`electron-updater`'s runtime dependency) is patched at `9.7.0`. One remaining vulnerable instance (`9.2.10`) is reachable only through electron-builder's own circular `app-builder-lib`/`dmg-builder`/`electron-builder-squirrel-windows` peer dependencies — pnpm (9.12.0) won't resolve the existing `pnpm.overrides` pin for `electron-builder-squirrel-windows` onto that peer slot even after a from-scratch lockfile regen. This project never builds a Squirrel.Windows installer (absent from both `electron-builder.json` and `electron-builder.appx.json`), so it's build-tool-only exposure on an unused code path. |
+| `zod` | **Tracked separately** — see [`zod-v4-migration.md`](zod-v4-migration.md). Needs a real code migration, not a version bump. |
+
+One deviation from the original plan below: Phase 4's `minimatch` fix needed **two** scoped
+overrides, not one — a second vulnerable instance (`minimatch@10.2.6`, via electron-builder's
+`app-builder-lib`) only surfaced once the `minimatch@9` override was already in place and a fresh
+audit was run. Both are documented in place below.
+
 ---
 
 ## Phase 0 — Free fixes (lockfile refresh only, zero code risk)
@@ -166,59 +185,61 @@ still renders correctly (katex override).
 
 ---
 
-## Phase 4 — Lint-toolchain-only stragglers
+## Phase 4 — Lint-toolchain-only stragglers (`minimatch`)
 
-`brace-expansion`, `js-yaml`, and `minimatch` are vulnerable only inside the ESLint 8 /
-`@typescript-eslint` 7 dependency tree (`pnpm why brace-expansion` confirms two instances: one via
-`@typescript-eslint/typescript-estree`'s `minimatch@9.0.9`, one via `eslint`'s own internal
-`minimatch@3.1.5`). These run only for `pnpm lint` / editor integration — never part of the
-shipped app, never part of `pnpm build`/`dist`.
+`brace-expansion` and `js-yaml` (originally flagged in the ESLint 8 / `@typescript-eslint` 7
+dependency tree) were already cleared by Phase 0's lockfile refresh — only `minimatch` survived
+to this phase.
 
-A full fix means migrating `eslint@8 → 9` (flat config) and `@typescript-eslint@7 → 8`, which is a
-real (if mechanical) migration on its own and not required to close these advisories. Close them
-now with scoped overrides instead, keyed by major version so both instances get fixed without
-forcing every consumer onto one line:
+**Two separate vulnerable instances existed, not one.** `pnpm why minimatch` after Phase 0-3
+showed `minimatch@9.0.9` via `@typescript-eslint/typescript-estree` — lint-only, as expected. But
+after overriding *that* instance and re-running the audit, a **second, previously-masked**
+instance turned up: `minimatch@10.2.6` via `electron-builder`'s own `app-builder-lib` (declared as
+`^10.2.5`) — this one is packaging-toolchain, used by `electron-builder.json`'s file-pattern
+matching during `pnpm dist*`. Applied as two scoped overrides, keyed by major version:
 
 ```jsonc
 "pnpm": {
   "overrides": {
-    "brace-expansion@1": "^1.1.21",
-    "brace-expansion@2": "^2.1.7",
-    "js-yaml@4": "^4.3.2",
-    "minimatch@9": "^11.0.1"
+    "minimatch@9": "^11.0.1",
+    "minimatch@10": "^11.0.1"
   }
 }
 ```
 
-`minimatch@9 → ^11.0.1` is the one override here with real behavioral risk: it's used directly by
-`@typescript-eslint/typescript-estree` for glob matching (not just a transitive pass-through), and
-`9 → 11` is two majors. If `pnpm lint` misbehaves after this override, fall back to leaving this
-one advisory open and track the ESLint 9 migration as a separate task rather than forcing it.
+Both instances are now forced to `11.0.1+` (resolved to `11.0.9`), two majors ahead of what either
+consumer declares — the real behavioral risk in this phase, since neither `@typescript-eslint` nor
+`electron-builder` has released a version that bumps past `minimatch@11` yet.
 
-### Verification
-```sh
-pnpm install
-pnpm lint
-pnpm audit   # brace-expansion / js-yaml / minimatch should be gone (or only minimatch remains open)
-```
+### Verification (completed)
+- `pnpm -r typecheck`: clean.
+- `pnpm lint`: runs to completion — 171 pre-existing rule violations surfaced (escape characters,
+  `any` types, control-regex in files unrelated to this change; `lint` isn't a CI gate in this
+  repo). The linter matching real files and reporting real per-rule violations (rather than
+  matching nothing, or crashing) confirms `typescript-estree`'s glob matching still works.
+- `pnpm --filter @awakon/desktop dist:dir`: electron-builder's own file-pattern matching (asar
+  packaging, node-pty native binary inclusion) completed successfully under the forced
+  `minimatch@11`, and the resulting `win-unpacked/Awakon.exe` launched and booted correctly.
 
 *(Optional future task, not required for this remediation: migrate to ESLint 9 flat config +
-`@typescript-eslint@8`, which removes the need for all three overrides above.)*
+`@typescript-eslint@8`, which removes the need for the `minimatch@9` override. The `minimatch@10`
+override depends on electron-builder's own upstream release, independent of that migration.)*
 
 ---
 
-## Summary after all phases
+## Summary — final result (all phases applied)
 
-| Phase | Packages cleared | Residual risk accepted |
+| Phase | Packages cleared | Outcome |
 |---|---|---|
-| 0 | `browserslist`, `baseline-browser-mapping` (if lockfile-stale) | none |
-| 1 | `electron`, `extract-zip`, `sharp`, `markdown-it`, `dompurify`, `mermaid` (partial — see katex) | none |
-| 2 | `vitest`, `vite`, `tinypool`, `@vitest/mocker`, `esbuild`, `postcss`, `nanoid`, `source-map-js` | `electron-vite` dev-server behavior change, needs manual smoke test |
-| 3 | `undici`, `fast-uri`, `@xmldom/xmldom`, `tar`, `builder-util-runtime`, `form-data`, `katex` | none (build-time only, except katex which gets a manual render check) |
-| 4 | `brace-expansion`, `js-yaml`, `minimatch` | `minimatch` override may need to be dropped if lint breaks |
+| 0 | `dompurify`, `mermaid`, `markdown-it`, `linkify-it`, `brace-expansion`, `js-yaml`, `@xmldom/xmldom`, `fast-uri`, `undici`, `form-data`, `tar`, `nanoid`, `postcss`, `source-map-js`, `browserslist`, `baseline-browser-mapping`, `sharp` | all cleared by `pnpm update -r` alone — no `package.json` edits |
+| 1 | `electron`, `extract-zip` | `packages/core`'s stale `electron@33.4.11` devDependency bumped to match desktop; removed `extract-zip` entirely as a side effect |
+| 2 | `vitest`, `vite`, `electron-vite`, `tinypool`, `@vitest/mocker`, `esbuild`, `glob` | 0 critical advisories after this phase (down from 4 at the start) |
+| 3 | `katex` | forced via override past mermaid's own declared range; verified by direct API call + build |
+| 4 | `minimatch` | two scoped overrides needed (`@9` and `@10` — the second only surfaced after the first was applied) |
 | *(separate doc)* | `zod` | tracked in `zod-v4-migration.md` — requires code changes, not just a version bump |
 
-`glob` (moderate, via `@vitest/coverage-v8` → `test-exclude`) is resolved as a side effect of the
-`vitest` bump in Phase 2 — `@vitest/coverage-v8@4.1.12` depends on a `test-exclude` version built
-against modern `glob`; confirm with `pnpm why glob` after Phase 2 and add a targeted override only
-if it's still present.
+**Residual, accepted risk:** `builder-util-runtime@9.2.10`, reachable only through
+electron-builder's circular peer-dependency graph on an installer format (Squirrel.Windows) this
+project never builds. See the Status section at the top of this document.
+
+Final `pnpm audit`: **3 advisories** (2 high, 1 — `zod` — moderate), down from 186.
