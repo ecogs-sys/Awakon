@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/ecogs-sys/Awakon/compare/v0.12.0...v0.13.0) (2026-11-27)
+
+
+### Features
+
+* default session title to launch folder name instead of shell exe ([83e3101](https://github.com/ecogs-sys/Awakon/commit/83e31010ad8f662e790a36af0136bf69e7a7fcbb))
+* right-click pastes instead of opening the menu while an app owns the pane ([a3a416d](https://github.com/ecogs-sys/Awakon/commit/a3a416d8014f8b685b757375d96bc43a54c115ad))
+
 ## [0.12.0](https://github.com/ecogs-sys/Awakon/compare/v0.11.0...v0.12.0) (2026-08-11)
 
 
