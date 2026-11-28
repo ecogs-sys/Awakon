@@ -30,15 +30,19 @@
     "eslint": "^8.57.1",
     "icns-lib": "^1.0.1",
     "png-to-ico": "^2.1.8",
-    "prettier": "^3.8.4",
-    "sharp": "^0.35.1",
+    "prettier": "^3.10.1",
+    "sharp": "^0.35.5",
     "typescript": "^5.9.3"
   },
   "pnpm": {
     "overrides": {
       "app-builder-lib": "26.18.0",
       "dmg-builder": "26.18.0",
-      "electron-builder-squirrel-windows": "26.18.0"
+      "electron-builder-squirrel-windows": "26.18.0",
+      "katex": "^0.18.2",
+      "minimatch@9": "^11.0.1",
+      "minimatch@10": "^11.0.1",
+      "builder-util-runtime": "^9.7.0"
     }
   }
 }

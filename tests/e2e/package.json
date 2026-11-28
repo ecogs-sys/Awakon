@@ -10,9 +10,9 @@
     "test:screenshots": "playwright test take-screenshots"
   },
   "devDependencies": {
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^20.19.43",
-    "electron": "^43.0.0",
+    "electron": "^43.8.13",
     "typescript": "^5.9.3"
   }
 }
