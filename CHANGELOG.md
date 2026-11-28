@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/ecogs-sys/Awakon/compare/v0.13.0...v0.13.1) (2026-11-28)
+
+
+### Bug Fixes
+
+* **deps:** remediate all dependency vulnerabilities (186 -&gt; 0 advisories) ([#29](https://github.com/ecogs-sys/Awakon/issues/29)) ([e34371e](https://github.com/ecogs-sys/Awakon/commit/e34371ef8979097a18a54bfd62eced02077e4f50))
+
 ## [0.13.0](https://github.com/ecogs-sys/Awakon/compare/v0.12.0...v0.13.0) (2026-11-27)
 
 
